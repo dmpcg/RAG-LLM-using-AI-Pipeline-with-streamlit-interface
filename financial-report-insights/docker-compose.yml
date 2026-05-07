@@ -67,7 +67,8 @@ services:
           pids: 512
 
   neo4j:
-    image: neo4j:5-community
+    # WS-1 P1-F3 (2026-05-07): base image pinned to digest for reproducibility.
+    image: neo4j:5-community@sha256:b357872da95a164c5243ca8d9060601130717ff43cee3c829402fab46209a412
     container_name: rag-neo4j
     ports:
       - "7474:7474"
