@@ -7650,9 +7650,12 @@ class FinancialInsightsPage:
         col3.metric("ARPU", f"${metrics.arpu:,.0f}" if metrics.arpu else "N/A")
         col4.metric("Customers", f"{metrics.customers:,}" if metrics.customers else "N/A")
 
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         col1.metric("Gross Churn", f"{metrics.gross_churn_rate:.1%}" if metrics.gross_churn_rate is not None else "N/A")
-        col2.metric("Net Revenue Retention", f"{metrics.net_revenue_retention:.1%}" if metrics.net_revenue_retention is not None else "N/A")
+        # P0-9: GRR (1 - gross churn) is what we can compute without expansion data;
+        # NRR requires expansion-revenue tracking, hence often N/A.
+        col2.metric("Gross Revenue Retention", f"{metrics.gross_revenue_retention:.1%}" if metrics.gross_revenue_retention is not None else "N/A")
+        col3.metric("Net Revenue Retention", f"{metrics.net_revenue_retention:.1%}" if metrics.net_revenue_retention is not None else "N/A")
 
         if metrics.interpretation:
             st.info(metrics.interpretation)

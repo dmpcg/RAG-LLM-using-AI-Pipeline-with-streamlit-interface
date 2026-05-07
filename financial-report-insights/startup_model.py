@@ -24,7 +24,11 @@ class SaaSMetrics:
     mrr: Optional[float] = None  # Monthly Recurring Revenue
     arr: Optional[float] = None  # Annual Recurring Revenue
     mrr_growth_rate: Optional[float] = None  # MoM growth
-    net_revenue_retention: Optional[float] = None  # NRR %
+    # P0-9: Real NRR requires multi-period expansion data (upgrades + downgrades).
+    # Without it, set to None to avoid mislabeling 1-gross_churn as NRR.
+    net_revenue_retention: Optional[float] = None  # NRR % (true NRR with expansion data)
+    # GRR = 1 - gross_churn -- the upper bound on NRR when no expansion data is available.
+    gross_revenue_retention: Optional[float] = None  # GRR %
     gross_churn_rate: Optional[float] = None  # Customer churn %
     revenue_churn_rate: Optional[float] = None  # Revenue churn %
     arpu: Optional[float] = None  # Average Revenue Per User
@@ -118,10 +122,13 @@ class StartupAnalyzer:
         if data.churned_customers is not None and data.customer_count is not None and data.customer_count > 0:
             gross_churn = safe_divide(data.churned_customers, data.customer_count)
 
-        # Simplified NRR estimate: 1 - gross_churn (real NRR requires prior-period data)
-        nrr: Optional[float] = None
+        # P0-9: 1 - gross_churn is GROSS revenue retention (GRR), not NRR.
+        # True NRR requires multi-period expansion (upgrade) data we do not have here,
+        # so net_revenue_retention is left None until that data is supplied.
+        grr: Optional[float] = None
         if gross_churn is not None:
-            nrr = 1.0 - gross_churn
+            grr = 1.0 - gross_churn
+        nrr: Optional[float] = None  # Requires expansion data; intentionally None.
 
         # MRR growth rate requires multi-period data
         mrr_growth_rate: Optional[float] = None
@@ -145,6 +152,7 @@ class StartupAnalyzer:
             arr=arr,
             mrr_growth_rate=mrr_growth_rate,
             net_revenue_retention=nrr,
+            gross_revenue_retention=grr,
             gross_churn_rate=gross_churn,
             revenue_churn_rate=None,  # requires revenue-level churn data
             arpu=arpu,

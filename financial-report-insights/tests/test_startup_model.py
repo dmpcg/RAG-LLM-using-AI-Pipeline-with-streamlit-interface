@@ -66,10 +66,23 @@ class TestSaaSMetrics:
         m = analyzer.saas_metrics(saas_company)
         assert m.arpu == pytest.approx(500.0)  # 500k / 1000
 
-    def test_nrr_estimate(self, analyzer, saas_company):
+    def test_grr_estimate(self, analyzer, saas_company):
+        """P0-9: 1 - gross_churn is GRR, not NRR."""
         m = analyzer.saas_metrics(saas_company)
-        # Simplified NRR = 1 - gross_churn = 1 - 0.03 = 0.97
-        assert m.net_revenue_retention == pytest.approx(0.97)
+        # GRR = 1 - gross_churn = 1 - 0.03 = 0.97
+        assert m.gross_revenue_retention == pytest.approx(0.97)
+
+    def test_nrr_is_none_without_expansion_data(self, analyzer, saas_company):
+        """P0-9: NRR requires expansion-revenue data; without it, must be None."""
+        m = analyzer.saas_metrics(saas_company)
+        assert m.net_revenue_retention is None
+
+    def test_p0_9_grr_field_exists_on_dataclass(self):
+        """P0-9: SaaSMetrics exposes gross_revenue_retention separately from NRR."""
+        sm = SaaSMetrics()
+        assert hasattr(sm, "gross_revenue_retention")
+        assert sm.gross_revenue_retention is None
+        assert sm.net_revenue_retention is None
 
     def test_mrr_growth_unavailable(self, analyzer, saas_company):
         m = analyzer.saas_metrics(saas_company)
