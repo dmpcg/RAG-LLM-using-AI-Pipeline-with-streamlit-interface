@@ -193,3 +193,46 @@ class TestFinancialPDFExporter:
         result = exporter.export_full_report(sample_data, results)
         assert isinstance(result, bytes)
         assert result[:5] == b"%PDF-"
+
+
+
+# ---------------------------------------------------------------------------
+# WS-3 P0-8: current_ratio renders as multiplier (1.50x), not percent (150.00%)
+# ---------------------------------------------------------------------------
+
+class TestRatioFormatting_P0_8:
+    """Regression: PDF must format ratios as 'X.XXx' not 'XXX.XX%'."""
+
+    def _exporter(self):
+        from export_pdf import FinancialPDFExporter
+        return FinancialPDFExporter()
+
+    def test_current_ratio_renders_as_multiplier(self):
+        out = self._exporter()._format_value("current_ratio", 1.5)
+        assert out == "1.50x"
+        assert "%" not in out
+
+    def test_quick_ratio_renders_as_multiplier(self):
+        out = self._exporter()._format_value("quick_ratio", 0.85)
+        assert out == "0.85x"
+        assert "%" not in out
+
+    def test_debt_to_equity_renders_as_multiplier(self):
+        out = self._exporter()._format_value("debt_to_equity", 2.3)
+        assert out == "2.30x"
+
+    def test_debt_ratio_renders_as_multiplier(self):
+        out = self._exporter()._format_value("debt_ratio", 0.4)
+        assert out == "0.40x"
+        assert "%" not in out
+
+    def test_gross_margin_still_renders_as_percent(self):
+        out = self._exporter()._format_value("gross_margin", 0.45)
+        assert out == "45.00%"
+
+    def test_revenue_still_renders_as_dollar(self):
+        out = self._exporter()._format_value("revenue", 1_500_000)
+        assert "$" in out
+
+    def test_none_value_renders_na(self):
+        assert self._exporter()._format_value("current_ratio", None) == "N/A"

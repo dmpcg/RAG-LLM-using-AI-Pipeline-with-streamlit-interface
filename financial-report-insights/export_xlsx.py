@@ -26,6 +26,7 @@ from export_utils import (
     _PERCENT_KEYWORDS,
     _DOLLAR_KEYWORDS,
     _is_percent_key,
+    _is_ratio_key,
     _is_dollar_key,
     _CATEGORY_MAP,
     _categorize,
@@ -58,6 +59,11 @@ def _make_header_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
 
 def _make_pct_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
     return wb.add_format({"num_format": "0.00%", "border": 1})
+
+
+def _make_ratio_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
+    """Multiplier format -- e.g. 1.5 renders as '1.50x'."""
+    return wb.add_format({"num_format": "0.00\"x\"", "border": 1})
 
 
 def _make_dollar_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
@@ -98,6 +104,7 @@ class _Formats:
     def __init__(self, wb: xlsxwriter.Workbook):
         self.header = _make_header_fmt(wb)
         self.pct = _make_pct_fmt(wb)
+        self.ratio = _make_ratio_fmt(wb)
         self.dollar = _make_dollar_fmt(wb)
         self.score = _make_score_fmt(wb)
         self.text = _make_text_fmt(wb)
@@ -108,6 +115,9 @@ class _Formats:
 
     def value_fmt(self, key: str) -> xlsxwriter.format.Format:
         """Select the best numeric format for *key*."""
+        # Check ratio BEFORE percent -- a "ratio" is a multiplier (1.5x), not a percentage (150%).
+        if _is_ratio_key(key):
+            return self.ratio
         if _is_percent_key(key):
             return self.pct
         if _is_dollar_key(key):

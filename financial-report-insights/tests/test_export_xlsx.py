@@ -214,3 +214,56 @@ class TestFinancialExcelExporter:
         result = exporter.export_full_report(sample_data, results)
         assert isinstance(result, bytes)
         assert result[:2] == b"PK"
+
+
+
+# ---------------------------------------------------------------------------
+# WS-3 P0-8: current_ratio renders as multiplier (1.50x), not percent (150.00%)
+# ---------------------------------------------------------------------------
+
+class TestRatioFormatting_P0_8:
+    """Regression: ratios must NOT be formatted as percentages in XLSX output."""
+
+    def test_current_ratio_uses_ratio_format(self):
+        from export_xlsx import _Formats
+        import xlsxwriter
+        import io
+        wb = xlsxwriter.Workbook(io.BytesIO(), {"in_memory": True})
+        fmt = _Formats(wb)
+        chosen = fmt.value_fmt("current_ratio")
+        # ratio fmt is registered separately from pct fmt
+        assert chosen is fmt.ratio
+        assert chosen is not fmt.pct
+        wb.close()
+
+    def test_debt_to_equity_uses_ratio_format(self):
+        from export_xlsx import _Formats
+        import xlsxwriter, io
+        wb = xlsxwriter.Workbook(io.BytesIO(), {"in_memory": True})
+        fmt = _Formats(wb)
+        assert fmt.value_fmt("debt_to_equity") is fmt.ratio
+        wb.close()
+
+    def test_gross_margin_still_uses_percent_format(self):
+        from export_xlsx import _Formats
+        import xlsxwriter, io
+        wb = xlsxwriter.Workbook(io.BytesIO(), {"in_memory": True})
+        fmt = _Formats(wb)
+        assert fmt.value_fmt("gross_margin") is fmt.pct
+        wb.close()
+
+    def test_revenue_still_uses_dollar_format(self):
+        from export_xlsx import _Formats
+        import xlsxwriter, io
+        wb = xlsxwriter.Workbook(io.BytesIO(), {"in_memory": True})
+        fmt = _Formats(wb)
+        assert fmt.value_fmt("revenue") is fmt.dollar
+        wb.close()
+
+    def test_export_ratios_writes_ratio_value_unchanged(self):
+        """Sanity check: export runs without exception and current_ratio=1.5 is written."""
+        from export_xlsx import FinancialExcelExporter
+        exporter = FinancialExcelExporter()
+        out = exporter.export_ratios({"current_ratio": 1.5, "gross_margin": 0.45})
+        assert isinstance(out, bytes)
+        assert len(out) > 100  # non-empty xlsx

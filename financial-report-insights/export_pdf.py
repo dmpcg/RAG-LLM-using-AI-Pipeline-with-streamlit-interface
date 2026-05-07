@@ -26,6 +26,7 @@ from export_utils import (
     _PERCENT_KEYWORDS,
     _DOLLAR_KEYWORDS,
     _is_percent_key,
+    _is_ratio_key,
     _is_dollar_key,
     _CATEGORY_MAP,
     _categorize,
@@ -266,6 +267,9 @@ class FinancialPDFExporter:
         if not isinstance(value, (int, float)):
             return str(value)
 
+        # Check ratio BEFORE percent -- multiplier (1.5x) vs percentage (150%).
+        if _is_ratio_key(key):
+            return f"{value:.2f}x"
         if _is_percent_key(key):
             return f"{value:.2%}"
         if _is_dollar_key(key):
