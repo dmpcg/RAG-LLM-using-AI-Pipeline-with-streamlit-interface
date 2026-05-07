@@ -33,6 +33,9 @@ class LoanStructure:
     term_years: int = 5
     amortization_years: int = 5
     loan_type: str = "term"  # term, revolver, bridge
+    # P0-6: borrower existing annual debt service (interest + scheduled principal).
+    # When None, debt_capacity() estimates from FinancialData fields.
+    existing_debt_service: Optional[float] = None
 
 
 @dataclass
@@ -271,16 +274,33 @@ class UnderwritingAnalyzer:
         data: FinancialData,
         proposed_loan: Optional[LoanStructure] = None,
     ) -> DebtCapacityResult:
-        """Estimate how much additional debt the company can support."""
+        """Estimate how much additional debt the company can support.
+
+        P0-7: When EBITDA is not strictly positive, leverage-based capacity is
+        undefined; max_additional_debt is returned as None (not 0)
+        with an explicit assessment string.
+
+        P0-6: Pro-forma DSCR includes the borrower existing annual debt
+        service in addition to service on the proposed loan. The existing
+        service is taken from LoanStructure.existing_debt_service when
+        provided, otherwise estimated from
+        FinancialData.interest_expense + total_debt / term_years.
+        """
 
         target = 3.5  # max debt/EBITDA
 
         current_debt = data.total_debt or 0
-        ebitda = data.ebitda or 0
+        ebitda_raw = data.ebitda
 
         current_leverage = safe_divide(data.total_debt, data.ebitda)
-        max_capacity = target * ebitda
-        max_additional = max(0.0, max_capacity - current_debt)
+
+        # P0-7: short-circuit on non-positive EBITDA -- leverage-based
+        # capacity is undefined for borrowers with no/negative cash earnings.
+        if ebitda_raw is None or ebitda_raw <= 0:
+            max_additional: Optional[float] = None
+        else:
+            max_capacity = target * ebitda_raw
+            max_additional = max(0.0, max_capacity - current_debt)
 
         result = DebtCapacityResult(
             current_total_debt=data.total_debt,
@@ -295,23 +315,61 @@ class UnderwritingAnalyzer:
             result.pro_forma_debt = pro_forma_debt
             result.pro_forma_leverage = safe_divide(pro_forma_debt, data.ebitda)
 
-            # Simplified annual debt service: principal repayment + interest
+            # Annual debt service on the *proposed* loan
             term = proposed_loan.term_years if proposed_loan.term_years > 0 else 1
             annual_repayment = safe_divide(proposed_loan.principal, term, default=0.0) or 0.0
             annual_interest = proposed_loan.principal * proposed_loan.annual_rate
-            annual_debt_service = annual_repayment + annual_interest
+            new_loan_service = annual_repayment + annual_interest
 
-            result.pro_forma_dscr = safe_divide(ebitda, annual_debt_service)
+            # P0-6: include borrower existing debt service so DSCR reflects
+            # total burden, not just the new loan.
+            existing_service = self._estimate_existing_debt_service(data, proposed_loan)
 
-            if max_additional > 0:
+            total_debt_service = new_loan_service + (existing_service or 0.0)
+            result.pro_forma_dscr = safe_divide(ebitda_raw, total_debt_service)
+
+            if max_additional is not None and max_additional > 0:
                 remaining = max_additional - proposed_loan.principal
                 result.headroom_pct = safe_divide(remaining, max_additional)
-            else:
+            elif max_additional == 0:
                 result.headroom_pct = 0.0
+            else:
+                # Capacity undefined (non-positive EBITDA)
+                result.headroom_pct = None
 
         # Build assessment text
         result.assessment = self._build_capacity_assessment(result)
         return result
+
+    @staticmethod
+    def _estimate_existing_debt_service(
+        data: FinancialData,
+        proposed_loan: LoanStructure,
+    ) -> Optional[float]:
+        """Return the borrower annual existing debt service.
+
+        Order of precedence:
+        1. proposed_loan.existing_debt_service if explicitly set (>=0).
+        2. interest_expense + total_debt / term_years estimate.
+        3. None when neither path has data.
+        """
+        explicit = getattr(proposed_loan, "existing_debt_service", None)
+        if explicit is not None and explicit >= 0:
+            return float(explicit)
+
+        interest = data.interest_expense
+        existing_debt = data.total_debt
+        term = proposed_loan.term_years if proposed_loan.term_years > 0 else 1
+
+        if interest is None and (existing_debt is None or existing_debt <= 0):
+            return None
+
+        principal_amort = (
+            (existing_debt / term) if existing_debt and existing_debt > 0 else 0.0
+        )
+        interest_part = float(interest) if interest is not None else 0.0
+        return interest_part + principal_amort
+
 
     @staticmethod
     def _build_capacity_assessment(r: DebtCapacityResult) -> str:
@@ -326,17 +384,24 @@ class UnderwritingAnalyzer:
         else:
             parts.append("Insufficient data to calculate current leverage.")
 
-        if r.max_additional_debt is not None:
-            if r.max_additional_debt > 0:
-                parts.append(
-                    f"Estimated additional debt capacity: "
-                    f"${r.max_additional_debt:,.0f}."
-                )
-            else:
-                parts.append(
-                    "Company appears fully leveraged relative to the "
-                    f"{r.max_leverage_target:.1f}x target."
-                )
+        if r.max_additional_debt is None:
+            # P0-7: explicit message for non-positive EBITDA borrowers
+            parts.append(
+                "Additional debt capacity is undefined: EBITDA is not "
+                "positive, so leverage-based capacity cannot be calculated. "
+                "Underwriting must rely on collateral and alternative "
+                "coverage measures."
+            )
+        elif r.max_additional_debt > 0:
+            parts.append(
+                f"Estimated additional debt capacity: "
+                f"${r.max_additional_debt:,.0f}."
+            )
+        else:
+            parts.append(
+                "Company appears fully leveraged relative to the "
+                f"{r.max_leverage_target:.1f}x target."
+            )
 
         if r.pro_forma_dscr is not None:
             if r.pro_forma_dscr >= 1.5:

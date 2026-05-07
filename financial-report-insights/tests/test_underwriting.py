@@ -251,6 +251,89 @@ class TestDebtCapacity:
         # pro_forma = 5M, target = 3.5M -> warning
         assert "WARNING" in result.assessment or result.pro_forma_leverage > 3.5
 
+    # ------------------------------------------------------------------
+    # P0-6: DSCR includes existing debt service
+    # ------------------------------------------------------------------
+
+    def test_p0_6_dscr_drops_when_existing_service_supplied(self, analyzer):
+        """Pro-forma DSCR must shrink once existing debt service is included."""
+        data = FinancialData(total_debt=2_000_000, ebitda=3_000_000)
+        loan = LoanStructure(principal=1_000_000, annual_rate=0.06, term_years=5)
+
+        # Baseline: no existing service
+        loan_no_existing = LoanStructure(
+            principal=1_000_000, annual_rate=0.06, term_years=5,
+            existing_debt_service=0.0,
+        )
+        r_no = analyzer.debt_capacity(data, loan_no_existing)
+
+        # With explicit existing service
+        loan_with_existing = LoanStructure(
+            principal=1_000_000, annual_rate=0.06, term_years=5,
+            existing_debt_service=300_000,
+        )
+        r_with = analyzer.debt_capacity(data, loan_with_existing)
+
+        assert r_with.pro_forma_dscr is not None
+        assert r_no.pro_forma_dscr is not None
+        # Same EBITDA, larger denominator -> smaller DSCR
+        assert r_with.pro_forma_dscr < r_no.pro_forma_dscr
+
+    def test_p0_6_existing_service_estimated_from_interest_and_debt(self, analyzer):
+        """When existing_debt_service is None, estimator uses interest_expense + total_debt/term."""
+        data = FinancialData(
+            total_debt=2_000_000,
+            ebitda=3_000_000,
+            interest_expense=100_000,
+        )
+        loan = LoanStructure(principal=500_000, annual_rate=0.05, term_years=5)
+        # New service = 100k principal + 25k interest = 125k
+        # Estimated existing = 100k interest + 2M/5 = 500k principal = 600k
+        # Total = 725k -> DSCR = 3M / 725k ~ 4.14
+        r = analyzer.debt_capacity(data, loan)
+        assert r.pro_forma_dscr is not None
+        assert 3.5 < r.pro_forma_dscr < 5.0
+
+    def test_p0_6_loan_structure_has_existing_debt_service_field(self):
+        """LoanStructure exposes existing_debt_service (default None)."""
+        ls = LoanStructure()
+        assert hasattr(ls, "existing_debt_service")
+        assert ls.existing_debt_service is None
+        ls2 = LoanStructure(existing_debt_service=250_000)
+        assert ls2.existing_debt_service == 250_000
+
+    # ------------------------------------------------------------------
+    # P0-7: Debt capacity returns None for non-positive EBITDA
+    # ------------------------------------------------------------------
+
+    def test_p0_7_negative_ebitda_returns_none_capacity(self, analyzer):
+        """Negative EBITDA must produce max_additional_debt=None, not 0."""
+        data = FinancialData(total_debt=1_000_000, ebitda=-500_000)
+        result = analyzer.debt_capacity(data)
+        assert result.max_additional_debt is None
+        assert "undefined" in result.assessment.lower()
+
+    def test_p0_7_zero_ebitda_returns_none_capacity(self, analyzer):
+        """Zero EBITDA must also produce None (leverage ratio is undefined)."""
+        data = FinancialData(total_debt=500_000, ebitda=0.0)
+        result = analyzer.debt_capacity(data)
+        assert result.max_additional_debt is None
+        assert "undefined" in result.assessment.lower()
+
+    def test_p0_7_missing_ebitda_returns_none_capacity(self, analyzer):
+        """No EBITDA at all must produce None."""
+        data = FinancialData(total_debt=500_000)
+        result = analyzer.debt_capacity(data)
+        assert result.max_additional_debt is None
+
+    def test_p0_7_headroom_pct_is_none_when_capacity_undefined(self, analyzer):
+        """headroom_pct should be None (not 0.0) when capacity is undefined."""
+        data = FinancialData(total_debt=1_000_000, ebitda=-100_000)
+        loan = LoanStructure(principal=500_000)
+        result = analyzer.debt_capacity(data, loan)
+        assert result.max_additional_debt is None
+        assert result.headroom_pct is None
+
 
 # ---------------------------------------------------------------------------
 # CovenantPackage tests
