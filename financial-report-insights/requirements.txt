@@ -1,6 +1,7 @@
 # Core Framework
-python-dotenv==1.0.1
-streamlit>=1.30.0,<2.0.0
+# Minimums bumped 2026-05-07 (WS-1 P0-1) to exclude all known CVEs
+python-dotenv>=1.2.2,<2.0.0
+streamlit>=1.57.0,<2.0.0
 pydantic>=2.0.0,<3.0.0
 pydantic-settings>=2.0.0,<3.0.0
 
@@ -30,10 +31,22 @@ plotly>=5.18.0,<6.0.0
 joblib>=1.3.0,<2.0.0
 
 # API Layer
-fastapi>=0.104.0,<1.0.0
+fastapi>=0.130.0,<1.0.0
 uvicorn>=0.24.0,<1.0.0
 sse-starlette>=1.6.0,<3.0.0
 httpx>=0.25.0,<1.0.0
+# Transitive pins (CVE patches 2026-05-07)
+starlette>=0.49.1,<1.0.0
+aiohttp>=3.13.5,<4.0.0
+gitpython>=3.1.50,<4.0.0
+jinja2>=3.1.6,<4.0.0
+protobuf>=5.29.6,<6.0.0
+pymdown-extensions>=10.21.2,<11.0.0
+python-multipart>=0.0.27,<1.0.0
+requests>=2.33.1,<3.0.0
+urllib3>=2.7.0,<3.0.0
+pyarrow>=17.0.0
+ydata-profiling>=4.18.4,<5.0.0
 
 # Graph Database (optional - install neo4j to enable)
 neo4j>=5.0.0,<6.0.0

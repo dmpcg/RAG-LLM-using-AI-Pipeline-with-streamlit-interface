@@ -5,6 +5,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_health_cache():
+    """WS-1 P0-2: ``get_health_status`` caches results for 10s.  Reset
+    the cache between tests so each test sees its own mocked stages."""
+    import healthcheck
+    healthcheck._reset_health_cache()
+    yield
+    healthcheck._reset_health_cache()
+
+
 # ---------------------------------------------------------------------------
 # check_ollama_connection
 # ---------------------------------------------------------------------------

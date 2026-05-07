@@ -12,6 +12,21 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+
+class Neo4jTransientError(RuntimeError):
+    """Raised when a Neo4j write fails with a transient error.
+
+    Distinct from permanent errors so callers can choose to retry the write
+    rather than treating a "stored=0" return as "nothing to write" (which was
+    silent data loss prior to 2026-05-07 / WS-1 P0-3).
+    """
+
+    def __init__(self, operation: str, original: BaseException):
+        super().__init__(f"Neo4j transient failure in {operation}: {original}")
+        self.operation = operation
+        self.original = original
+
+
 # Neo4j exception types for error classification
 try:
     from neo4j.exceptions import (
@@ -139,6 +154,7 @@ class Neo4jStore:
             logger.info("Stored %d chunks for %s in Neo4j", stored, doc_id)
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_chunks failed (transient): %s", exc)
+            raise Neo4jTransientError("store_chunks", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_chunks failed (permanent): %s", exc)
             raise
@@ -202,6 +218,7 @@ class Neo4jStore:
             logger.info("Stored financial data for %s / %s", doc_id, period_label)
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_financial_data failed (transient): %s", exc)
+            raise Neo4jTransientError("store_financial_data", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_financial_data failed (permanent): %s", exc)
             raise
@@ -294,6 +311,7 @@ class Neo4jStore:
             logger.info("Stored %d line items for period %s", total_stored, period_id)
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_line_items failed (transient): %s", exc)
+            raise Neo4jTransientError("store_line_items", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_line_items failed (permanent): %s", exc)
             raise
@@ -353,7 +371,7 @@ class Neo4jStore:
             return len(batch)
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_derived_from_edges failed (transient): %s", exc)
-            return 0
+            raise Neo4jTransientError("store_derived_from_edges", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_derived_from_edges failed (permanent): %s", exc)
             raise
@@ -426,7 +444,7 @@ class Neo4jStore:
             return assessment_id
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_credit_assessment failed (transient): %s", exc)
-            return None
+            raise Neo4jTransientError("store_credit_assessment", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_credit_assessment failed (permanent): %s", exc)
             raise
@@ -481,7 +499,7 @@ class Neo4jStore:
             return package_id
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_covenant_package failed (transient): %s", exc)
-            return None
+            raise Neo4jTransientError("store_covenant_package", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_covenant_package failed (permanent): %s", exc)
             raise
@@ -515,7 +533,7 @@ class Neo4jStore:
             return len(pairs)
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j link_fiscal_periods failed (transient): %s", exc)
-            return 0
+            raise Neo4jTransientError("link_fiscal_periods", exc) from exc
         except Exception as exc:
             logger.error("Neo4j link_fiscal_periods failed (permanent): %s", exc)
             raise
@@ -707,7 +725,7 @@ class Neo4jStore:
             return portfolio_id
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_portfolio_analysis failed (transient): %s", exc)
-            return None
+            raise Neo4jTransientError("store_portfolio_analysis", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_portfolio_analysis failed (permanent): %s", exc)
             raise
@@ -766,7 +784,7 @@ class Neo4jStore:
             return compliance_id
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_compliance_report failed (transient): %s", exc)
-            return None
+            raise Neo4jTransientError("store_compliance_report", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_compliance_report failed (permanent): %s", exc)
             raise

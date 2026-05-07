@@ -79,6 +79,7 @@ class Settings(BaseSettings):
     # API
     api_port: int = 8504
     cors_origins: str = "http://localhost:8501"  # Comma-separated allowed origins
+    cors_allow_credentials: bool = False  # If True, "*" in cors_origins is forbidden (browsers reject the combination)
     max_request_body_bytes: int = 1_048_576  # 1 MB max request body
     max_financial_fields: int = 200  # Max fields in a financial_data dict
 
@@ -143,6 +144,18 @@ def validate_settings(s: Settings | None = None) -> Tuple[list[str], list[str]]:
     if parsed.scheme not in ("http", "https"):
         errors.append(
             f"OLLAMA_HOST scheme must be http or https, got: {parsed.scheme!r}"
+        )
+
+    # --- CORS sanity (WS-1 P0-16, 2026-05-07) ---
+    # The CORS spec forbids the wildcard origin when credentials are sent;
+    # browsers reject the combination, but a misconfigured server still
+    # echoes "Access-Control-Allow-Origin: *" which can mask real bugs.  Treat
+    # the combo as a hard error so it cannot ship.
+    cors_origin_list = [o.strip() for o in s.cors_origins.split(",") if o.strip()]
+    if s.cors_allow_credentials and "*" in cors_origin_list:
+        errors.append(
+            "cors_origins='*' is incompatible with cors_allow_credentials=True; "
+            "list explicit origins instead."
         )
 
     # --- Neo4j consistency ---

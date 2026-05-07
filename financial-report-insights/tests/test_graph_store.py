@@ -145,10 +145,13 @@ class TestNeo4jStoreChunks:
         assert session.run.call_count == 2
 
     def test_store_chunks_handles_failure(self, store, mock_driver):
+        # WS-1 P0-3 (2026-05-07): transient failures must raise
+        # Neo4jTransientError (was: silently returned 0).
+        from graph_store import Neo4jTransientError
         _, session = mock_driver
         session.run.side_effect = ConnectionError("Neo4j down")
-        result = store.store_chunks([{"content": "x"}], [[0.1]], "f.pdf")
-        assert result == 0  # graceful failure
+        with pytest.raises(Neo4jTransientError):
+            store.store_chunks([{"content": "x"}], [[0.1]], "f.pdf")
 
 
 class TestNeo4jStoreFinancialData:
@@ -268,12 +271,14 @@ class TestNeo4jStoreLineItems:
         assert count == 1  # Only revenue stored
 
     def test_store_line_items_handles_failure(self, store, mock_driver):
+        # WS-1 P0-3: transient failures now raise Neo4jTransientError.
+        from graph_store import Neo4jTransientError
         _, session = mock_driver
         session.run.side_effect = ConnectionError("Neo4j down")
         from financial_analyzer import FinancialData
         fd = FinancialData(revenue=100, total_assets=500)
-        count = store.store_line_items(fd, "p1")
-        assert count == 0
+        with pytest.raises(Neo4jTransientError):
+            store.store_line_items(fd, "p1")
 
 
 class TestNeo4jStoreDerivedFromEdges:
@@ -290,10 +295,12 @@ class TestNeo4jStoreDerivedFromEdges:
         session.run.assert_called_once()
 
     def test_store_derived_from_edges_handles_failure(self, store, mock_driver):
+        # WS-1 P0-3: transient failures now raise Neo4jTransientError.
+        from graph_store import Neo4jTransientError
         _, session = mock_driver
         session.run.side_effect = ConnectionError("Neo4j down")
-        count = store.store_derived_from_edges("p1")
-        assert count == 0
+        with pytest.raises(Neo4jTransientError):
+            store.store_derived_from_edges("p1")
 
 
 class TestNeo4jStorePeriodLabelReads:
@@ -454,14 +461,15 @@ class TestStorePortfolioAnalysis:
         assert mock_session.run.call_count == 3
 
     def test_returns_none_on_failure(self):
-        from graph_store import Neo4jStore
+        # WS-1 P0-3: transient failures now raise Neo4jTransientError.
+        from graph_store import Neo4jStore, Neo4jTransientError
         mock_driver = MagicMock()
         mock_driver.session.side_effect = ConnectionError("connection lost")
         store = Neo4jStore.__new__(Neo4jStore)
         store._driver = mock_driver
 
-        result = store.store_portfolio_analysis("P", ["A"], self._make_risk_summary())
-        assert result is None
+        with pytest.raises(Neo4jTransientError):
+            store.store_portfolio_analysis("P", ["A"], self._make_risk_summary())
 
     def test_id_is_deterministic(self):
         from graph_store import Neo4jStore
@@ -522,14 +530,15 @@ class TestStoreComplianceReport:
         assert mock_session.run.call_count == 2
 
     def test_returns_none_on_failure(self):
-        from graph_store import Neo4jStore
+        # WS-1 P0-3: transient failures now raise Neo4jTransientError.
+        from graph_store import Neo4jStore, Neo4jTransientError
         mock_driver = MagicMock()
         mock_driver.session.side_effect = ConnectionError("connection lost")
         store = Neo4jStore.__new__(Neo4jStore)
         store._driver = mock_driver
 
-        result = store.store_compliance_report("TestCo", self._make_compliance_report())
-        assert result is None
+        with pytest.raises(Neo4jTransientError):
+            store.store_compliance_report("TestCo", self._make_compliance_report())
 
     def test_none_sub_components(self):
         """When sox/sec/regulatory/audit_risk are None, fallbacks work."""
@@ -650,36 +659,38 @@ class TestGraphStoreErrorPaths:
             store.ensure_schema(1024, "mxbai-embed-large")
 
     def test_store_chunks_when_session_throws(self):
-        """store_chunks handles session() failure gracefully."""
-        from graph_store import Neo4jStore
+        """WS-1 P0-3: transient failures must raise Neo4jTransientError so the
+        caller can choose to retry instead of treating zero stored as
+        nothing-to-write (silent data loss)."""
+        from graph_store import Neo4jStore, Neo4jTransientError
         mock_driver = MagicMock()
         mock_driver.session.side_effect = ConnectionError("Connection refused")
         store = Neo4jStore(mock_driver)
 
-        result = store.store_chunks(
-            [{"content": "test", "source": "f.pdf"}],
-            [[0.1] * 10],
-            "f.pdf"
-        )
-        assert result == 0  # Returns 0 on exception
+        with pytest.raises(Neo4jTransientError):
+            store.store_chunks(
+                [{"content": "test", "source": "f.pdf"}],
+                [[0.1] * 10],
+                "f.pdf"
+            )
 
     def test_store_financial_data_when_session_throws(self):
-        """store_financial_data handles session() failure gracefully."""
-        from graph_store import Neo4jStore
+        """WS-1 P0-3: transient failures must raise Neo4jTransientError."""
+        from graph_store import Neo4jStore, Neo4jTransientError
         mock_driver = MagicMock()
         mock_driver.session.side_effect = ConnectionError("DB timeout")
         store = Neo4jStore(mock_driver)
 
-        store.store_financial_data(
-            doc_id="report.pdf",
-            period_label="FY2024",
-            ratios={"current_ratio": {"value": 2.1, "category": "liquidity"}},
-        )
-        # No exception raised; logged as warning internally
+        with pytest.raises(Neo4jTransientError):
+            store.store_financial_data(
+                doc_id="report.pdf",
+                period_label="FY2024",
+                ratios={"current_ratio": {"value": 2.1, "category": "liquidity"}},
+            )
 
     def test_store_line_items_when_session_throws(self):
-        """store_line_items handles session() failure gracefully."""
-        from graph_store import Neo4jStore
+        """WS-1 P0-3: transient failures must raise Neo4jTransientError."""
+        from graph_store import Neo4jStore, Neo4jTransientError
         from financial_analyzer import FinancialData
 
         mock_driver = MagicMock()
@@ -687,8 +698,8 @@ class TestGraphStoreErrorPaths:
         store = Neo4jStore(mock_driver)
 
         fd = FinancialData(revenue=1_000_000, total_assets=5_000_000)
-        count = store.store_line_items(fd, "period_id_123")
-        assert count == 0
+        with pytest.raises(Neo4jTransientError):
+            store.store_line_items(fd, "period_id_123")
 
     def test_vector_search_when_session_throws(self):
         """vector_search returns empty list when session() throws."""
@@ -727,31 +738,31 @@ class TestGraphStoreErrorPaths:
         assert results[0]["chunk_id"] == "abc"
 
     def test_store_derived_from_edges_when_session_throws(self):
-        """store_derived_from_edges returns 0 on session failure."""
-        from graph_store import Neo4jStore
+        """WS-1 P0-3: transient failures must raise Neo4jTransientError."""
+        from graph_store import Neo4jStore, Neo4jTransientError
         mock_driver = MagicMock()
         mock_driver.session.side_effect = ConnectionError("Connection timeout")
         store = Neo4jStore(mock_driver)
 
-        count = store.store_derived_from_edges("period_id_123")
-        assert count == 0
+        with pytest.raises(Neo4jTransientError):
+            store.store_derived_from_edges("period_id_123")
 
     def test_link_fiscal_periods_when_session_throws(self):
-        """link_fiscal_periods returns 0 on session failure."""
-        from graph_store import Neo4jStore
+        """WS-1 P0-3: transient failures must raise Neo4jTransientError."""
+        from graph_store import Neo4jStore, Neo4jTransientError
         mock_driver = MagicMock()
         mock_driver.session.side_effect = ConnectionError("Session unavailable")
         store = Neo4jStore(mock_driver)
 
-        count = store.link_fiscal_periods([
-            {"label": "FY2023", "period_id": "p1"},
-            {"label": "FY2024", "period_id": "p2"},
-        ])
-        assert count == 0
+        with pytest.raises(Neo4jTransientError):
+            store.link_fiscal_periods([
+                {"label": "FY2023", "period_id": "p1"},
+                {"label": "FY2024", "period_id": "p2"},
+            ])
 
     def test_store_credit_assessment_when_session_throws(self):
-        """store_credit_assessment returns None on session failure."""
-        from graph_store import Neo4jStore
+        """WS-1 P0-3: transient failures must raise Neo4jTransientError."""
+        from graph_store import Neo4jStore, Neo4jTransientError
         from types import SimpleNamespace
 
         mock_driver = MagicMock()
@@ -767,12 +778,12 @@ class TestGraphStoreErrorPaths:
             max_additional_debt=500000, current_leverage=0.6
         )
 
-        result = store.store_credit_assessment("TestCo", scorecard, debt_capacity)
-        assert result is None
+        with pytest.raises(Neo4jTransientError):
+            store.store_credit_assessment("TestCo", scorecard, debt_capacity)
 
     def test_store_covenant_package_when_session_throws(self):
-        """store_covenant_package returns None on session failure."""
-        from graph_store import Neo4jStore
+        """WS-1 P0-3: transient failures must raise Neo4jTransientError."""
+        from graph_store import Neo4jStore, Neo4jTransientError
         from types import SimpleNamespace
 
         mock_driver = MagicMock()
@@ -786,12 +797,12 @@ class TestGraphStoreErrorPaths:
             events_of_default=["Material breach"]
         )
 
-        result = store.store_covenant_package("assessment_id_123", covenant_pkg)
-        assert result is None
+        with pytest.raises(Neo4jTransientError):
+            store.store_covenant_package("assessment_id_123", covenant_pkg)
 
     def test_store_portfolio_analysis_when_session_throws(self):
-        """store_portfolio_analysis returns None on session failure."""
-        from graph_store import Neo4jStore
+        """WS-1 P0-3: transient failures must raise Neo4jTransientError."""
+        from graph_store import Neo4jStore, Neo4jTransientError
         from types import SimpleNamespace
 
         mock_driver = MagicMock()
@@ -804,14 +815,14 @@ class TestGraphStoreErrorPaths:
             risk_flags=["Company X distressed"]
         )
 
-        result = store.store_portfolio_analysis(
-            "Portfolio1", ["CompanyA", "CompanyB"], risk_summary, 70
-        )
-        assert result is None
+        with pytest.raises(Neo4jTransientError):
+            store.store_portfolio_analysis(
+                "Portfolio1", ["CompanyA", "CompanyB"], risk_summary, 70
+            )
 
     def test_store_compliance_report_when_session_throws(self):
-        """store_compliance_report returns None on session failure."""
-        from graph_store import Neo4jStore
+        """WS-1 P0-3: transient failures must raise Neo4jTransientError."""
+        from graph_store import Neo4jStore, Neo4jTransientError
         from types import SimpleNamespace
 
         mock_driver = MagicMock()
@@ -825,8 +836,8 @@ class TestGraphStoreErrorPaths:
             audit_risk=SimpleNamespace(risk_level="low", score=80, going_concern_risk=False)
         )
 
-        result = store.store_compliance_report("CompanyX", report)
-        assert result is None
+        with pytest.raises(Neo4jTransientError):
+            store.store_compliance_report("CompanyX", report)
 
     # -----------------------------------------------------------------------
     # session.run() returns empty results
