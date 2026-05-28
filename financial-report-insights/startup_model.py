@@ -197,13 +197,25 @@ class StartupAnalyzer:
         if ltv is not None and gross_margin is not None:
             gm_ltv = ltv * gross_margin
 
-        # LTV / CAC ratio
-        ltv_to_cac = safe_divide(ltv, cac)
+        # P0-10: LTV/CAC must use gross-margin-adjusted LTV. Raw LTV overstates value
+        # because it ignores variable cost of serving the customer.
+        if gm_ltv is not None:
+            ltv_to_cac = safe_divide(gm_ltv, cac)
+        else:
+            # Fall back to raw LTV/CAC only when gross margin is unavailable;
+            # otherwise we always prefer the GM-adjusted ratio.
+            ltv_to_cac = safe_divide(ltv, cac)
 
-        # Payback months = CAC / monthly ARPU (uses same MRR/ARPU as LTV)
+        # P0-10: CAC payback uses gross-margin-adjusted ARPU. Recovering CAC requires
+        # the *contribution* portion of ARPU, not gross billings.
         payback: Optional[float] = None
         if cac is not None:
-            payback = safe_divide(cac, arpu)
+            gm_arpu = (arpu * gross_margin) if (arpu is not None and gross_margin is not None) else None
+            if gm_arpu is not None:
+                payback = safe_divide(cac, gm_arpu)
+            else:
+                # Fall back to raw ARPU only when gross margin is unknown.
+                payback = safe_divide(cac, arpu)
 
         # Magic number requires prior-period data
         magic_number: Optional[float] = None
