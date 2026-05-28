@@ -183,6 +183,88 @@ class TestFinancialExcelExporter:
         assert result[:2] == b"PK"
 
     # ------------------------------------------------------------------
+    # export_scenario_comparison — WP-2 (P1-E5) row/memory cap
+    # ------------------------------------------------------------------
+
+    def _make_big_scenario(self, name, n_keys):
+        """Build a scenario with n_keys ratio rows (deterministic keys)."""
+        base = {f"{name}_ratio_{i:05d}": float(i) for i in range(n_keys)}
+        scen = {f"{name}_ratio_{i:05d}": float(i) + 1.0 for i in range(n_keys)}
+        return ScenarioResult(
+            scenario_name=name,
+            adjustments={},
+            base_ratios=base,
+            scenario_ratios=scen,
+            impact_summary=f"{name} impact",
+        )
+
+    def test_scenario_export_caps_at_whole_scenario_boundary(self, exporter):
+        import io
+        import openpyxl
+        from export_xlsx import _MAX_EXPORT_ROWS
+
+        assert _MAX_EXPORT_ROWS == 10_000
+
+        # Each scenario carries ~4000 ratio rows; 4 scenarios => >10k rows total.
+        # Only the scenarios that fully fit under the cap should be written.
+        scenarios = [self._make_big_scenario(f"S{n}", 4000) for n in range(4)]
+        result = exporter.export_scenario_comparison(scenarios)
+        assert isinstance(result, bytes)
+        assert result[:2] == b"PK"
+
+        # Workbook must reopen cleanly (no out-of-order / corruption).
+        wb = openpyxl.load_workbook(io.BytesIO(result))
+        ws = wb["Scenario Comparison"]
+        col0 = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
+
+        # Exactly one truncation note row.
+        notes = [v for v in col0 if isinstance(v, str) and "row cap" in v]
+        assert len(notes) == 1, f"expected exactly one truncation note, got {notes}"
+        assert "scenarios omitted" in notes[0]
+
+        # Not all scenarios fit; some must have been omitted.
+        written_names = [v for v in col0 if v in {"S0", "S1", "S2", "S3"}]
+        assert len(written_names) < 4
+        assert len(written_names) >= 1
+
+        # The LAST written scenario must have its FULL key set (no partial block).
+        last_name = written_names[-1]
+        last_scenario = next(s for s in scenarios if s.scenario_name == last_name)
+        expected_labels = {
+            k.replace("_", " ").title() for k in last_scenario.base_ratios
+        }
+        present_labels = set(v for v in col0 if isinstance(v, str))
+        missing = expected_labels - present_labels
+        assert not missing, f"last scenario block is partial; missing {len(missing)} keys"
+
+    def test_scenario_export_small_input_uncapped(self, exporter):
+        import io
+        import openpyxl
+
+        scenarios = [
+            self._make_big_scenario("Bull", 3),
+            self._make_big_scenario("Bear", 3),
+        ]
+        result = exporter.export_scenario_comparison(scenarios)
+        assert isinstance(result, bytes)
+        assert result[:2] == b"PK"
+
+        wb = openpyxl.load_workbook(io.BytesIO(result))
+        ws = wb["Scenario Comparison"]
+        col0 = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
+
+        # No truncation note for small input.
+        notes = [v for v in col0 if isinstance(v, str) and "row cap" in v]
+        assert notes == []
+
+        # Both scenarios present with full key sets.
+        assert "Bull" in col0
+        assert "Bear" in col0
+        for s in scenarios:
+            for k in s.base_ratios:
+                assert k.replace("_", " ").title() in col0
+
+    # ------------------------------------------------------------------
     # Scoring models
     # ------------------------------------------------------------------
 

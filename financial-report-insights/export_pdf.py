@@ -263,39 +263,78 @@ class FinancialPDFExporter:
         rows: List[List[str]],
         col_widths: Optional[List[int]] = None,
     ) -> None:
-        """Render a table with alternating row colors and a dark header."""
+        """Render a table with alternating row colors and a dark header.
+
+        Tables that overflow the page repeat the header row at the top of each
+        new page. `_add_table` owns page breaks for its OWN rows: it disables
+        the global auto-page-break on entry (so fpdf does not insert an
+        unmanaged break mid-row) and restores the caller's original setting on
+        exit, leaving callers that rely on auto-break unaffected.
+        """
         if col_widths is None:
             n_cols = len(headers)
             available = 210 - 2 * self.margin
             col_widths = [available // n_cols] * n_cols
 
-        # Header row
+        row_height = 6
+
+        # Save the caller's auto-page-break state and take manual control so a
+        # mid-row break never fires; restore in the finally block below.
+        original_auto = pdf.auto_page_break
+        original_b_margin = pdf.b_margin
+        pdf.set_auto_page_break(False)
+        try:
+            # The page-break trigger is the bottom of the printable area
+            # (page height minus the original bottom margin).
+            page_break_trigger = pdf.h - original_b_margin
+
+            self._draw_table_header(pdf, headers, col_widths)
+
+            # Data rows
+            pdf.set_text_color(*_BLACK)
+            pdf.set_font("Helvetica", "", self.body_size)
+            for row_idx, row in enumerate(rows):
+                # Break before drawing the row if it would overflow the page,
+                # then redraw the header at the top of the new page.
+                if pdf.get_y() + row_height > page_break_trigger:
+                    pdf.add_page()
+                    self._draw_table_header(pdf, headers, col_widths)
+                    pdf.set_text_color(*_BLACK)
+                    pdf.set_font("Helvetica", "", self.body_size)
+
+                if row_idx % 2 == 1:
+                    pdf.set_fill_color(*_LIGHT_GRAY)
+                    fill = True
+                else:
+                    pdf.set_fill_color(*_WHITE)
+                    fill = True  # always fill for clean look
+
+                for i, cell_val in enumerate(row):
+                    w = col_widths[i] if i < len(col_widths) else (col_widths[-1] if col_widths else 30)
+                    # Sanitize BEFORE truncation so the latin-1 font never sees
+                    # an unsupported glyph and substitutions stay within 50 chars.
+                    text = _sanitize_text(cell_val)
+                    display = text[:50] if len(text) > 50 else text
+                    pdf.cell(w, row_height, display, border=1, fill=fill)
+                pdf.ln()
+        finally:
+            # Restore the caller's auto-page-break setting unconditionally.
+            pdf.set_auto_page_break(original_auto, margin=original_b_margin)
+
+    def _draw_table_header(
+        self,
+        pdf: FPDF,
+        headers: List[str],
+        col_widths: List[int],
+    ) -> None:
+        """Draw the dark header row for a table at the current position."""
         pdf.set_fill_color(*_DARK_BLUE)
         pdf.set_text_color(*_WHITE)
         pdf.set_font("Helvetica", "B", self.body_size)
         for i, header in enumerate(headers):
-            pdf.cell(col_widths[i], 7, header, border=1, fill=True)
+            w = col_widths[i] if i < len(col_widths) else (col_widths[-1] if col_widths else 30)
+            pdf.cell(w, 7, _sanitize_text(header), border=1, fill=True)
         pdf.ln()
-
-        # Data rows
-        pdf.set_text_color(*_BLACK)
-        pdf.set_font("Helvetica", "", self.body_size)
-        for row_idx, row in enumerate(rows):
-            if row_idx % 2 == 1:
-                pdf.set_fill_color(*_LIGHT_GRAY)
-                fill = True
-            else:
-                pdf.set_fill_color(*_WHITE)
-                fill = True  # always fill for clean look
-
-            for i, cell_val in enumerate(row):
-                w = col_widths[i] if i < len(col_widths) else (col_widths[-1] if col_widths else 30)
-                # Sanitize BEFORE truncation so the latin-1 font never sees an
-                # unsupported glyph and substitutions stay within the 50-char cut.
-                text = _sanitize_text(cell_val)
-                display = text[:50] if len(text) > 50 else text
-                pdf.cell(w, 6, display, border=1, fill=fill)
-            pdf.ln()
 
     def _format_value(self, key: str, value: Any) -> str:
         """Format a value based on the key name."""

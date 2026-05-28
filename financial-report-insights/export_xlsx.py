@@ -5,11 +5,19 @@ ratio tables, health scores, and scenario comparisons.
 """
 
 import io
+import logging
 from dataclasses import asdict, fields
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 import xlsxwriter
+
+logger = logging.getLogger(__name__)
+
+# Hard cap on rows written to a single scenario-comparison sheet. The row
+# counter spans MULTIPLE scenarios in one sheet; the cap is enforced at a
+# whole-scenario boundary so no partial/corrupt scenario block is ever emitted.
+_MAX_EXPORT_ROWS = 10_000
 
 from financial_analyzer import (
     FinancialData,
@@ -219,7 +227,50 @@ class FinancialExcelExporter:
         ws.write(row, 0, f"Generated: {datetime.now():%Y-%m-%d %H:%M}", fmt.text)
         row += 2
 
-        for scenario in scenarios:
+        for idx, scenario in enumerate(scenarios):
+            # Enforce the row cap at a WHOLE-SCENARIO boundary: project this
+            # scenario's full row footprint up front and stop before writing
+            # it if it would push the sheet past the cap. This guarantees no
+            # scenario is ever truncated mid-block (no corrupt partial block).
+            all_keys = sorted(
+                set(
+                    list(scenario.base_ratios.keys())
+                    + list(scenario.scenario_ratios.keys())
+                )
+            )
+            # Worst-case projected rows for this scenario block:
+            #   1 scenario header
+            # + adjustments: 1 header + N rows + 1 gap (when present)
+            # + ratio table: 1 header + len(all_keys) rows (when present)
+            # + impact: 1 gap + 1 label + 1 text (when present)
+            # + 2 trailing gap rows
+            projected_scenario_rows = 1
+            if scenario.adjustments:
+                projected_scenario_rows += 1 + len(scenario.adjustments) + 1
+            if all_keys:
+                projected_scenario_rows += 1 + len(all_keys)
+            if scenario.impact_summary:
+                projected_scenario_rows += 3
+            projected_scenario_rows += 2
+
+            if row + projected_scenario_rows > _MAX_EXPORT_ROWS:
+                omitted = len(scenarios) - idx
+                logger.warning(
+                    "Scenario export row cap (%d) reached; omitting %d "
+                    "scenario(s) to avoid memory blow-up.",
+                    _MAX_EXPORT_ROWS,
+                    omitted,
+                )
+                ws.write(
+                    row,
+                    0,
+                    f"... {omitted} scenarios omitted "
+                    f"(row cap {_MAX_EXPORT_ROWS} reached) ...",
+                    fmt.text,
+                )
+                row += 1
+                break
+
             # Scenario header
             ws.write(row, 0, scenario.scenario_name, fmt.section)
             row += 1
@@ -236,10 +287,7 @@ class FinancialExcelExporter:
                     row += 1
                 row += 1
 
-            # Ratio comparison table
-            all_keys = sorted(
-                set(list(scenario.base_ratios.keys()) + list(scenario.scenario_ratios.keys()))
-            )
+            # Ratio comparison table (all_keys computed above for projection)
             if all_keys:
                 ws.write(row, 0, "Metric", fmt.header)
                 ws.write(row, 1, "Base", fmt.header)

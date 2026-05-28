@@ -337,3 +337,69 @@ class TestUnicodeSanitization_P1_E3:
         assert "Safe-zone >= 2.99" in text
         assert "—" not in text and "≥" not in text
         text.encode("latin-1")
+
+
+class TestTablePagination_P1_E4:
+    """_add_table repeats the header on page breaks (no blank/double pages)."""
+
+    @staticmethod
+    def _exporter():
+        from export_pdf import FinancialPDFExporter
+
+        return FinancialPDFExporter()
+
+    @staticmethod
+    def _per_page_text(pdf_bytes: bytes):
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            return [page.get_text() for page in doc]
+
+    def _render_long_table(self, n_rows: int = 80) -> bytes:
+        import io
+
+        exporter = self._exporter()
+        pdf = exporter._create_pdf()
+        pdf.add_page()
+        headers = ["MetricColumnHeader", "ValueColumnHeader"]
+        rows = [[f"Metric Row {i}", str(i)] for i in range(n_rows)]
+        exporter._add_table(pdf, headers, rows, col_widths=[90, 60])
+
+        buf = io.BytesIO()
+        buf.write(pdf.output())
+        return buf.getvalue()
+
+    def test_long_table_spans_multiple_pages(self):
+        pdf_bytes = self._render_long_table(80)
+        pages = self._per_page_text(pdf_bytes)
+        assert len(pages) > 1
+
+    def test_header_repeats_on_every_page(self):
+        pdf_bytes = self._render_long_table(80)
+        pages = self._per_page_text(pdf_bytes)
+        assert len(pages) > 1
+        for page_text in pages:
+            assert "MetricColumnHeader" in page_text
+            assert "ValueColumnHeader" in page_text
+
+    def test_no_blank_page(self):
+        pdf_bytes = self._render_long_table(80)
+        pages = self._per_page_text(pdf_bytes)
+        # Every page must carry extracted text -- catches spurious/double breaks.
+        for page_text in pages:
+            assert page_text.strip() != ""
+
+    def test_auto_page_break_restored_after_add_table(self):
+        from export_pdf import FinancialPDFExporter
+
+        exporter = FinancialPDFExporter()
+        pdf = exporter._create_pdf()
+        pdf.add_page()
+
+        original_auto = pdf.auto_page_break
+        original_b_margin = pdf.b_margin
+
+        headers = ["A", "B"]
+        rows = [[f"r{i}", str(i)] for i in range(80)]
+        exporter._add_table(pdf, headers, rows, col_widths=[90, 60])
+
+        assert pdf.auto_page_break == original_auto
+        assert pdf.b_margin == original_b_margin
