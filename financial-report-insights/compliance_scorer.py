@@ -21,6 +21,19 @@ from financial_analyzer import (
 
 logger = logging.getLogger(__name__)
 
+# Shared balance-sheet-imbalance tolerance: |Assets - (Liabilities + Equity)|
+# is considered material when it exceeds this fraction of total assets (1%).
+# Referenced by BOTH sec_filing_quality's consistency check and the SOX-local
+# imbalance penalty so there is one tolerance, not two divergent ones.
+_BS_IMBALANCE_TOLERANCE = 0.01
+
+# Local penalty (points off SOX risk_score) applied when the balance sheet
+# does not balance. This adjusts SOX's OWN risk_score only -- it is NOT added
+# to material_weakness_indicators or any list consumed by audit_risk_assessment
+# (the imbalance already flows into overall audit risk via sec.red_flags), so
+# the signal is never double-counted.
+_BS_IMBALANCE_SOX_PENALTY = 15
+
 
 @dataclass
 class RegulatoryThreshold:
@@ -46,6 +59,9 @@ class SOXComplianceResult:
     significant_deficiency_indicators: List[str] = field(default_factory=list)
     checks_performed: int = 0
     checks_passed: int = 0
+    # Local penalty (points) deducted from risk_score for a balance-sheet
+    # imbalance. Tracked separately so it is NOT re-flowed into audit risk.
+    bs_imbalance_penalty: int = 0
 
 
 @dataclass
@@ -345,10 +361,36 @@ class ComplianceScorer:
         else:
             checks_passed += 1
 
+        # Check 7: Balance-sheet imbalance (SOX-LOCAL penalty only).
+        # Reads the SAME imbalance condition as sec_filing_quality's consistency
+        # check (|Assets - (L+E)| / Assets >= _BS_IMBALANCE_TOLERANCE) and lowers
+        # SOX's own risk_score. Deliberately NOT appended to material_weakness or
+        # significant_deficiency -- the imbalance already reaches overall audit
+        # risk via sec.red_flags, so adding it here would double-count it.
+        bs_imbalance_penalty = 0
+        if (
+            data.total_assets is not None
+            and data.total_liabilities is not None
+            and data.total_equity is not None
+        ):
+            bs_sum = data.total_liabilities + data.total_equity
+            bs_diff = abs(data.total_assets - bs_sum)
+            if (
+                safe_divide(bs_diff, data.total_assets, default=1.0)
+                >= _BS_IMBALANCE_TOLERANCE
+            ):
+                bs_imbalance_penalty = _BS_IMBALANCE_SOX_PENALTY
+                flags.append(
+                    f"Balance sheet does not balance: Assets=${data.total_assets:,.0f} "
+                    f"vs L+E=${bs_sum:,.0f} (diff=${bs_diff:,.0f}) -- "
+                    "internal-control concern"
+                )
+
         # Score: start from 100, subtract penalties
         score = 100
         score -= len(material_weakness) * 20
         score -= len(significant_deficiency) * 10
+        score -= bs_imbalance_penalty
         score = max(0, min(100, score))
 
         if material_weakness:
@@ -366,6 +408,7 @@ class ComplianceScorer:
             significant_deficiency_indicators=significant_deficiency,
             checks_performed=checks_done,
             checks_passed=checks_passed,
+            bs_imbalance_penalty=bs_imbalance_penalty,
         )
 
     # ------------------------------------------------------------------
@@ -423,8 +466,11 @@ class ComplianceScorer:
         ):
             bs_sum = data.total_liabilities + data.total_equity
             bs_diff = abs(data.total_assets - bs_sum)
-            # Allow 1% tolerance
-            if safe_divide(bs_diff, data.total_assets, default=1.0) < 0.01:
+            # Allow 1% tolerance (shared with the SOX-local imbalance check)
+            if (
+                safe_divide(bs_diff, data.total_assets, default=1.0)
+                < _BS_IMBALANCE_TOLERANCE
+            ):
                 consistency_passed += 1
             else:
                 red_flags.append(

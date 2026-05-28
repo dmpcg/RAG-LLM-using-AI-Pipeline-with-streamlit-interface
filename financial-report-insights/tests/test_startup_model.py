@@ -403,6 +403,45 @@ class TestFundingScenarios:
         results = analyzer.funding_scenarios(data, scenarios)
         assert results[0].scenario_name == "Scenario 1"
 
+    def test_p1_e6_negative_raise_clamped_to_zero(self, analyzer):
+        # WP-1 / P1-E6: a negative raise_amount must clamp to 0 so dilution is
+        # never negative and no negative new-cash is computed.
+        data = FinancialData(
+            cash=1_000_000,
+            monthly_burn_rate=200_000,
+            monthly_recurring_revenue=100_000,
+        )
+        scenarios = [{"raise_amount": -5_000_000, "pre_money_valuation": 20_000_000}]
+        results = analyzer.funding_scenarios(data, scenarios)
+        assert len(results) == 1
+        r = results[0]
+        # raise clamped to 0
+        assert r.raise_amount == 0.0
+        # post_money == pre_money (pre_money NOT clamped, raise == 0)
+        assert r.post_money_valuation == pytest.approx(20_000_000)
+        # dilution is 0, never negative
+        assert r.dilution_pct == 0.0
+        assert r.dilution_pct >= 0.0
+        # new cash = cash + 0 = 1M; net_burn = 100k -> new_runway = 10 (not negative)
+        assert r.new_runway_months == pytest.approx(10.0)
+
+    def test_p1_e6_zero_and_positive_raise_unchanged(self, analyzer):
+        # Zero and positive raise amounts are unaffected by the clamp.
+        data = FinancialData(
+            cash=1_000_000,
+            monthly_burn_rate=200_000,
+            monthly_recurring_revenue=100_000,
+        )
+        scenarios = [
+            {"raise_amount": 0, "pre_money_valuation": 20_000_000},
+            {"raise_amount": 5_000_000, "pre_money_valuation": 20_000_000},
+        ]
+        results = analyzer.funding_scenarios(data, scenarios)
+        assert results[0].raise_amount == 0.0
+        assert results[0].dilution_pct == 0.0
+        assert results[1].raise_amount == pytest.approx(5_000_000)
+        assert results[1].dilution_pct == pytest.approx(0.20)  # 5M / 25M
+
 
 # ---------------------------------------------------------------------------
 # Full startup analysis

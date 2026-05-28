@@ -34,6 +34,43 @@ from export_utils import (
 
 
 # ---------------------------------------------------------------------------
+# Unicode sanitization (P1-E3)
+# ---------------------------------------------------------------------------
+
+# fpdf2's core "Helvetica" font is latin-1 only; emitting non-latin-1 glyphs
+# either crashes (FPDFUnicodeEncodingException) or renders a corrupt glyph.
+# Map the common offenders to ASCII, then backstop with a latin-1 round-trip
+# so any remaining out-of-range char becomes "?" instead of surviving.
+_SANITIZE_MAP = {
+    "—": "-",   # em dash
+    "–": "-",   # en dash
+    "µ": "u",   # micro sign
+    "μ": "u",   # Greek small letter mu
+    "‘": "'",   # left single quote
+    "’": "'",   # right single quote
+    "“": '"',   # left double quote
+    "”": '"',   # right double quote
+    "≥": ">=",  # greater-than or equal
+    "≤": "<=",  # less-than or equal
+    "…": "...",  # horizontal ellipsis
+}
+
+_SANITIZE_TRANSLATION = str.maketrans(_SANITIZE_MAP)
+
+
+def _sanitize_text(s: Any) -> str:
+    """Map common non-latin-1 characters to ASCII and backstop with latin-1.
+
+    Idempotent: applying it twice yields the same result. Every string sink in
+    the PDF exporter funnels through this so the latin-1 core font never sees
+    an unsupported glyph.
+    """
+    text = s if isinstance(s, str) else str(s)
+    text = text.translate(_SANITIZE_TRANSLATION)
+    return text.encode("latin-1", "replace").decode("latin-1")
+
+
+# ---------------------------------------------------------------------------
 # Color scheme
 # ---------------------------------------------------------------------------
 
@@ -86,7 +123,7 @@ class FinancialPDFExporter:
             pdf.add_page()
             self._add_header(pdf, "Executive Summary")
             pdf.set_font("Helvetica", "", self.body_size)
-            pdf.multi_cell(0, 6, report.executive_summary)
+            pdf.multi_cell(0, 6, _sanitize_text(report.executive_summary))
 
         # Key financial data page
         pdf.add_page()
@@ -165,7 +202,7 @@ class FinancialPDFExporter:
 
         # Summary text
         pdf.set_font("Helvetica", "", self.body_size)
-        pdf.multi_cell(0, 6, report.executive_summary or "No summary available.")
+        pdf.multi_cell(0, 6, _sanitize_text(report.executive_summary or "No summary available."))
         pdf.ln(6)
 
         # Health gauge
@@ -188,7 +225,7 @@ class FinancialPDFExporter:
             if health.interpretation:
                 pdf.ln(4)
                 pdf.set_font("Helvetica", "I", self.body_size)
-                pdf.multi_cell(0, 6, health.interpretation)
+                pdf.multi_cell(0, 6, _sanitize_text(health.interpretation))
 
         buf = io.BytesIO()
         buf.write(pdf.output())
@@ -253,8 +290,10 @@ class FinancialPDFExporter:
 
             for i, cell_val in enumerate(row):
                 w = col_widths[i] if i < len(col_widths) else (col_widths[-1] if col_widths else 30)
-                # Truncate long values to fit cell
-                display = str(cell_val)[:50] if len(str(cell_val)) > 50 else str(cell_val)
+                # Sanitize BEFORE truncation so the latin-1 font never sees an
+                # unsupported glyph and substitutions stay within the 50-char cut.
+                text = _sanitize_text(cell_val)
+                display = text[:50] if len(text) > 50 else text
                 pdf.cell(w, 6, display, border=1, fill=fill)
             pdf.ln()
 
@@ -265,7 +304,7 @@ class FinancialPDFExporter:
         if isinstance(value, bool):
             return "Yes" if value else "No"
         if not isinstance(value, (int, float)):
-            return str(value)
+            return _sanitize_text(value)
 
         # Check ratio BEFORE percent -- multiplier (1.5x) vs percentage (150%).
         if _is_ratio_key(key):
@@ -315,7 +354,7 @@ class FinancialPDFExporter:
                 info_lines.append(f"Net Income: {self._format_value('net_income', data.net_income)}")
 
             for line in info_lines:
-                pdf.cell(0, 7, line, align="C", new_x="LMARGIN", new_y="NEXT")
+                pdf.cell(0, 7, _sanitize_text(line), align="C", new_x="LMARGIN", new_y="NEXT")
 
         # Separator
         pdf.ln(20)
@@ -327,13 +366,13 @@ class FinancialPDFExporter:
             period_str = str(data.period)[:100] if data.period else "N/A"
             pdf.ln(5)
             pdf.set_font("Helvetica", "I", 10)
-            pdf.cell(0, 7, f"Period: {period_str}", align="C", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 7, _sanitize_text(f"Period: {period_str}"), align="C", new_x="LMARGIN", new_y="NEXT")
 
         if report and report.generated_at:
             generated_str = str(report.generated_at)[:100]
             pdf.ln(2)
             pdf.set_font("Helvetica", "I", 9)
-            pdf.cell(0, 7, f"Report generated: {generated_str}", align="C", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 7, _sanitize_text(f"Report generated: {generated_str}"), align="C", new_x="LMARGIN", new_y="NEXT")
 
     def _add_scoring_section(
         self,
@@ -454,4 +493,4 @@ class FinancialPDFExporter:
         if interpretation:
             pdf.ln(4)
             pdf.set_font("Helvetica", "I", self.body_size)
-            pdf.multi_cell(0, 6, interpretation)
+            pdf.multi_cell(0, 6, _sanitize_text(interpretation))

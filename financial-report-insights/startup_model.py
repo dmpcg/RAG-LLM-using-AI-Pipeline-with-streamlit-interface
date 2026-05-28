@@ -328,7 +328,7 @@ class StartupAnalyzer:
 
         results: List[FundingScenario] = []
         for i, s in enumerate(scenarios, 1):
-            raise_amount = s.get("raise_amount", 0)
+            raise_amount = max(0.0, float(s.get("raise_amount", 0) or 0.0))
             pre_money = s.get("pre_money_valuation", 0)
             post_money = pre_money + raise_amount
             dilution = safe_divide(raise_amount, post_money) if post_money > 0 else 0.0

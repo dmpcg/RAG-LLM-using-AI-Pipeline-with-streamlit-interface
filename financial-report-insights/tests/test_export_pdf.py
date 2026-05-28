@@ -1,5 +1,6 @@
 """Tests for PDF export module."""
 
+import fitz  # PyMuPDF
 import pytest
 
 from financial_analyzer import (
@@ -236,3 +237,103 @@ class TestRatioFormatting_P0_8:
 
     def test_none_value_renders_na(self):
         assert self._exporter()._format_value("current_ratio", None) == "N/A"
+
+
+# ---------------------------------------------------------------------------
+# WS-3 P1-E3: PDF unicode safety -- _sanitize_text + rendered-PDF extraction
+# ---------------------------------------------------------------------------
+
+class TestUnicodeSanitization_P1_E3:
+    """Regression: non-latin-1 chars must be ASCII-substituted, not crash/corrupt."""
+
+    def _exporter(self):
+        from export_pdf import FinancialPDFExporter
+        return FinancialPDFExporter()
+
+    # (1) Exact substitution-table assertions ------------------------------
+
+    def test_sanitize_em_dash(self):
+        from export_pdf import _sanitize_text
+        assert _sanitize_text("Acme—Corp") == "Acme-Corp"
+
+    def test_sanitize_en_dash(self):
+        from export_pdf import _sanitize_text
+        assert _sanitize_text("2024–2025") == "2024-2025"
+
+    def test_sanitize_micro_sign(self):
+        from export_pdf import _sanitize_text
+        assert _sanitize_text("5µm") == "5um"
+
+    def test_sanitize_smart_quotes(self):
+        from export_pdf import _sanitize_text
+        assert _sanitize_text("‘a’ “b”") == "'a' \"b\""
+
+    def test_sanitize_comparison_operators(self):
+        from export_pdf import _sanitize_text
+        assert _sanitize_text("x ≥ 1 and y ≤ 2") == "x >= 1 and y <= 2"
+
+    def test_sanitize_ellipsis(self):
+        from export_pdf import _sanitize_text
+        assert _sanitize_text("wait…") == "wait..."
+
+    def test_sanitize_latin1_backstop(self):
+        from export_pdf import _sanitize_text
+        # An arbitrary non-latin-1 char (CJK) must be replaced, not survive.
+        out = _sanitize_text("price中")
+        assert out.encode("latin-1")  # must not raise -> all bytes <= 0xFF
+        assert "中" not in out
+
+    def test_sanitize_is_idempotent(self):
+        from export_pdf import _sanitize_text
+        once = _sanitize_text("a—bµc")
+        assert _sanitize_text(once) == once == "a-buc"
+
+    # (2) Rendered-PDF extraction assertions -------------------------------
+
+    @staticmethod
+    def _extract_text(pdf_bytes: bytes) -> str:
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            return "".join(page.get_text() for page in doc)
+
+    def test_rendered_pdf_substitutes_and_stays_latin1(self):
+        exporter = self._exporter()
+        data = FinancialData(
+            total_assets=1_000_000,
+            total_liabilities=500_000,
+            total_equity=500_000,
+            revenue=2_000_000,
+            net_income=300_000,
+        )
+        # em-dash + micro sign + smart quotes, kept within first 50 chars.
+        summary = "Acme—µ “Q4” review of margins and runway."
+        report = FinancialReport(executive_summary=summary, sections={})
+
+        pdf_bytes = exporter.export_full_report(data, {"current_ratio": 2.0}, report=report)
+        assert pdf_bytes[:5] == b"%PDF-"
+
+        text = self._extract_text(pdf_bytes)
+        # ASCII-substituted form must be present.
+        assert "Acme-u" in text
+        assert "\"Q4\"" in text
+        # No original non-latin-1 byte may survive anywhere in the document.
+        for ch in ("—", "µ", "“", "”"):
+            assert ch not in text
+        # Entire extracted layer must be latin-1 encodable.
+        text.encode("latin-1")
+
+    def test_rendered_pdf_table_cell_sanitized(self):
+        exporter = self._exporter()
+        data = FinancialData(
+            total_assets=1_000_000,
+            total_liabilities=500_000,
+            total_equity=500_000,
+            revenue=2_000_000,
+            net_income=300_000,
+        )
+        # Non-numeric value flows through _add_table cell loop (before 50-char cut).
+        results = {"altman_z_score": {"interpretation": "Safe—zone ≥ 2.99"}}
+        pdf_bytes = exporter.export_full_report(data, results)
+        text = self._extract_text(pdf_bytes)
+        assert "Safe-zone >= 2.99" in text
+        assert "—" not in text and "≥" not in text
+        text.encode("latin-1")

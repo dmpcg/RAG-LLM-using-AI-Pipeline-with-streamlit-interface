@@ -453,3 +453,92 @@ class TestScoreClamping:
         assert _score_to_grade(80) in ("A", "B")
         assert _score_to_grade(0) in ("D", "F")
         assert _score_to_grade(100) == "A"
+
+
+# ---------------------------------------------------------------------------
+# WP-5 (P1-E7): SOX score reflects balance-sheet imbalance
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def bs_balanced() -> FinancialData:
+    """Balance sheet that balances: Assets = Liabilities + Equity (diff 0)."""
+    return FinancialData(
+        total_assets=1000.0,
+        total_liabilities=600.0,
+        total_equity=400.0,
+    )
+
+
+@pytest.fixture
+def bs_imbalanced() -> FinancialData:
+    """Balance sheet that does NOT balance: 1000 vs 900 (10% diff, > 1% tol)."""
+    return FinancialData(
+        total_assets=1000.0,
+        total_liabilities=600.0,
+        total_equity=300.0,
+    )
+
+
+class TestSOXBalanceSheetImbalance:
+    def test_tolerance_constant_is_one_percent(self):
+        """The shared BS imbalance tolerance is the pinned 1% (UA-3)."""
+        from compliance_scorer import _BS_IMBALANCE_TOLERANCE
+
+        assert _BS_IMBALANCE_TOLERANCE == 0.01
+
+    def test_imbalanced_lowers_sox_risk_score_with_local_penalty(
+        self, scorer, bs_balanced, bs_imbalanced
+    ):
+        """Imbalanced BS -> SOX risk_score drops + SOX-local penalty present."""
+        balanced = scorer.sox_compliance(bs_balanced)
+        imbalanced = scorer.sox_compliance(bs_imbalanced)
+
+        # Local penalty field present and positive only for the imbalanced case
+        assert imbalanced.bs_imbalance_penalty > 0
+        assert balanced.bs_imbalance_penalty == 0
+
+        # The imbalance must actually pull the SOX risk_score down
+        assert imbalanced.risk_score < balanced.risk_score
+        assert imbalanced.risk_score == balanced.risk_score - imbalanced.bs_imbalance_penalty
+
+    def test_balanced_sox_risk_score_unchanged(self, scorer, bs_balanced):
+        """Balanced BS -> no penalty, score reflects only the other checks."""
+        result = scorer.sox_compliance(bs_balanced)
+        assert result.bs_imbalance_penalty == 0
+
+    def test_bs_imbalance_not_in_material_weakness(
+        self, scorer, bs_imbalanced
+    ):
+        """The imbalance signal must NOT be appended to material_weakness."""
+        result = scorer.sox_compliance(bs_imbalanced)
+        joined = " ".join(result.material_weakness_indicators).lower()
+        assert "balance" not in joined
+        # Equally, it must not be a significant_deficiency list entry.
+        joined_sd = " ".join(result.significant_deficiency_indicators).lower()
+        assert "balance sheet" not in joined_sd
+
+    def test_overall_audit_risk_indicator_count_unchanged(
+        self, scorer, bs_balanced, bs_imbalanced
+    ):
+        """No double-count: overall_audit_risk restatement-indicator COUNT is
+        identical with vs. without the SOX-local imbalance change.
+
+        The imbalance already flows into overall_audit_risk via sec.red_flags,
+        so the SOX-local penalty must add nothing to the indicator list.
+        """
+        bal = scorer.audit_risk_assessment(bs_balanced)
+        imbal = scorer.audit_risk_assessment(bs_imbalanced)
+
+        # Count the imbalance-attributable restatement indicators (from sec.red_flags).
+        def imbalance_indicators(assessment):
+            return [
+                ind
+                for ind in assessment.restatement_risk_indicators
+                if "balance sheet does not balance" in ind.lower()
+            ]
+
+        # Exactly one representation of the imbalance in the imbalanced overall
+        # assessment (via sec.red_flags), and none in the balanced one.
+        assert len(imbalance_indicators(imbal)) == 1
+        assert len(imbalance_indicators(bal)) == 0
