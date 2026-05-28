@@ -271,7 +271,6 @@ class FinancialInsightsPage:
                     entries = self.CATEGORY_TABS[selected_cat]
                     sub_tabs = st.tabs([label for label, _, _ in entries])
 
-
                     for tab, (label, method, needs_wb) in zip(sub_tabs, entries):
                         with tab:
                             if needs_wb:
