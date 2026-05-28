@@ -137,6 +137,11 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+# Prometheus metrics middleware - always added so it is available when the
+# endpoint flag is enabled; it records nothing sensitive and is low-overhead.
+from observability.metrics import MetricsMiddleware  # noqa: E402
+app.add_middleware(MetricsMiddleware)
+
 
 # ---------------------------------------------------------------------------
 # Simple in-memory rate limiter (per-IP, sliding window)
@@ -231,6 +236,23 @@ async def health():
     if code == 503:
         raise HTTPException(status_code=503, detail=status)
     return status
+
+
+@app.get("/metrics")
+async def metrics_endpoint():
+    """Prometheus exposition endpoint.
+
+    Returns HTTP 404 when ``settings.enable_metrics_endpoint`` is False (the
+    default) so the endpoint is hidden in environments that do not opt-in.
+    The flag is checked at request time so tests can toggle it without
+    rebuilding the app.
+    """
+    if not settings.enable_metrics_endpoint:
+        raise HTTPException(status_code=404, detail="Not found.")
+    from observability.metrics import render_latest
+    from fastapi.responses import Response as _Response
+    data, content_type = render_latest()
+    return _Response(content=data, media_type=content_type)
 
 
 @app.post("/query", response_model=QueryResponse)

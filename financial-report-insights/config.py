@@ -117,6 +117,7 @@ class Settings(BaseSettings):
     # Observability
     enable_tracing: bool = True  # Enable request tracing
     metrics_window_size: int = 10000  # Max metrics entries per rolling window
+    enable_metrics_endpoint: bool = False  # Expose GET /metrics (Prometheus); off by default
 
     # Vector index
     vector_backend: str = "auto"  # "auto" | "faiss" | "hnswlib" | "numpy"
