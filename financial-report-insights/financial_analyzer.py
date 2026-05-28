@@ -8852,11 +8852,7 @@ class CharlieAnalyzer:
         if roa is not None and b is not None:
             roa_b = roa * b
             result.roa_times_b = roa_b
-            denom = 1.0 - roa_b
-            if abs(denom) > 1e-9:
-                result.igr = roa_b / denom
-            else:
-                result.igr = None
+            result.igr = safe_divide(roa_b, 1.0 - roa_b)
         else:
             result.roa_times_b = None
             result.igr = None
@@ -13790,8 +13786,9 @@ class CharlieAnalyzer:
             composite_health=self.composite_health_score(financial_data),
         )
 
-        # Generate insights — pass dict format for backward compat with generate_insights
-        results.insights = self.generate_insights(results.to_dict())
+        # Generate insights — build dict directly without seeding the cache so
+        # the cache is populated only after insights are assigned.
+        results.insights = self.generate_insights(results._build_dict())
 
         return results
 
