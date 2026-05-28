@@ -3518,48 +3518,58 @@ class CharlieAnalyzer:
             if len(series) < 3:
                 continue
 
+            # Use the underlying numpy array directly (avoids copy from to_numpy)
+            arr: np.ndarray = series.values.astype(float, copy=False)
+
             if method == 'iqr':
-                q1 = series.quantile(0.25)
-                q3 = series.quantile(0.75)
+                q1, q3 = np.percentile(arr, [25, 75])  # single pass
                 iqr = q3 - q1
                 if iqr == 0:
                     continue
                 iqr_multiplier = threshold if threshold != 2.0 else 1.5
-                lower = q1 - iqr_multiplier * iqr
-                upper = q3 + iqr_multiplier * iqr
+                lower = float(q1) - iqr_multiplier * float(iqr)
+                upper = float(q3) + iqr_multiplier * float(iqr)
 
-                mean = series.mean()
-                std = series.std() or 1.0  # avoid div by zero for z_score calc
+                mean = float(arr.mean())
+                # ddof=1 matches pandas Series.std() default; 'or 1.0' avoids div-by-zero
+                std = float(np.std(arr, ddof=1)) or 1.0
 
-                for idx, value in series.items():
-                    if value < lower or value > upper:
-                        z = (value - mean) / std
-                        anomalies.append(Anomaly(
-                            metric_name=col,
-                            value=value,
-                            expected_range=(lower, upper),
-                            z_score=z,
-                            description=(f"IQR anomaly in {col}: {value:.2f} outside "
-                                         f"[{lower:.2f}, {upper:.2f}]")
-                        ))
+                mask = (arr < lower) | (arr > upper)
+                outlier_vals = arr[mask]
+                z_scores = (outlier_vals - mean) / std
+
+                for value, z in zip(outlier_vals.tolist(), z_scores.tolist()):
+                    anomalies.append(Anomaly(
+                        metric_name=col,
+                        value=value,
+                        expected_range=(lower, upper),
+                        z_score=z,
+                        description=(f"IQR anomaly in {col}: {value:.2f} outside "
+                                     f"[{lower:.2f}, {upper:.2f}]")
+                    ))
             else:
                 # Default z-score method
-                mean = series.mean()
-                std = series.std()
+                mean = float(arr.mean())
+                std = float(np.std(arr, ddof=1))
                 if std == 0:
                     continue
 
-                for idx, value in series.items():
-                    z_score = (value - mean) / std
-                    if abs(z_score) > threshold:
-                        anomalies.append(Anomaly(
-                            metric_name=col,
-                            value=value,
-                            expected_range=(mean - threshold*std, mean + threshold*std),
-                            z_score=z_score,
-                            description=(f"Unusual value in {col}: {value:.2f} is "
-                                         f"{abs(z_score):.1f} standard deviations from mean")
-                        ))
+                z_scores = (arr - mean) / std
+                mask = np.abs(z_scores) > threshold
+                outlier_vals = arr[mask]
+                outlier_zs = z_scores[mask]
+                lower_bound = mean - threshold * std
+                upper_bound = mean + threshold * std
+
+                for value, z_score in zip(outlier_vals.tolist(), outlier_zs.tolist()):
+                    anomalies.append(Anomaly(
+                        metric_name=col,
+                        value=value,
+                        expected_range=(lower_bound, upper_bound),
+                        z_score=z_score,
+                        description=(f"Unusual value in {col}: {value:.2f} is "
+                                     f"{abs(z_score):.1f} standard deviations from mean")
+                    ))
 
         return anomalies
 
@@ -3851,6 +3861,36 @@ class CharlieAnalyzer:
 
         rng = np.random.default_rng(seed=seed)
 
+        # --- WP-D optimizations (P1-A2) ---
+        # 1. Cache dataclasses.fields() once rather than re-calling inside
+        #    _apply_adjustments on every iteration.
+        from dataclasses import fields as _dc_fields
+        _base_field_values: Dict[str, Any] = {
+            f.name: getattr(data, f.name) for f in _dc_fields(data)
+        }
+        # Pre-compute assumption keys and per-field draw parameters (once).
+        _assumption_keys: List[str] = list(assumptions.keys())
+        _k = len(_assumption_keys)
+        _mean_mults = np.array(
+            [1.0 + assumptions[fld].get('mean_pct', 0.0) / 100.0
+             for fld in _assumption_keys],
+            dtype=float,
+        )
+        _std_mults = np.array(
+            [assumptions[fld].get('std_pct', 10.0) / 100.0
+             for fld in _assumption_keys],
+            dtype=float,
+        )
+        # 2. Batch-draw all random samples in one call.
+        #    size=(n_simulations, k) draws in C (row-major) order:
+        #      row=sim_index, col=field_index
+        #    This is identical to the original nested-loop draw order
+        #    (outer=sim, inner=field), so the same seed produces the same values.
+        _all_samples = np.maximum(
+            rng.normal(_mean_mults, _std_mults, size=(n_simulations, _k)),
+            0.001,  # floor at 0.1% — allows near-total loss modeling
+        )
+
         metrics_collected: Dict[str, List[float]] = {
             'health_score': [],
             'z_score': [],
@@ -3860,16 +3900,25 @@ class CharlieAnalyzer:
             'roe': [],
         }
 
-        for _ in range(n_simulations):
-            adjustments: Dict[str, float] = {}
-            for fld, params in assumptions.items():
-                mean_mult = 1.0 + params.get('mean_pct', 0.0) / 100.0
-                std_mult = params.get('std_pct', 10.0) / 100.0
-                sample = rng.normal(mean_mult, std_mult)
-                sample = max(sample, 0.001)  # Floor at 0.1% — allows near-total loss modeling
-                adjustments[fld] = sample
+        for _sim_idx in range(n_simulations):
+            # Build adjustments dict from pre-drawn row
+            adjustments: Dict[str, float] = {
+                _assumption_keys[_j]: float(_all_samples[_sim_idx, _j])
+                for _j in range(_k)
+            }
 
-            adjusted = self._apply_adjustments(data, adjustments)
+            # Apply adjustments using the cached field-values dict
+            _field_values = _base_field_values.copy()
+            _skipped: List[str] = []
+            for _fld_name, _multiplier in adjustments.items():
+                _cur = _field_values.get(_fld_name)
+                if _cur is not None:
+                    _field_values[_fld_name] = _cur * _multiplier
+                else:
+                    _skipped.append(_fld_name)
+            adjusted = FinancialData(**_field_values)
+            adjusted._skipped_adjustments = _skipped  # type: ignore[attr-defined]
+
             health = self.composite_health_score(adjusted)
             z = self.altman_z_score(adjusted)
             f = self.piotroski_f_score(adjusted)

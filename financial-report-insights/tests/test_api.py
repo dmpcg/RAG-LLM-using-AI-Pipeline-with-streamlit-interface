@@ -347,11 +347,17 @@ class TestExportEndpoints:
         assert resp.status_code == 501
 
     def test_export_xlsx_happy_path(self, client, mock_rag):
-        """XLSX export returns a valid streaming response."""
+        """XLSX export returns a valid streaming response.
+
+        Patches api.FinancialExcelExporter (the module-level reference loaded at
+        lifespan) rather than the source-module class, because the eager import
+        binds the reference before any per-test patch on the source module fires.
+        """
         mock_rag.charlie_analyzer.analyze.return_value = {"health": "good"}
         mock_rag.charlie_analyzer.generate_report.return_value = "Summary report."
-        with patch("export_xlsx.FinancialExcelExporter") as MockExporter:
-            MockExporter.return_value.export_full_report.return_value = b"PK\x03\x04fake_xlsx"
+        mock_exporter_instance = MagicMock()
+        mock_exporter_instance.export_full_report.return_value = b"PK\x03\x04fake_xlsx"
+        with patch("api.FinancialExcelExporter", return_value=mock_exporter_instance):
             resp = client.post("/export/xlsx", json={
                 "financial_data": {"revenue": 1000, "total_assets": 5000},
             })
@@ -361,11 +367,17 @@ class TestExportEndpoints:
         assert len(resp.content) > 0
 
     def test_export_pdf_happy_path(self, client, mock_rag):
-        """PDF export returns a valid streaming response."""
+        """PDF export returns a valid streaming response.
+
+        Patches api.FinancialPDFExporter (the module-level reference loaded at
+        lifespan) rather than the source-module class, because the eager import
+        binds the reference before any per-test patch on the source module fires.
+        """
         mock_rag.charlie_analyzer.analyze.return_value = {"health": "good"}
         mock_rag.charlie_analyzer.generate_report.return_value = "Summary report."
-        with patch("export_pdf.FinancialPDFExporter") as MockExporter:
-            MockExporter.return_value.export_full_report.return_value = b"%PDF-1.4 fake"
+        mock_exporter_instance = MagicMock()
+        mock_exporter_instance.export_full_report.return_value = b"%PDF-1.4 fake"
+        with patch("api.FinancialPDFExporter", return_value=mock_exporter_instance):
             resp = client.post("/export/pdf", json={
                 "financial_data": {"revenue": 1000, "total_assets": 5000},
             })
@@ -548,3 +560,163 @@ class TestInputValidation:
         long_label = "A" * 101
         resp = client.get(f"/graph/context/{long_label}")
         assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# WP-E: /compare quick-return when no documents are ingested (P1-A4)
+# ---------------------------------------------------------------------------
+
+
+class TestCompareQuickReturn:
+    """WP-E: guard on rag.documents to short-circuit /compare when empty."""
+
+    def _make_empty_rag(self):
+        """Return a mock RAG with no documents loaded."""
+        rag = MagicMock()
+        rag.documents = []
+        rag._graph_store = None
+        return rag
+
+    def test_no_documents_returns_empty_compare_response_without_analyser(self):
+        """
+        When no documents are ingested (rag.documents == []) and _period_financial_data
+        is also empty, /compare must return an empty CompareResponse immediately
+        WITHOUT invoking _get_financial_analysis_context (D9 guard).
+
+        Old code: would call _get_financial_analysis_context whenever
+        _period_financial_data is empty, even with no documents.
+        New code: guards on `not rag.documents` FIRST.
+        """
+        import api as api_module
+        empty_rag = self._make_empty_rag()
+        # Explicitly set _period_financial_data to {} so the old code path
+        # (if not period_data: call _get_financial_analysis_context) would
+        # trigger; the new guard on rag.documents must prevent it.
+        empty_rag._period_financial_data = {}
+        api_module._rag_instance = empty_rag
+        api_module._rate_log.clear()
+        from api import app
+        with TestClient(app) as client:
+            resp = client.post(
+                "/compare",
+                json={"period_labels": ["FY2023", "FY2024"]},
+            )
+        api_module._rag_instance = None
+        api_module._rate_log.clear()
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["deltas"] == []
+        assert body["improvements"] == []
+        assert body["deteriorations"] == []
+        # _get_financial_analysis_context must NOT have been called
+        empty_rag._get_financial_analysis_context.assert_not_called()
+
+    def test_documents_loaded_compare_still_invokes_analyser(self):
+        """
+        REGRESSION GUARD: when documents ARE loaded, the analyser path must
+        still run (_get_financial_analysis_context must be called).
+        """
+        import api as api_module
+        from unittest.mock import MagicMock
+
+        rag = MagicMock()
+        rag.documents = [
+            {"source": "report.pdf", "type": "pdf", "content": "Revenue $1M."}
+        ]
+        rag._graph_store = None
+        # _period_financial_data starts empty so the lazy-populate path triggers
+        rag._period_financial_data = {}
+        # After _get_financial_analysis_context is called, populate period data
+        # with a minimal FinancialData-like object so run_all_ratios can run.
+        # We use a side_effect to simulate the lazy population.
+        def _populate_context():
+            rag._period_financial_data = {}  # still empty — no ratio data, but path ran
+
+        rag._get_financial_analysis_context.side_effect = _populate_context
+        rag.charlie_analyzer = MagicMock()
+
+        api_module._rag_instance = rag
+        api_module._rate_log.clear()
+        from api import app
+        with TestClient(app) as client:
+            resp = client.post(
+                "/compare",
+                json={"period_labels": ["FY2023", "FY2024"]},
+            )
+        api_module._rag_instance = None
+        api_module._rate_log.clear()
+
+        assert resp.status_code == 200
+        # The analyser path WAS entered (not short-circuited)
+        rag._get_financial_analysis_context.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# WP-H: eager exporter imports at lifespan (P1-A6)
+# ---------------------------------------------------------------------------
+
+
+class TestEagerExporterImport:
+    """WP-H: FinancialExcelExporter and FinancialPDFExporter must be importable
+    as module-level names in api after the module is loaded."""
+
+    def test_excel_exporter_symbol_available_at_module_level(self):
+        """FinancialExcelExporter must be accessible as api.FinancialExcelExporter."""
+        import api as api_module
+        assert hasattr(api_module, "FinancialExcelExporter"), (
+            "api.FinancialExcelExporter not found — eager lifespan import missing"
+        )
+
+    def test_pdf_exporter_symbol_available_at_module_level(self):
+        """FinancialPDFExporter must be accessible as api.FinancialPDFExporter."""
+        import api as api_module
+        assert hasattr(api_module, "FinancialPDFExporter"), (
+            "api.FinancialPDFExporter not found — eager lifespan import missing"
+        )
+
+    def test_export_xlsx_returns_valid_bytes_after_eager_import(self, client, mock_rag):
+        """XLSX export still returns valid streaming bytes after eager-import refactor.
+
+        Patches api.FinancialExcelExporter directly (the module-level reference
+        installed by the lifespan eager import) rather than the source module class.
+        """
+        mock_report = MagicMock()
+        mock_report.executive_summary = "Company looks healthy."
+        mock_report.sections = {"ratio_analysis": "Good ratios."}
+        mock_report.generated_at = "2026-01-01"
+        mock_rag.charlie_analyzer.analyze.return_value = {"health": "good"}
+        mock_rag.charlie_analyzer.generate_report.return_value = mock_report
+        mock_exporter_instance = MagicMock()
+        mock_exporter_instance.export_full_report.return_value = b"PK\x03\x04fake"
+        with patch("api.FinancialExcelExporter", return_value=mock_exporter_instance):
+            resp = client.post(
+                "/export/xlsx",
+                json={"financial_data": {"revenue": 1000}},
+            )
+        assert resp.status_code == 200
+        assert "spreadsheetml" in resp.headers["content-type"]
+        assert len(resp.content) > 0
+
+    def test_export_pdf_returns_valid_bytes_after_eager_import(self, client, mock_rag):
+        """PDF export still returns valid streaming bytes after eager-import refactor.
+
+        Patches api.FinancialPDFExporter directly (the module-level reference
+        installed by the lifespan eager import) rather than the source module class.
+        """
+        mock_report = MagicMock()
+        mock_report.executive_summary = "Company looks healthy."
+        mock_report.sections = {"ratio_analysis": "Good ratios."}
+        mock_report.generated_at = "2026-01-01"
+        mock_rag.charlie_analyzer.analyze.return_value = {"health": "good"}
+        mock_rag.charlie_analyzer.generate_report.return_value = mock_report
+        mock_exporter_instance = MagicMock()
+        mock_exporter_instance.export_full_report.return_value = b"%PDF-1.4 fake"
+        with patch("api.FinancialPDFExporter", return_value=mock_exporter_instance):
+            resp = client.post(
+                "/export/pdf",
+                json={"financial_data": {"revenue": 1000}},
+            )
+        assert resp.status_code == 200
+        assert "pdf" in resp.headers["content-type"]
+        assert len(resp.content) > 0
