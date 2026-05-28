@@ -5276,6 +5276,10 @@ class CharlieAnalyzer:
         adjustments: Optional[List[Tuple]] = None,
         derived: Optional[List[Tuple]] = None,
         label: str = "",
+        mode: str = "default",
+        derive_primary_fn=None,
+        primary_result_field: Optional[str] = None,
+        band_thresholds: Optional[List[Tuple[float, float, float]]] = None,
     ):
         """Generic scored ratio analysis engine.
 
@@ -5290,11 +5294,47 @@ class CharlieAnalyzer:
         score_field : attribute name for the score on result
         grade_field : attribute name for the grade on result
         primary : field_name of the primary ratio used for scoring
-        higher_is_better : True = higher ratio -> higher score
+        higher_is_better : True = higher ratio -> higher score (ignored in
+            band mode)
         thresholds : list of (threshold, base_score) DESCENDING by threshold
+            (ignored in band mode)
         adjustments : list of (condition_fn(ratios, data) -> bool, delta)
         derived : list of (field_name, compute_fn(ratios, data) -> value)
         label : analysis label for summary string
+        mode : scoring mode — one of:
+
+            ``'default'``
+                Standard monotonic threshold scoring (existing behaviour,
+                unchanged).  ``higher_is_better`` and ``thresholds``
+                control the scoring direction.
+
+            ``'derived_primary'``
+                **Additive, opt-in.**  The primary metric is not read from a
+                pre-computed ratio field; instead it is computed by
+                ``derive_primary_fn(ratios, data) -> Optional[float]``.
+                The result is stored on the result object under
+                ``primary_result_field`` (defaults to ``primary`` if not
+                given) and registered in ``ratios`` before scoring proceeds
+                with the normal threshold logic.
+
+            ``'band'``
+                **Additive, opt-in.**  Mid-band-optimal scoring: the score
+                peaks when the primary value falls inside a target band and
+                falls off both above *and* below.  Pass ``band_thresholds``
+                as a list of ``(low, high, score)`` tuples ordered from
+                narrowest (highest score) to widest (lowest score); the first
+                band whose ``low <= value <= high`` is used.  Adjustments are
+                applied on top of the band score as usual.
+
+        derive_primary_fn : callable(ratios, data) -> Optional[float]
+            Required when ``mode='derived_primary'``.
+        primary_result_field : str, optional
+            Field name on the result to store the derived primary value.
+            Defaults to ``primary`` when not supplied.
+        band_thresholds : list of (low, high, score)
+            Required when ``mode='band'``.  Each entry is
+            ``(lower_bound, upper_bound, base_score)``; the entry with the
+            smallest range that contains the primary value wins.
         """
         result = result_class()
         ratios: Dict[str, Optional[float]] = {}
@@ -5314,6 +5354,13 @@ class CharlieAnalyzer:
             setattr(result, field_name, val)
             ratios[field_name] = val
 
+        # Step 2b (derived_primary mode): compute primary via user-supplied fn
+        if mode == "derived_primary":
+            dp_val = derive_primary_fn(ratios, data) if derive_primary_fn else None
+            store_field = primary_result_field if primary_result_field else primary
+            setattr(result, store_field, dp_val)
+            ratios[primary] = dp_val
+
         # Step 3: Check primary ratio
         primary_val = ratios.get(primary)
         if primary_val is None:
@@ -5321,22 +5368,30 @@ class CharlieAnalyzer:
             result.summary = f"{label}: Insufficient data for analysis."
             return result
 
-        # Step 4: Score from thresholds (callers MUST pass pre-sorted tuples)
-        if higher_is_better:
-            # Descending: find first threshold where value >= threshold
-            base = max(thresholds[-1][1] - 1.0, 0.0)
-            for thresh, sc in thresholds:
-                if primary_val >= thresh:
-                    base = sc
-                    break
+        # Step 4: Score
+        if mode == "band":
+            # Mid-band-optimal: first band whose [low, high] contains the value
+            base = 1.0  # fallback when no band matches
+            if band_thresholds:
+                for band_low, band_high, band_sc in band_thresholds:
+                    if band_low <= primary_val <= band_high:
+                        base = band_sc
+                        break
         else:
-            # Ascending: find first threshold where value <= threshold
-            sorted_t = thresholds
-            base = max(sorted_t[-1][1] - 1.0, 0.0)
-            for thresh, sc in sorted_t:
-                if primary_val <= thresh:
-                    base = sc
-                    break
+            # Standard monotonic threshold scoring (default + derived_primary)
+            if higher_is_better:
+                base = max(thresholds[-1][1] - 1.0, 0.0)
+                for thresh, sc in thresholds:
+                    if primary_val >= thresh:
+                        base = sc
+                        break
+            else:
+                sorted_t = thresholds
+                base = max(sorted_t[-1][1] - 1.0, 0.0)
+                for thresh, sc in sorted_t:
+                    if primary_val <= thresh:
+                        base = sc
+                        break
 
         # Step 5: Apply adjustments
         adj = 0.0
@@ -5376,6 +5431,16 @@ class CharlieAnalyzer:
         - Leverage (20%)
         - Efficiency (20%)
         - Cash Flow (15%)
+
+        .. deprecated::
+            This method is retained for backward compatibility.  Prefer the
+            canonical ``comprehensive_health_score`` method, which aggregates
+            7 dimensions on a 0-100 scale with richer detail.
+
+            Migration: replace ``financial_rating(data)`` with
+            ``comprehensive_health_score(data)``.  The canonical method
+            returns a ``ComprehensiveHealthResult`` with ``overall_score``
+            (0-100), ``grade`` (letter), and per-dimension breakdown.
 
         Parameters
         ----------
@@ -5975,6 +6040,11 @@ class CharlieAnalyzer:
 
     def comprehensive_health_score(self, data: FinancialData) -> ComprehensiveHealthResult:
         """Compute a comprehensive financial health score (0-100).
+
+        **This is the canonical composite health-score method.**
+        ``financial_rating`` and ``financial_health_score_analysis`` are
+        legacy alternatives retained for backward compatibility; new callers
+        should use this method.
 
         Aggregates 7 dimensions with configurable weights:
         - Profitability (20%)
@@ -8793,27 +8863,57 @@ class CharlieAnalyzer:
         Lightness Ratio = CA / TA. Higher means more current/liquid assets
         vs fixed assets, indicating an asset-light business model.
         Complemented by Revenue/TA (asset turnover) for efficiency.
-        """
-        result = AssetLightnessResult()
 
+        Uses ``_scored_analysis`` with ``mode='derived_primary'``:
+        the primary metric (CA/TA lightness) is computed as a derived
+        expression and stored on the result before monotonic threshold
+        scoring proceeds.
+        """
         ca = data.current_assets
         ta = data.total_assets
 
-        # Primary: CA / TA
-        lightness = safe_divide(ca, ta)
-        result.lightness_ratio = lightness
+        result = self._scored_analysis(
+            data=data,
+            result_class=AssetLightnessResult,
+            ratio_defs=[
+                ("revenue_to_assets", "revenue", "total_assets"),
+            ],
+            score_field="alt_score",
+            grade_field="alt_grade",
+            primary="lightness_ratio",
+            higher_is_better=True,
+            thresholds=[
+                (0.70, 10.0), (0.60, 8.5), (0.50, 7.0),
+                (0.40, 5.5), (0.30, 4.0), (0.15, 2.5), (0.0, 1.0),
+            ],
+            adjustments=[
+                # revenue/TA >= 0.50 (+0.5)
+                (lambda r, d: r.get("revenue_to_assets") is not None and r["revenue_to_assets"] >= 0.50, 0.5),
+                # lightness > 0 and TA > 0 (+0.5)
+                (lambda r, d: r.get("lightness_ratio") is not None and r["lightness_ratio"] > 0 and d.total_assets is not None and d.total_assets > 0, 0.5),
+            ],
+            derived=[],
+            mode="derived_primary",
+            derive_primary_fn=lambda r, d: safe_divide(
+                d.current_assets, d.total_assets
+            ),
+            primary_result_field="lightness_ratio",
+            label="Asset Lightness",
+        )
+
+        # Derive remaining fields that require conditional logic not expressible
+        # in ratio_defs / derived list above (3-way guard for intangible_intensity).
+        lightness = result.lightness_ratio
+
+        # ca_to_ta is an alias for lightness_ratio
         result.ca_to_ta = lightness
 
-        # Revenue to assets (asset turnover)
-        result.revenue_to_assets = safe_divide(data.revenue, ta)
-
-        # Fixed asset ratio = (TA - CA) / TA = 1 - lightness
         if lightness is not None:
             result.fixed_asset_ratio = 1.0 - lightness
+            result.lightness_spread = lightness - 0.50
         else:
             result.fixed_asset_ratio = None
 
-        # Intangible intensity proxy: (TA - CA - Inventory) / TA
         if ca is not None and ta is not None and ta > 0:
             inv = data.inventory or 0
             tangible_current = ca - inv
@@ -8821,60 +8921,22 @@ class CharlieAnalyzer:
         else:
             result.intangible_intensity = None
 
-        # Lightness spread: lightness - 0.50 benchmark
-        if lightness is not None:
-            result.lightness_spread = lightness - 0.50
-
-        # Scoring
+        # Override with the method's canonical summary format (not the generic one).
         if lightness is None:
-            result.alt_score = 0.0
             result.alt_grade = ""
             result.summary = "Asset Lightness: Insufficient data."
-            return result
-
-        # CA/TA ranges: higher = more asset-light
-        if lightness >= 0.70:
-            score = 10.0
-        elif lightness >= 0.60:
-            score = 8.5
-        elif lightness >= 0.50:
-            score = 7.0
-        elif lightness >= 0.40:
-            score = 5.5
-        elif lightness >= 0.30:
-            score = 4.0
-        elif lightness >= 0.15:
-            score = 2.5
         else:
-            score = 1.0
+            rat_str = (
+                f"{result.revenue_to_assets:.4f}"
+                if result.revenue_to_assets is not None
+                else "N/A"
+            )
+            result.summary = (
+                f"Asset Lightness: CA/TA={lightness:.4f}, "
+                f"Revenue/TA={rat_str}, "
+                f"Score={result.alt_score:.1f}/10 ({result.alt_grade})."
+            )
 
-        # Adj: revenue/TA >= 0.50 (+0.5) — efficient asset use
-        rat = result.revenue_to_assets
-        if rat is not None and rat >= 0.50:
-            score += 0.5
-
-        # Adj: both > 0 (+0.5)
-        if lightness > 0 and ta is not None and ta > 0:
-            score += 0.5
-
-        score = max(0.0, min(10.0, score))
-        result.alt_score = score
-
-        if score >= 8:
-            result.alt_grade = "Excellent"
-        elif score >= 6:
-            result.alt_grade = "Good"
-        elif score >= 4:
-            result.alt_grade = "Adequate"
-        else:
-            result.alt_grade = "Weak"
-
-        rat_str = f"{result.revenue_to_assets:.4f}" if result.revenue_to_assets is not None else "N/A"
-        result.summary = (
-            f"Asset Lightness: CA/TA={lightness:.4f}, "
-            f"Revenue/TA={rat_str}, "
-            f"Score={score:.1f}/10 ({result.alt_grade})."
-        )
         return result
 
     def internal_growth_rate_analysis(self, data: FinancialData) -> InternalGrowthRateResult:
@@ -9057,79 +9119,79 @@ class CharlieAnalyzer:
 
         Measures sustainability of dividend payments from earnings and cash flow.
         Primary metric: Div/NI payout ratio (moderate 0.20-0.50 is ideal).
-        """
-        result = PayoutResilienceResult()
 
+        Uses ``_scored_analysis`` with ``mode='band'``:
+        the Div/NI payout ratio scores highest in the target band [0.20, 0.50]
+        and falls off both above (unsustainable) and below (minimal payouts),
+        expressed as nested band_thresholds from narrowest to widest.
+        """
         div = data.dividends_paid
         ni = data.net_income
-        ocf = data.operating_cash_flow
-        revenue = data.revenue
-        ebitda = data.ebitda
 
+        # Guard: early-exit conditions (no change in behaviour)
         if not div or div <= 0:
-            return result
+            return PayoutResilienceResult()
         if not ni or ni <= 0:
-            return result
+            return PayoutResilienceResult()
 
-        # Ratios
-        result.div_to_ni = safe_divide(div, ni)
-        result.div_to_ocf = safe_divide(div, ocf)
-        result.div_to_revenue = safe_divide(div, revenue)
-        result.div_to_ebitda = safe_divide(div, ebitda)
-
-        # Primary: Div/NI
-        primary = result.div_to_ni
-        if primary is None:
-            return result
-
-        result.payout_ratio = primary
-
-        # Resilience buffer = 1 - payout ratio (how much earnings retained)
-        result.resilience_buffer = 1.0 - primary if primary <= 1.0 else 0.0
-
-        # Scoring: moderate payout [0.20, 0.50] is ideal
-        if 0.20 <= primary <= 0.50:
-            score = 10.0
-        elif (0.10 <= primary < 0.20) or (0.50 < primary <= 0.60):
-            score = 8.5
-        elif (0.05 <= primary < 0.10) or (0.60 < primary <= 0.70):
-            score = 7.0
-        elif 0.70 < primary <= 0.80:
-            score = 5.5
-        elif 0.80 < primary <= 0.90:
-            score = 4.0
-        elif 0.90 < primary <= 1.0:
-            score = 2.5
-        elif primary < 0.05:
-            score = 5.5
-        else:
-            score = 1.0
-
-        # Adjustments
-        if result.div_to_ocf is not None and result.div_to_ocf <= 0.40:
-            score += 0.5
-        if div > 0 and ni > 0:
-            score += 0.5
-
-        result.prs_score = min(score, 10.0)
-
-        # Grade
-        if result.prs_score >= 8:
-            result.prs_grade = "Excellent"
-        elif result.prs_score >= 6:
-            result.prs_grade = "Good"
-        elif result.prs_score >= 4:
-            result.prs_grade = "Adequate"
-        else:
-            result.prs_grade = "Weak"
-
-        primary_str = f"{primary:.4f}" if primary is not None else "N/A"
-        ocf_str = f"{result.div_to_ocf:.4f}" if result.div_to_ocf is not None else "N/A"
-        result.summary = (
-            f"Payout Resilience Analysis: Div/NI={primary_str}, "
-            f"Div/OCF={ocf_str}, "
-            f"Score={result.prs_score:.1f}/10 ({result.prs_grade})"
+        result = self._scored_analysis(
+            data=data,
+            result_class=PayoutResilienceResult,
+            ratio_defs=[
+                ("div_to_ni", "dividends_paid", "net_income"),
+                ("div_to_ocf", "dividends_paid", "operating_cash_flow"),
+                ("div_to_revenue", "dividends_paid", "revenue"),
+                ("div_to_ebitda", "dividends_paid", "ebitda"),
+            ],
+            score_field="prs_score",
+            grade_field="prs_grade",
+            primary="div_to_ni",
+            higher_is_better=True,  # ignored in band mode
+            thresholds=[],           # ignored in band mode
+            adjustments=[
+                # Div/OCF <= 0.40: cash-backed payout (+0.5)
+                (lambda r, d: r.get("div_to_ocf") is not None and r["div_to_ocf"] <= 0.40, 0.5),
+                # Both div and NI positive (+0.5)
+                (lambda r, d: (d.dividends_paid or 0) > 0 and (d.net_income or 0) > 0, 0.5),
+            ],
+            derived=[
+                # payout_ratio alias for div_to_ni
+                ("payout_ratio", lambda r, d: r.get("div_to_ni")),
+                # resilience_buffer: how much earnings retained
+                ("resilience_buffer", lambda r, d: (
+                    (1.0 - r["div_to_ni"]) if r.get("div_to_ni") is not None and r["div_to_ni"] <= 1.0 else 0.0
+                )),
+            ],
+            mode="band",
+            # Band thresholds: narrowest (highest-score) first.
+            # Nested symmetrically around the ideal [0.20, 0.50] band;
+            # asymmetric upper tail handled by bands anchored at low=0.0.
+            # Values > 1.0 fall through all bands -> fallback score 1.0.
+            band_thresholds=[
+                (0.20, 0.50, 10.0),  # ideal
+                (0.10, 0.60, 8.5),   # one notch out (either side)
+                (0.05, 0.70, 7.0),   # two notches out
+                (0.00, 0.80, 5.5),   # <0.05 minimal payout OR 0.70-0.80 high
+                (0.00, 0.90, 4.0),   # 0.80-0.90 very high
+                (0.00, 1.00, 2.5),   # 0.90-1.00 near-full payout
+            ],
+            label="Payout Resilience Analysis",
         )
+
+        # Override summary with the canonical format (not the generic framework one).
+        primary_val = result.div_to_ni
+        if primary_val is not None:
+            primary_str = f"{primary_val:.4f}"
+            ocf_str = (
+                f"{result.div_to_ocf:.4f}"
+                if result.div_to_ocf is not None
+                else "N/A"
+            )
+            result.summary = (
+                f"Payout Resilience Analysis: Div/NI={primary_str}, "
+                f"Div/OCF={ocf_str}, "
+                f"Score={result.prs_score:.1f}/10 ({result.prs_grade})"
+            )
 
         return result
 
@@ -12261,7 +12323,20 @@ class CharlieAnalyzer:
         return result
 
     def financial_health_score_analysis(self, data: FinancialData) -> FinancialHealthScoreResult:
-        """Phase 90: Financial Health Score Analysis — composite of 5 pillars."""
+        """Phase 90: Financial Health Score Analysis — composite of 5 pillars.
+
+        .. deprecated::
+            This method is retained for backward compatibility.  Prefer the
+            canonical ``comprehensive_health_score`` method, which aggregates
+            7 dimensions on a 0-100 scale with more nuanced thresholds and a
+            richer result structure.
+
+            Migration: replace ``financial_health_score_analysis(data)`` with
+            ``comprehensive_health_score(data)``.  The canonical method
+            returns a ``ComprehensiveHealthResult`` with ``overall_score``
+            (0-100), ``grade`` (letter A+/A/B/C/D/F), and
+            per-dimension ``HealthDimension`` entries.
+        """
         result = FinancialHealthScoreResult()
         rev = data.revenue or 0
         ta = data.total_assets or 0
