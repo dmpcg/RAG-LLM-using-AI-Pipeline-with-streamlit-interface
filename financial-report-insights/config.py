@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     llm_cache_dir: str = ".cache/llm_responses"
     llm_cache_size_limit_mb: int = 1000
     llm_cache_maxsize: int = 128  # In-memory LRU cache entries
+    reranker_cache_maxsize: int = 1024  # Doc-embedding LRU cache entries on EmbeddingReranker
 
     # Embedding
     embedding_dimension: int = 1024  # mxbai-embed-large; 0 = auto-probe
