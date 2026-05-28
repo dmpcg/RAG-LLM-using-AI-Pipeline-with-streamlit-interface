@@ -134,18 +134,13 @@ class StartupAnalyzer:
         mrr_growth_rate: Optional[float] = None
 
         # Build interpretation
-        parts: List[str] = []
-        if mrr is not None:
-            parts.append(f"MRR ${mrr:,.0f}")
-        if arr is not None:
-            parts.append(f"ARR ${arr:,.0f}")
-        if gross_churn is not None:
-            pct = gross_churn * 100
-            health = "healthy" if pct < 5 else ("moderate" if pct < 10 else "high")
-            parts.append(f"Gross churn {pct:.1f}% ({health})")
-        if mrr_growth_rate is None:
-            parts.append("MRR growth rate unavailable (requires multi-period data)")
-        interpretation = ". ".join(parts) + "." if parts else "No SaaS metrics available."
+        interpretation = self._build_saas_interpretation(
+            mrr=mrr,
+            arr=arr,
+            gross_churn=gross_churn,
+            mrr_growth_rate=mrr_growth_rate,
+            net_revenue_retention=nrr,
+        )
 
         return SaaSMetrics(
             mrr=mrr,
@@ -159,6 +154,37 @@ class StartupAnalyzer:
             customers=data.customer_count,
             interpretation=interpretation,
         )
+
+    @staticmethod
+    def _build_saas_interpretation(
+        mrr: Optional[float],
+        arr: Optional[float],
+        gross_churn: Optional[float],
+        mrr_growth_rate: Optional[float],
+        net_revenue_retention: Optional[float],
+    ) -> str:
+        """Build the SaaS metrics interpretation string.
+
+        When a metric cannot be derived from the supplied single-period data it
+        is surfaced as explicitly "unavailable" rather than silently omitted, so
+        a reader can distinguish an intentionally withheld value from a dropped
+        one. NRR is only available with multi-period expansion data (P0-9).
+        """
+
+        parts: List[str] = []
+        if mrr is not None:
+            parts.append(f"MRR ${mrr:,.0f}")
+        if arr is not None:
+            parts.append(f"ARR ${arr:,.0f}")
+        if gross_churn is not None:
+            pct = gross_churn * 100
+            health = "healthy" if pct < 5 else ("moderate" if pct < 10 else "high")
+            parts.append(f"Gross churn {pct:.1f}% ({health})")
+        if mrr_growth_rate is None:
+            parts.append("MRR growth rate unavailable (requires multi-period data)")
+        if net_revenue_retention is None:
+            parts.append("NRR unavailable (requires multi-period expansion data)")
+        return ". ".join(parts) + "." if parts else "No SaaS metrics available."
 
     # -- Unit economics -----------------------------------------------------
 

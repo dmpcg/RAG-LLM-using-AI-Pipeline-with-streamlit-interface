@@ -7572,7 +7572,11 @@ class FinancialInsightsPage:
 
         st.subheader("Category Breakdown")
         for cat, score in scorecard.category_scores.items():
-            st.progress(score / 20, text=f"{cat.title()}: {score}/20")
+            if score is None:
+                # WP-7b: a category with no input data is "not evaluable" (None), not 0.
+                st.progress(0.0, text=f"{cat.title()}: N/A (not evaluable)")
+            else:
+                st.progress(score / 20, text=f"{cat.title()}: {score}/20")
 
         if scorecard.strengths:
             st.success("**Strengths:** " + ", ".join(scorecard.strengths))

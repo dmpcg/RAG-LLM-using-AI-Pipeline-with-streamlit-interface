@@ -19,6 +19,12 @@ logger = logging.getLogger(__name__)
 # whole-scenario boundary so no partial/corrupt scenario block is ever emitted.
 _MAX_EXPORT_ROWS = 10_000
 
+# Hard cap on the number of ratio/metric entries written to a non-scenario
+# tabular sheet (Ratios sheet + single-sheet export_ratios). When the input
+# exceeds this, the export is capped and SURFACED -- a truncation note row is
+# written and the drop is logged (never a silent slice).
+_MAX_RATIO_ENTRIES = 500
+
 from financial_analyzer import (
     FinancialData,
     FinancialReport,
@@ -195,6 +201,19 @@ class FinancialExcelExporter:
         ws.freeze_panes(row + 1, 0)
         row += 1
 
+        # Cap + surface oversized inputs (log + truncation note row), so the
+        # sheet size stays bounded without a silent slice.
+        truncated = len(ratios) > _MAX_RATIO_ENTRIES
+        if truncated:
+            omitted = len(ratios) - _MAX_RATIO_ENTRIES
+            logger.warning(
+                "Ratios export entry cap (%d) reached; truncating %d "
+                "ratio entry(ies) to avoid runaway sheet size.",
+                _MAX_RATIO_ENTRIES,
+                omitted,
+            )
+            ratios = dict(list(ratios.items())[:_MAX_RATIO_ENTRIES])
+
         col0_width = 12
         for key, value in ratios.items():
             label = key.replace("_", " ").title()
@@ -204,6 +223,16 @@ class FinancialExcelExporter:
                 ws.write(row, 1, "N/A", fmt.text)
             else:
                 ws.write_number(row, 1, value, fmt.value_fmt(key))
+            row += 1
+
+        if truncated:
+            ws.write(
+                row,
+                0,
+                f"... {omitted} ratio entries truncated "
+                f"(entry cap {_MAX_RATIO_ENTRIES} reached) ...",
+                fmt.text,
+            )
             row += 1
 
         ws.set_column(0, 0, col0_width)
@@ -425,8 +454,15 @@ class FinancialExcelExporter:
             k: v for k, v in results.items()
             if isinstance(v, (int, float)) or v is None
         }
-        _MAX_RATIO_ENTRIES = 500
-        if len(numeric) > _MAX_RATIO_ENTRIES:
+        truncated = len(numeric) > _MAX_RATIO_ENTRIES
+        if truncated:
+            omitted = len(numeric) - _MAX_RATIO_ENTRIES
+            logger.warning(
+                "Ratios sheet entry cap (%d) reached; truncating %d "
+                "ratio entry(ies) to avoid runaway sheet size.",
+                _MAX_RATIO_ENTRIES,
+                omitted,
+            )
             numeric = dict(list(numeric.items())[:_MAX_RATIO_ENTRIES])
         if not numeric:
             ws.write(0, 0, "No ratio data available.", fmt.text)
@@ -463,6 +499,16 @@ class FinancialExcelExporter:
                 else:
                     ws.write(row, 2, "N/A", fmt.text)
                 row += 1
+
+        if truncated:
+            ws.write(
+                row,
+                0,
+                f"... {omitted} ratio entries truncated "
+                f"(entry cap {_MAX_RATIO_ENTRIES} reached) ...",
+                fmt.text,
+            )
+            row += 1
 
         ws.set_column(0, 0, 18)
         ws.set_column(1, 1, 30)

@@ -3945,6 +3945,13 @@ class CharlieAnalyzer:
         if base_revenue <= 0:
             return CashFlowForecast(periods=[])
 
+        # A discount rate at or below -100% makes (1 + discount_rate) ** i
+        # zero or negative, leaving the DCF undefined. Return an empty
+        # forecast (dcf_value/terminal_value None) rather than dividing by
+        # zero or producing inf/nan.
+        if discount_rate <= -1.0:
+            return CashFlowForecast(periods=[])
+
         # Derive expense ratio from current data if not provided
         if expense_ratio is None:
             total_expenses = (data.cogs or 0) + (data.operating_expenses or 0)
@@ -4366,7 +4373,7 @@ class CharlieAnalyzer:
         if dso is not None and dio is not None and dpo is not None:
             ccc = round(dso + dio - dpo, 1)
             if ccc < 0:
-                insights.append(f"Negative CCC of {ccc:.0f} days: company generates cash before paying suppliers. Excellent.")
+                insights.append(f"CCC of {ccc:.0f} days (negative): company collects cash before paying suppliers -- favorable.")
             elif ccc < 30:
                 insights.append(f"CCC of {ccc:.0f} days is efficient.")
             elif ccc < 60:

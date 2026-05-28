@@ -542,3 +542,61 @@ class TestSOXBalanceSheetImbalance:
         # assessment (via sec.red_flags), and none in the balanced one.
         assert len(imbalance_indicators(imbal)) == 1
         assert len(imbalance_indicators(bal)) == 0
+
+
+# ---------------------------------------------------------------------------
+# Basel III framework labeling (WP-7a / P1-E8)
+# ---------------------------------------------------------------------------
+
+
+class TestBaselIIIInspiredLabeling:
+    """Lock regression: regulatory citations are relabeled '(inspired)' and
+    no industry-conditional branch was introduced.
+
+    P1-E8 resolved to relabel-only: these are heuristic thresholds inspired by
+    real frameworks, NOT the binding regulatory minima. FinancialData has no
+    industry/sector field, so the labels must never be gated on industry.
+    """
+
+    def test_basel_iii_thresholds_are_relabeled_inspired(self, scorer):
+        """Every Basel III threshold framework label contains '(inspired)'."""
+        basel = [
+            t
+            for t in ComplianceScorer._REGULATORY_THRESHOLDS
+            if "basel iii" in t[1].lower()
+        ]
+        # The Basel-inspired rules must actually be present.
+        assert basel, "expected at least one Basel III threshold"
+        for rule in basel:
+            framework = rule[1]
+            assert "(inspired)" in framework, (
+                f"Basel III framework label must be relabeled '(inspired)': "
+                f"{framework!r}"
+            )
+            # No bare 'Basel III' citation may remain.
+            assert framework != "Basel III"
+
+    def test_no_bare_basel_iii_in_emitted_thresholds(self, scorer, compliant_company):
+        """Emitted RegulatoryThreshold rows never carry a bare 'Basel III'."""
+        reg = scorer.regulatory_ratios(compliant_company)
+        for t in reg.thresholds_checked:
+            if "basel" in t.framework.lower():
+                assert "(inspired)" in t.framework
+                assert t.framework != "Basel III"
+
+    def test_no_industry_conditional_branch_introduced(self):
+        """Lock: the scorer source must NOT gate thresholds on industry/sector.
+
+        FinancialData has no industry/sector field; introducing an
+        industry-conditional branch here would be out of scope and unsupported.
+        """
+        import inspect
+
+        import compliance_scorer
+
+        source = inspect.getsource(compliance_scorer)
+        lowered = source.lower()
+        # No reference to an industry/sector attribute or keyword that would
+        # imply industry gating of the regulatory thresholds.
+        assert "industry" not in lowered
+        assert "sector" not in lowered

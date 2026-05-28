@@ -47,6 +47,11 @@ class TestScoreToGrade:
     def test_grade_f_negative(self):
         assert score_to_grade(-5) == "F"
 
+    # WS-3 WP-8 (lock-only): None must raise TypeError (fail-fast contract).
+    def test_none_raises_typeerror(self):
+        with pytest.raises(TypeError):
+            score_to_grade(None)
+
 
 # ---------------------------------------------------------------------------
 # _is_percent_key

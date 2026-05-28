@@ -93,6 +93,40 @@ class TestSaaSMetrics:
         assert len(m.interpretation) > 0
         assert "MRR" in m.interpretation
 
+    def test_nrr_unavailable_clause_present_when_none(self, analyzer, saas_company):
+        """WP-7(e): when NRR is None, interpretation states it is unavailable."""
+        m = analyzer.saas_metrics(saas_company)
+        assert m.net_revenue_retention is None
+        assert "NRR unavailable (requires multi-period expansion data)" in m.interpretation
+
+    def test_nrr_unavailable_clause_present_empty_data(self, analyzer):
+        """WP-7(e): NRR-unavailable clause surfaces even with no SaaS inputs."""
+        m = analyzer.saas_metrics(FinancialData())
+        assert m.net_revenue_retention is None
+        assert "NRR unavailable (requires multi-period expansion data)" in m.interpretation
+
+    def test_nrr_unavailable_clause_absent_when_supplied(self, analyzer, saas_company):
+        """WP-7(e): when a caller supplies NRR (non-None), the clause is absent."""
+        interp = analyzer._build_saas_interpretation(
+            mrr=500_000,
+            arr=6_000_000,
+            gross_churn=0.03,
+            mrr_growth_rate=None,
+            net_revenue_retention=1.10,
+        )
+        assert "NRR unavailable" not in interp
+
+    def test_nrr_unavailable_clause_present_via_builder(self, analyzer):
+        """WP-7(e): builder emits the clause when NRR is None."""
+        interp = analyzer._build_saas_interpretation(
+            mrr=500_000,
+            arr=6_000_000,
+            gross_churn=0.03,
+            mrr_growth_rate=None,
+            net_revenue_retention=None,
+        )
+        assert "NRR unavailable (requires multi-period expansion data)" in interp
+
 
 # ---------------------------------------------------------------------------
 # Unit economics

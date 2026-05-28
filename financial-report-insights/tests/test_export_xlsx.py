@@ -349,3 +349,93 @@ class TestRatioFormatting_P0_8:
         out = exporter.export_ratios({"current_ratio": 1.5, "gross_margin": 0.45})
         assert isinstance(out, bytes)
         assert len(out) > 100  # non-empty xlsx
+
+
+# ---------------------------------------------------------------------------
+# WS-3 WP-8: surface the pre-existing silent 500-entry cap on the Ratios sheet
+# (must now log a warning AND write exactly one truncation-note row).
+# ---------------------------------------------------------------------------
+
+class TestRatiosSheetCap_WP8:
+    """The Ratios sheet 500-entry cap must no longer be silent."""
+
+    @pytest.fixture
+    def exporter(self):
+        from export_xlsx import FinancialExcelExporter
+        return FinancialExcelExporter()
+
+    def test_ratios_sheet_over_cap_logs_and_writes_one_note(self, exporter, caplog):
+        import io
+        import logging
+        import openpyxl
+        from financial_analyzer import FinancialData
+        from export_xlsx import _MAX_RATIO_ENTRIES
+
+        assert _MAX_RATIO_ENTRIES == 500
+
+        # >500 numeric ratio entries forces the slice to truncate.
+        results = {f"metric_{i:05d}": float(i) for i in range(_MAX_RATIO_ENTRIES + 50)}
+        data = FinancialData(total_assets=1000.0, total_equity=1000.0)
+
+        with caplog.at_level(logging.WARNING, logger="export_xlsx"):
+            out = exporter.export_full_report(data, results)
+
+        assert isinstance(out, bytes)
+        assert out[:2] == b"PK"
+
+        # A warning was logged (no longer silent).
+        cap_logs = [r for r in caplog.records if "cap" in r.getMessage().lower()]
+        assert cap_logs, "expected a truncation warning to be logged"
+
+        # Reopen and assert exactly one truncation note on the Ratios sheet.
+        wb = openpyxl.load_workbook(io.BytesIO(out))
+        ws = wb["Ratios"]
+        col0 = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
+        notes = [
+            v for v in col0
+            if isinstance(v, str) and "truncated" in v.lower()
+        ]
+        assert len(notes) == 1, f"expected exactly one truncation note, got {notes}"
+
+    def test_ratios_sheet_under_cap_no_note(self, exporter):
+        import io
+        import openpyxl
+        from financial_analyzer import FinancialData
+
+        results = {f"metric_{i:05d}": float(i) for i in range(10)}
+        data = FinancialData(total_assets=1000.0, total_equity=1000.0)
+        out = exporter.export_full_report(data, results)
+
+        wb = openpyxl.load_workbook(io.BytesIO(out))
+        ws = wb["Ratios"]
+        col0 = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
+        notes = [
+            v for v in col0
+            if isinstance(v, str) and "truncated" in v.lower()
+        ]
+        assert notes == []
+
+    def test_export_ratios_over_cap_logs_and_writes_one_note(self, exporter, caplog):
+        """The single-sheet export_ratios path also caps + surfaces."""
+        import io
+        import logging
+        import openpyxl
+        from export_xlsx import _MAX_RATIO_ENTRIES
+
+        ratios = {f"metric_{i:05d}": float(i) for i in range(_MAX_RATIO_ENTRIES + 50)}
+
+        with caplog.at_level(logging.WARNING, logger="export_xlsx"):
+            out = exporter.export_ratios(ratios)
+
+        assert out[:2] == b"PK"
+        cap_logs = [r for r in caplog.records if "cap" in r.getMessage().lower()]
+        assert cap_logs, "expected a truncation warning to be logged"
+
+        wb = openpyxl.load_workbook(io.BytesIO(out))
+        ws = wb["Ratios"]
+        col0 = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
+        notes = [
+            v for v in col0
+            if isinstance(v, str) and "truncated" in v.lower()
+        ]
+        assert len(notes) == 1, f"expected exactly one truncation note, got {notes}"

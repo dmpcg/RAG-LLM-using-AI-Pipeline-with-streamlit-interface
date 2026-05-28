@@ -392,6 +392,14 @@ class TestExportEndpoints:
         assert resp.status_code == 422
         assert "Could not generate" in resp.json()["detail"]
 
+    # WS-3 WP-8 (lock-only): company_name over 200 chars is rejected (422).
+    def test_export_company_name_over_max_length_rejected(self, client, mock_rag):
+        resp = client.post("/export/xlsx", json={
+            "financial_data": {"revenue": 1000},
+            "company_name": "X" * 201,
+        })
+        assert resp.status_code == 422
+
 
 # ---------------------------------------------------------------------------
 # Analyze exception handling (Coverage gap 12)

@@ -44,7 +44,9 @@ class CreditScorecard:
 
     total_score: int = 0
     grade: str = "F"  # A, B, C, D, F
-    category_scores: Dict[str, int] = field(default_factory=dict)
+    # WP-7b: a value may be None when that category is "not evaluable"
+    # (all underlying inputs missing) rather than a measured score.
+    category_scores: Dict[str, Optional[int]] = field(default_factory=dict)
     # 5 categories x 20 points each = 100 max
     recommendation: str = "decline"  # approve, conditional, decline
     conditions: List[str] = field(default_factory=list)
@@ -121,7 +123,9 @@ class UnderwritingAnalyzer:
     def credit_scorecard(self, data: FinancialData) -> CreditScorecard:
         """Score the borrower across five categories (each 0-20, total 0-100)."""
 
-        scores: Dict[str, int] = {}
+        # WP-7b: a category score may be None ("not evaluable") when the
+        # underlying inputs are all missing -- distinct from a measured 0.
+        scores: Dict[str, Optional[int]] = {}
 
         # --- Profitability (20 pts) ---
         net_margin = safe_divide(data.net_income, data.revenue)
@@ -152,12 +156,15 @@ class UnderwritingAnalyzer:
         ebitda_margin = safe_divide(data.ebitda, data.revenue)
         scores["stability"] = self._score_stability(ic, ebitda_margin)
 
-        total = sum(scores.values())
+        # WP-7b: sum only evaluable categories; a None category contributes
+        # nothing (we cannot award points without data) and is excluded from
+        # strengths/weaknesses (missing data is neither).
+        total = sum(pts for pts in scores.values() if pts is not None)
         grade = _score_to_grade(total)
         recommendation = _grade_to_recommendation(grade)
 
-        strengths = [cat for cat, pts in scores.items() if pts >= 15]
-        weaknesses = [cat for cat, pts in scores.items() if pts <= 5]
+        strengths = [cat for cat, pts in scores.items() if pts is not None and pts >= 15]
+        weaknesses = [cat for cat, pts in scores.items() if pts is not None and pts <= 5]
 
         conditions: List[str] = []
         if recommendation == "conditional":
@@ -185,7 +192,12 @@ class UnderwritingAnalyzer:
     @staticmethod
     def _score_profitability(
         net_margin: Optional[float], roa: Optional[float]
-    ) -> int:
+    ) -> Optional[int]:
+        # WP-7b: all-None inputs are "not evaluable" -- return None, NOT a
+        # misleading 0 (which would be indistinguishable from a measured 0
+        # and silently penalize a borrower whose data is merely missing).
+        if net_margin is None and roa is None:
+            return None
         nm = net_margin or 0
         r = roa or 0
         if nm > 0.10 and r > 0.08:
@@ -220,7 +232,10 @@ class UnderwritingAnalyzer:
     @staticmethod
     def _score_liquidity(
         current_ratio: Optional[float], cash_ratio: Optional[float]
-    ) -> int:
+    ) -> Optional[int]:
+        # WP-7b: not evaluable when no liquidity input is present.
+        if current_ratio is None and cash_ratio is None:
+            return None
         cr = current_ratio or 0
         cashr = cash_ratio or 0
         if cr > 2.0 and cashr > 0.5:
@@ -236,7 +251,10 @@ class UnderwritingAnalyzer:
     @staticmethod
     def _score_cash_flow(
         ocf_debt: Optional[float], fcf_margin: Optional[float]
-    ) -> int:
+    ) -> Optional[int]:
+        # WP-7b: not evaluable when no cash-flow input is present.
+        if ocf_debt is None and fcf_margin is None:
+            return None
         od = ocf_debt or 0
         fm = fcf_margin or 0
         if od > 0.4 and fm > 0.10:
@@ -252,7 +270,10 @@ class UnderwritingAnalyzer:
     @staticmethod
     def _score_stability(
         interest_coverage: Optional[float], ebitda_margin: Optional[float]
-    ) -> int:
+    ) -> Optional[int]:
+        # WP-7b: not evaluable when no stability input is present.
+        if interest_coverage is None and ebitda_margin is None:
+            return None
         ic = interest_coverage or 0
         em = ebitda_margin or 0
         if ic > 6.0 and em > 0.20:
