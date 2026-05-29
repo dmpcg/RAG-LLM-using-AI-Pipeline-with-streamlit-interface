@@ -4,6 +4,7 @@ Tests for wacc_analysis() and WACCResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestWACCDataclass:
     def test_defaults(self):
         r = WACCResult()
@@ -67,6 +69,7 @@ class TestWACCDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestWACCAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestWACCAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestWACCScoring:
     def test_excellent_low_wacc(self, analyzer):
@@ -184,6 +188,7 @@ class TestWACCScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase37EdgeCases:
     def test_empty_data(self, analyzer):

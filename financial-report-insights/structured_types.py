@@ -1,10 +1,10 @@
 """Structured types replacing Dict[str, Any] patterns across the codebase."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
-
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 class RatioCategory(str, Enum):
     """Financial ratio categories."""
+
     LIQUIDITY = "Liquidity"
     PROFITABILITY = "Profitability"
     LEVERAGE = "Leverage"
@@ -23,6 +24,7 @@ class RatioCategory(str, Enum):
 
 class ReportSectionKey(str, Enum):
     """Known keys for FinancialReport.sections dict."""
+
     EXECUTIVE_SUMMARY = "executive_summary"
     RATIO_ANALYSIS = "ratio_analysis"
     SCORING_MODELS = "scoring_models"
@@ -47,6 +49,7 @@ class ReportSectionKey(str, Enum):
 @dataclass
 class LiquidityRatios:
     """Typed container for liquidity ratio results."""
+
     current_ratio: Optional[float] = None
     quick_ratio: Optional[float] = None
     cash_ratio: Optional[float] = None
@@ -73,6 +76,7 @@ class LiquidityRatios:
 @dataclass
 class ProfitabilityRatios:
     """Typed container for profitability ratio results."""
+
     gross_margin: Optional[float] = None
     operating_margin: Optional[float] = None
     net_margin: Optional[float] = None
@@ -105,6 +109,7 @@ class ProfitabilityRatios:
 @dataclass
 class LeverageRatios:
     """Typed container for leverage ratio results."""
+
     debt_to_equity: Optional[float] = None
     debt_to_assets: Optional[float] = None
     debt_ratio: Optional[float] = None
@@ -134,6 +139,7 @@ class LeverageRatios:
 @dataclass
 class EfficiencyRatios:
     """Typed container for efficiency ratio results."""
+
     asset_turnover: Optional[float] = None
     inventory_turnover: Optional[float] = None
     receivables_turnover: Optional[float] = None
@@ -165,6 +171,7 @@ class EfficiencyRatios:
 @dataclass
 class AnalysisResults:
     """Typed container for CharlieAnalyzer.analyze() output."""
+
     liquidity_ratios: LiquidityRatios = field(default_factory=LiquidityRatios)
     profitability_ratios: ProfitabilityRatios = field(default_factory=ProfitabilityRatios)
     leverage_ratios: LeverageRatios = field(default_factory=LeverageRatios)
@@ -189,8 +196,8 @@ class AnalysisResults:
         # post-construction mutations are always visible via dict-style access.
         # Guarding on name avoids infinite recursion when we clear the cache
         # itself.
-        if name != '_dict_cache':
-            object.__setattr__(self, '_dict_cache', None)
+        if name != "_dict_cache":
+            object.__setattr__(self, "_dict_cache", None)
 
     def __post_init__(self) -> None:
         # _dict_cache is already initialised to None by the generated __init__
@@ -202,7 +209,7 @@ class AnalysisResults:
     def _get_dict(self) -> Dict[str, Any]:
         """Return cached dict representation, building it on first access."""
         if self._dict_cache is None:
-            object.__setattr__(self, '_dict_cache', self._build_dict())
+            object.__setattr__(self, "_dict_cache", self._build_dict())
         return self._dict_cache  # type: ignore[return-value]
 
     def _build_dict(self) -> Dict[str, Any]:
@@ -282,6 +289,7 @@ class AnalysisResults:
 @dataclass
 class GraphChunk:
     """A single chunk from graph-enhanced search."""
+
     source: str = ""
     content: str = ""
     score: float = 0.0
@@ -293,6 +301,7 @@ class GraphChunk:
 @dataclass
 class GraphFinancialContext:
     """Financial context connected to a graph chunk."""
+
     document: str = ""
     period: str = ""
     ratios: List[Dict[str, Any]] = field(default_factory=list)
@@ -310,6 +319,7 @@ class GraphFinancialContext:
 @dataclass
 class GraphRetrievalResult:
     """Typed result from graph_enhanced_search()."""
+
     chunks: List[GraphChunk] = field(default_factory=list)
     financial_context: List[GraphFinancialContext] = field(default_factory=list)
 

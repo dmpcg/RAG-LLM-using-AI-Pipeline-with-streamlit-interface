@@ -55,9 +55,7 @@ class SemanticCache:
             max_entries: Maximum cache capacity; oldest entry is evicted first.
         """
         if not (0.0 < similarity_threshold <= 1.0):
-            raise ValueError(
-                f"similarity_threshold must be in (0, 1], got {similarity_threshold}"
-            )
+            raise ValueError(f"similarity_threshold must be in (0, 1], got {similarity_threshold}")
         if max_entries < 1:
             raise ValueError(f"max_entries must be >= 1, got {max_entries}")
 
@@ -144,9 +142,7 @@ class SemanticCache:
                 self._store.popitem(last=False)
                 self._key_list.pop(0)
 
-            embedding = self._normalize(
-                np.asarray(query_embedding, dtype=np.float32)
-            )
+            embedding = self._normalize(np.asarray(query_embedding, dtype=np.float32))
             self._store[self._next_key] = (embedding, result)
             self._key_list.append(self._next_key)
             self._next_key += 1
@@ -269,9 +265,7 @@ class ChunkDeduplicator:
                 similarity is at or above this value.
         """
         if not (0.0 < similarity_threshold <= 1.0):
-            raise ValueError(
-                f"similarity_threshold must be in (0, 1], got {similarity_threshold}"
-            )
+            raise ValueError(f"similarity_threshold must be in (0, 1], got {similarity_threshold}")
         self.similarity_threshold = similarity_threshold
 
     def _hash_chunk(self, chunk: str) -> int:
@@ -323,9 +317,7 @@ class ChunkDeduplicator:
 
         return [chunks[i] for i in kept_indices]
 
-    def find_duplicates(
-        self, chunks: list[str]
-    ) -> list[tuple[int, int, float]]:
+    def find_duplicates(self, chunks: list[str]) -> list[tuple[int, int, float]]:
         """Identify all near-duplicate pairs among *chunks*.
 
         Args:
@@ -409,10 +401,7 @@ class AdaptiveTopK:
         if max_k < min_k:
             raise ValueError(f"max_k ({max_k}) must be >= min_k ({min_k})")
         if not (min_k <= default_k <= max_k):
-            raise ValueError(
-                f"default_k ({default_k}) must be within [min_k, max_k] = "
-                f"[{min_k}, {max_k}]"
-            )
+            raise ValueError(f"default_k ({default_k}) must be within [min_k, max_k] = [{min_k}, {max_k}]")
 
         self.min_k = min_k
         self.max_k = max_k

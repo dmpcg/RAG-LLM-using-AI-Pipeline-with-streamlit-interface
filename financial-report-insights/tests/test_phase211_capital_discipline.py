@@ -4,10 +4,11 @@ Tests for capital_discipline_analysis() and CapitalDisciplineResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    CapitalDisciplineResult,
     CharlieAnalyzer,
     FinancialData,
-    CapitalDisciplineResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCapitalDisciplineDataclass:
     def test_defaults(self):
         r = CapitalDisciplineResult()
@@ -68,6 +70,7 @@ class TestCapitalDisciplineDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCapitalDisciplineAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestCapitalDisciplineAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestCapitalDisciplineScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """RE/TE=0.50 >=0.50 => base 7.0. OCF/TD=0.55 >=0.50 => +0.5. CapEx/OCF=0.364 >0.30 no adj. Score=7.5."""
@@ -157,6 +161,7 @@ class TestCapitalDisciplineScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase211EdgeCases:
     def test_empty_data(self, analyzer):

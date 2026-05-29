@@ -3,10 +3,10 @@
 Provides thread-safe aggregation of error rates, per-component latency, alert
 rule evaluation, and rolling performance baselines with JSON persistence.
 """
+
 import json
 import logging
 import math
-import os
 import threading
 import time
 from collections import deque
@@ -28,7 +28,7 @@ _ALERT_CACHE_HIT_RATE_MIN_QUERIES = 100
 _ALERT_CACHE_HIT_RATE_WARNING = 0.1
 
 # Thresholds for overall_status
-_DEGRADED_ERROR_RATE = 2.0   # errors/min
+_DEGRADED_ERROR_RATE = 2.0  # errors/min
 _UNHEALTHY_ERROR_RATE = 10.0  # errors/min
 _DEGRADED_LATENCY_MS = 5_000.0
 _UNHEALTHY_LATENCY_MS = 10_000.0
@@ -70,9 +70,7 @@ class SystemMonitor:
     # Recording
     # ------------------------------------------------------------------
 
-    def record_error(
-        self, error_type: str, message: str, component: str
-    ) -> None:
+    def record_error(self, error_type: str, message: str, component: str) -> None:
         """Record an application error.
 
         Args:
@@ -154,11 +152,7 @@ class SystemMonitor:
         statuses: Dict[str, str] = {}
         for comp in all_components:
             err_cnt = error_counts.get(comp, 0)
-            avg_lat = (
-                comp_latency_sum[comp] / comp_latency_cnt[comp]
-                if comp in comp_latency_sum
-                else 0.0
-            )
+            avg_lat = comp_latency_sum[comp] / comp_latency_cnt[comp] if comp in comp_latency_sum else 0.0
             if err_cnt >= 5 or avg_lat >= _UNHEALTHY_LATENCY_MS:
                 statuses[comp] = "unhealthy"
             elif err_cnt >= 1 or avg_lat >= _DEGRADED_LATENCY_MS:
@@ -278,10 +272,7 @@ class SystemMonitor:
                 cache_stats = self._metrics_collector.get_cache_stats()
                 total_events = cache_stats.get("total_events", 0)
                 hit_rate = cache_stats.get("hit_rate", 1.0)
-                if (
-                    total_events > _ALERT_CACHE_HIT_RATE_MIN_QUERIES
-                    and hit_rate < _ALERT_CACHE_HIT_RATE_WARNING
-                ):
+                if total_events > _ALERT_CACHE_HIT_RATE_MIN_QUERIES and hit_rate < _ALERT_CACHE_HIT_RATE_WARNING:
                     alerts.append(
                         {
                             "level": "warning",
@@ -295,9 +286,7 @@ class SystemMonitor:
                         }
                     )
             except Exception as exc:  # pragma: no cover
-                logger.warning(
-                    "SystemMonitor: cache hit-rate alert check failed: %s", exc
-                )
+                logger.warning("SystemMonitor: cache hit-rate alert check failed: %s", exc)
 
         return alerts
 
@@ -382,9 +371,7 @@ class PerformanceBaseline:
             "count": n,
         }
 
-    def check_regression(
-        self, metric_name: str, current_value: float
-    ) -> Dict[str, Any]:
+    def check_regression(self, metric_name: str, current_value: float) -> Dict[str, Any]:
         """Compare *current_value* against the baseline for *metric_name*.
 
         A regression is flagged when the z-score of *current_value* relative
@@ -479,16 +466,12 @@ class PerformanceBaseline:
             raw = json.load(fh)
 
         if not isinstance(raw, dict):
-            raise ValueError(
-                f"Expected a JSON object at the top level, got {type(raw).__name__}"
-            )
+            raise ValueError(f"Expected a JSON object at the top level, got {type(raw).__name__}")
 
         loaded: Dict[str, List[float]] = {}
         for key, values in raw.items():
             if not isinstance(values, list):
-                raise ValueError(
-                    f"Expected list for metric '{key}', got {type(values).__name__}"
-                )
+                raise ValueError(f"Expected list for metric '{key}', got {type(values).__name__}")
             loaded[str(key)] = [float(v) for v in values]
 
         with self._lock:

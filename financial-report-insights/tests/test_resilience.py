@@ -4,21 +4,20 @@ Tests: LLM timeout, circuit breaker, pre-computed norms, thread-safe reload,
        embedding cache key stability, configurable tax rate, answer reuse.
 """
 
-import pytest
 import threading
 import time
-from concurrent.futures import TimeoutError as FuturesTimeoutError
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 
-from local_llm import LocalLLM, LLMConnectionError, LLMTimeoutError, LocalEmbedder
 from financial_analyzer import CharlieAnalyzer, FinancialData
-
+from local_llm import LLMConnectionError, LLMTimeoutError, LocalEmbedder, LocalLLM
 
 # ============================================================
 # LLM Timeout Tests
 # ============================================================
+
 
 class TestLLMTimeout:
     """Test timeout enforcement in LocalLLM."""
@@ -107,12 +106,13 @@ class TestLLMTimeout:
 # Circuit Breaker Tests
 # ============================================================
 
+
 class TestCircuitBreaker:
     """Test circuit breaker logic to prevent cascading failures."""
 
     def test_starts_closed(self):
         """Circuit breaker should start in CLOSED state."""
-        from local_llm import CircuitBreaker, CircuitState
+        from local_llm import CircuitBreaker
 
         cb = CircuitBreaker(failure_threshold=3, recovery_seconds=5)
         assert cb.circuit_state == "CLOSED"
@@ -269,6 +269,7 @@ class TestCircuitBreaker:
 # Pre-computed Norms Tests
 # ============================================================
 
+
 class TestPrecomputedNorms:
     """Test pre-computed embedding index for performance."""
 
@@ -373,14 +374,16 @@ class TestPrecomputedNorms:
 # Embedding Cache Key Tests
 # ============================================================
 
+
 class TestEmbeddingCacheKey:
     """Test embedding cache key includes model name."""
 
     def test_includes_model_name(self):
         """Cache key should include embedding model name."""
-        from app_local import SimpleRAG
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
+
+        from app_local import SimpleRAG
 
         mock_llm = MagicMock()
         mock_embedder = MagicMock()
@@ -410,9 +413,10 @@ class TestEmbeddingCacheKey:
 
     def test_different_models_different_keys(self):
         """Different embedding models should produce different cache keys."""
-        from app_local import SimpleRAG
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
+
+        from app_local import SimpleRAG
 
         mock_llm = MagicMock()
         mock_embedder = MagicMock()
@@ -439,6 +443,7 @@ class TestEmbeddingCacheKey:
 # ============================================================
 # Thread-Safe Reload Tests
 # ============================================================
+
 
 class TestThreadSafeReload:
     """Test thread-safe document reload."""
@@ -507,6 +512,7 @@ class TestThreadSafeReload:
 # Configurable Tax Rate Tests
 # ============================================================
 
+
 class TestConfigurableTaxRate:
     """Test tax_rate parameter in CharlieAnalyzer."""
 
@@ -537,7 +543,7 @@ class TestConfigurableTaxRate:
         # NOPAT = operating_income * (1 - tax_rate) = 100000 * 0.79 = 79000
         # Invested capital = equity + debt = 500000 + 300000 = 800000
         # ROIC = 79000 / 800000 = 0.09875
-        assert ratios['roic'] == pytest.approx(0.09875, rel=0.01)
+        assert ratios["roic"] == pytest.approx(0.09875, rel=0.01)
 
     def test_roic_different_tax_rates(self):
         """Different tax rates should produce different ROIC."""
@@ -554,12 +560,13 @@ class TestConfigurableTaxRate:
         ratios_30 = analyzer_30.calculate_profitability_ratios(data)
 
         # Higher tax rate = lower NOPAT = lower ROIC
-        assert ratios_25['roic'] > ratios_30['roic']
+        assert ratios_25["roic"] > ratios_30["roic"]
 
 
 # ============================================================
 # Answer Reuses Retrieval Tests
 # ============================================================
+
 
 class TestAnswerReusesRetrieval:
     """Test answer() accepting pre-retrieved documents."""
@@ -616,6 +623,7 @@ class TestAnswerReusesRetrieval:
 # ============================================================
 # Streaming LLM Tests
 # ============================================================
+
 
 class TestStreamingLLM:
     """Test streaming response generation in LocalLLM."""
@@ -682,7 +690,6 @@ class TestStreamingLLM:
 
     def test_generate_stream_records_success(self):
         """Successful streaming should record success on circuit breaker."""
-        from local_llm import CircuitBreaker
 
         llm = LocalLLM(model="test-model", circuit_breaker_failure_threshold=3)
 
@@ -726,6 +733,7 @@ class TestStreamingLLM:
 # ============================================================
 # Circuit Breaker allow_request Tests
 # ============================================================
+
 
 class TestCircuitBreakerAllowRequest:
     """Test the allow_request() method used by streaming paths."""
@@ -778,6 +786,7 @@ class TestCircuitBreakerAllowRequest:
 # ============================================================
 # Answer Stream Tests
 # ============================================================
+
 
 class TestAnswerStream:
     """Test streaming answer generation in SimpleRAG."""
@@ -871,15 +880,17 @@ class TestAnswerStream:
 # Content-Hash Cache Key Tests
 # ============================================================
 
+
 class TestContentHashCacheKey:
     """Test that cache key uses content hash for true change detection."""
 
     def test_same_content_same_key(self):
         """Same content should produce same cache key regardless of mtime."""
-        from app_local import SimpleRAG
-        from pathlib import Path
-        import tempfile
         import os
+        import tempfile
+        from pathlib import Path
+
+        from app_local import SimpleRAG
 
         mock_llm = MagicMock()
         mock_embedder = MagicMock()
@@ -918,9 +929,10 @@ class TestContentHashCacheKey:
 
     def test_different_content_different_key(self):
         """Different content should produce different cache keys."""
-        from app_local import SimpleRAG
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
+
+        from app_local import SimpleRAG
 
         mock_llm = MagicMock()
         mock_embedder = MagicMock()

@@ -4,6 +4,7 @@ Tests for revenue_cash_realization_analysis() and RevenueCashRealizationResult d
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestRevenueCashRealizationDataclass:
     def test_defaults(self):
         r = RevenueCashRealizationResult()
@@ -68,6 +70,7 @@ class TestRevenueCashRealizationDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestRevenueCashRealizationAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -105,6 +108,7 @@ class TestRevenueCashRealizationAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestRevenueCashRealizationScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """OCF/Rev=0.22 in [0.22,0.30)=>base 8.5. CollRate=0.85>=0.85(+0.5). OCF>0&Rev>0(+0.5). Score=9.5."""
@@ -138,6 +142,7 @@ class TestRevenueCashRealizationScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase291EdgeCases:
     def test_empty_data(self, analyzer):

@@ -4,6 +4,7 @@ Tests for net_profit_margin_analysis() and NetProfitMarginResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestNetProfitMarginDataclass:
     def test_defaults(self):
         r = NetProfitMarginResult()
@@ -70,6 +72,7 @@ class TestNetProfitMarginDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestNetProfitMarginAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -117,6 +120,7 @@ class TestNetProfitMarginAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestNetProfitMarginScoring:
     def test_high_margin(self, analyzer):
         """NM 30% => base 10."""
@@ -163,6 +167,7 @@ class TestNetProfitMarginScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase53EdgeCases:
     def test_empty_data(self, analyzer):

@@ -4,10 +4,11 @@ Tests for defensive_interval_analysis() and DefensiveIntervalResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DefensiveIntervalResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDefensiveIntervalDataclass:
     def test_defaults(self):
         r = DefensiveIntervalResult()
@@ -68,6 +70,7 @@ class TestDefensiveIntervalDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDefensiveIntervalAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -114,6 +117,7 @@ class TestDefensiveIntervalAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestDefensiveIntervalScoring:
     def test_very_high_interval(self, analyzer):
@@ -189,6 +193,7 @@ class TestDefensiveIntervalScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase80EdgeCases:
     def test_empty_data(self, analyzer):

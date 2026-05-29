@@ -4,9 +4,6 @@ import io
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # _sanitize_and_save - path traversal prevention & file size
 # ---------------------------------------------------------------------------
@@ -91,7 +88,7 @@ class TestSanitizeAndSave:
 
     @patch("streamlit_app_local.st")
     def test_rejects_oversized_file(self, mock_st, tmp_path):
-        from streamlit_app_local import _sanitize_and_save, MAX_FILE_SIZE
+        from streamlit_app_local import MAX_FILE_SIZE, _sanitize_and_save
 
         # Create content larger than MAX_FILE_SIZE
         big_content = b"x" * (MAX_FILE_SIZE + 1)
@@ -103,7 +100,7 @@ class TestSanitizeAndSave:
 
     @patch("streamlit_app_local.st")
     def test_accepts_file_at_size_limit(self, mock_st, tmp_path):
-        from streamlit_app_local import _sanitize_and_save, MAX_FILE_SIZE
+        from streamlit_app_local import MAX_FILE_SIZE, _sanitize_and_save
 
         exact_content = b"x" * MAX_FILE_SIZE
         f = self._make_file("exact.pdf", exact_content)
@@ -159,8 +156,8 @@ class TestConstants:
         assert MAX_FILE_SIZE > 0
 
     def test_max_file_size_is_in_bytes(self):
-        from streamlit_app_local import MAX_FILE_SIZE
         from config import settings
+        from streamlit_app_local import MAX_FILE_SIZE
 
         assert MAX_FILE_SIZE == settings.max_file_size_mb * 1024 * 1024
 
@@ -192,6 +189,7 @@ class TestSampleDataGenerators:
     @patch("streamlit_app_local.st")
     def test_sample_income_statement_has_columns(self, mock_st, tmp_path):
         import pandas as pd
+
         from streamlit_app_local import _generate_sample_income_statement
 
         _generate_sample_income_statement(tmp_path)
@@ -203,6 +201,7 @@ class TestSampleDataGenerators:
     @patch("streamlit_app_local.st")
     def test_sample_budget_has_variance_columns(self, mock_st, tmp_path):
         import pandas as pd
+
         from streamlit_app_local import _generate_sample_budget
 
         _generate_sample_budget(tmp_path)
@@ -224,15 +223,15 @@ class TestDeadUIRemoved:
 
     def _module_source(self) -> str:
         import inspect
+
         import streamlit_app_local
+
         return inspect.getsource(streamlit_app_local)
 
     def test_ollama_model_selectbox_gone(self):
         """ollama_model variable was never read; selectbox must be removed."""
         src = self._module_source()
-        assert "ollama_model" not in src, (
-            "Dead UI 'ollama_model' selectbox still present in streamlit_app_local.py"
-        )
+        assert "ollama_model" not in src, "Dead UI 'ollama_model' selectbox still present in streamlit_app_local.py"
 
     def test_submit_query_session_read_gone(self):
         """submit_query was never written to session_state; read must be removed."""
@@ -244,14 +243,15 @@ class TestDeadUIRemoved:
     def test_module_imports_cleanly(self):
         """Module must still be importable after the dead-UI removal."""
         import importlib
+
         import streamlit_app_local
+
         # Re-importing forces module-level code to be inspectable; no AttributeError.
         importlib.reload(streamlit_app_local)
 
     @patch("streamlit_app_local.st")
     def test_render_sidebar_smoke(self, mock_st):
         """render_sidebar runs without raising after dead UI removed."""
-        from pathlib import Path
         from unittest.mock import MagicMock
 
         # st.radio must return a string so the caller can compare it
@@ -267,6 +267,7 @@ class TestDeadUIRemoved:
             mock_path_cls.return_value = mock_docs
 
             from streamlit_app_local import render_sidebar
+
             result = render_sidebar()
 
         # render_sidebar returns whatever st.radio returned
@@ -276,9 +277,8 @@ class TestDeadUIRemoved:
     def test_get_answer_button_condition_no_submit_query(self, mock_st):
         """The button condition no longer references submit_query."""
         import inspect
+
         import streamlit_app_local
 
         src = inspect.getsource(streamlit_app_local.render_qa_page)
-        assert "submit_query" not in src, (
-            "render_qa_page still references submit_query after WP-B8 removal"
-        )
+        assert "submit_query" not in src, "render_qa_page still references submit_query after WP-B8 removal"

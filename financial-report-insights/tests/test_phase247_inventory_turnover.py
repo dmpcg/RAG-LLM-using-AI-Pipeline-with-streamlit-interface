@@ -4,6 +4,7 @@ Tests for inventory_turnover_analysis() and InventoryTurnoverResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestInventoryTurnoverDataclass:
     def test_defaults(self):
         r = InventoryTurnoverResult()
@@ -68,6 +70,7 @@ class TestInventoryTurnoverDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestInventoryTurnoverAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestInventoryTurnoverAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestInventoryTurnoverScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -135,6 +139,7 @@ class TestInventoryTurnoverScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase247EdgeCases:
     def test_empty_data(self, analyzer):

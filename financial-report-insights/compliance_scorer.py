@@ -10,7 +10,7 @@ FinancialData fields already tracked by the system.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional
 
 from export_utils import score_to_grade as _score_to_grade
 from financial_analyzer import (
@@ -253,21 +253,11 @@ class ComplianceScorer:
             ni_negative = data.net_income is not None and data.net_income < 0
             if ni_negative:
                 # Negative NI: flag as concern regardless of OCF/NI ratio
-                flags.append(
-                    f"Negative net income (${data.net_income:,.0f}) -- "
-                    "earnings quality indeterminate"
-                )
-                significant_deficiency.append(
-                    "Net income is negative; OCF/NI ratio is unreliable"
-                )
+                flags.append(f"Negative net income (${data.net_income:,.0f}) -- earnings quality indeterminate")
+                significant_deficiency.append("Net income is negative; OCF/NI ratio is unreliable")
             elif ocf_ni < 0.5:
-                flags.append(
-                    f"OCF/NI ratio is {ocf_ni:.2f} (below 0.50) -- "
-                    "earnings quality concern"
-                )
-                significant_deficiency.append(
-                    "Cash flow diverges significantly from reported earnings"
-                )
+                flags.append(f"OCF/NI ratio is {ocf_ni:.2f} (below 0.50) -- earnings quality concern")
+                significant_deficiency.append("Cash flow diverges significantly from reported earnings")
             else:
                 checks_passed += 1
         else:
@@ -278,13 +268,8 @@ class ComplianceScorer:
         ar_rev = safe_divide(data.accounts_receivable, data.revenue)
         if ar_rev is not None:
             if ar_rev > 0.40:
-                flags.append(
-                    f"AR/Revenue is {ar_rev:.2f} (above 0.40) -- "
-                    "potential revenue recognition risk"
-                )
-                significant_deficiency.append(
-                    "Unusually high receivables relative to revenue"
-                )
+                flags.append(f"AR/Revenue is {ar_rev:.2f} (above 0.40) -- potential revenue recognition risk")
+                significant_deficiency.append("Unusually high receivables relative to revenue")
             else:
                 checks_passed += 1
         else:
@@ -295,21 +280,11 @@ class ComplianceScorer:
         ic = safe_divide(data.ebit, data.interest_expense)
         if ic is not None:
             if ic < 1.0:
-                flags.append(
-                    f"Interest coverage is {ic:.2f}x (below 1.0) -- "
-                    "cannot cover interest payments"
-                )
-                material_weakness.append(
-                    "EBIT insufficient to cover interest expense"
-                )
+                flags.append(f"Interest coverage is {ic:.2f}x (below 1.0) -- cannot cover interest payments")
+                material_weakness.append("EBIT insufficient to cover interest expense")
             elif ic < 2.0:
-                flags.append(
-                    f"Interest coverage is {ic:.2f}x (below 2.0) -- "
-                    "thin debt service margin"
-                )
-                significant_deficiency.append(
-                    "Interest coverage below prudent threshold"
-                )
+                flags.append(f"Interest coverage is {ic:.2f}x (below 2.0) -- thin debt service margin")
+                significant_deficiency.append("Interest coverage below prudent threshold")
             else:
                 checks_passed += 1
         else:
@@ -318,10 +293,7 @@ class ComplianceScorer:
         # Check 4: Negative equity
         checks_done += 1
         if data.total_equity is not None and data.total_equity < 0:
-            flags.append(
-                f"Negative equity (${data.total_equity:,.0f}) -- "
-                "insolvency risk"
-            )
+            flags.append(f"Negative equity (${data.total_equity:,.0f}) -- insolvency risk")
             material_weakness.append("Company has negative shareholders' equity")
         else:
             checks_passed += 1
@@ -329,10 +301,7 @@ class ComplianceScorer:
         # Check 5: Operating loss
         checks_done += 1
         if data.operating_income is not None and data.operating_income < 0:
-            flags.append(
-                f"Operating loss (${data.operating_income:,.0f}) -- "
-                "core business unprofitable"
-            )
+            flags.append(f"Operating loss (${data.operating_income:,.0f}) -- core business unprofitable")
             significant_deficiency.append("Operating income is negative")
         else:
             checks_passed += 1
@@ -345,17 +314,10 @@ class ComplianceScorer:
             and data.revenue is not None
             and data.revenue > 0
         ):
-            accrual_gap = safe_divide(
-                abs(data.net_income - data.operating_cash_flow), data.revenue, default=0.0
-            )
+            accrual_gap = safe_divide(abs(data.net_income - data.operating_cash_flow), data.revenue, default=0.0)
             if accrual_gap > 0.15:
-                flags.append(
-                    f"Accrual gap is {accrual_gap:.1%} of revenue -- "
-                    "potential earnings manipulation signal"
-                )
-                significant_deficiency.append(
-                    "Large gap between accrual earnings and cash earnings"
-                )
+                flags.append(f"Accrual gap is {accrual_gap:.1%} of revenue -- potential earnings manipulation signal")
+                significant_deficiency.append("Large gap between accrual earnings and cash earnings")
             else:
                 checks_passed += 1
         else:
@@ -368,17 +330,10 @@ class ComplianceScorer:
         # significant_deficiency -- the imbalance already reaches overall audit
         # risk via sec.red_flags, so adding it here would double-count it.
         bs_imbalance_penalty = 0
-        if (
-            data.total_assets is not None
-            and data.total_liabilities is not None
-            and data.total_equity is not None
-        ):
+        if data.total_assets is not None and data.total_liabilities is not None and data.total_equity is not None:
             bs_sum = data.total_liabilities + data.total_equity
             bs_diff = abs(data.total_assets - bs_sum)
-            if (
-                safe_divide(bs_diff, data.total_assets, default=1.0)
-                >= _BS_IMBALANCE_TOLERANCE
-            ):
+            if safe_divide(bs_diff, data.total_assets, default=1.0) >= _BS_IMBALANCE_TOLERANCE:
                 bs_imbalance_penalty = _BS_IMBALANCE_SOX_PENALTY
                 flags.append(
                     f"Balance sheet does not balance: Assets=${data.total_assets:,.0f} "
@@ -431,22 +386,15 @@ class ComplianceScorer:
         """
         # Completeness check: all fields
         all_fields = self._CRITICAL_FIELDS + self._OPTIONAL_FIELDS
-        present_count = sum(
-            1 for f in all_fields if getattr(data, f, None) is not None
-        )
+        present_count = sum(1 for f in all_fields if getattr(data, f, None) is not None)
         completeness_pct = present_count / len(all_fields) if all_fields else 0.0
         completeness_pts = int(50 * completeness_pct)
 
         # Critical fields
-        missing_critical = [
-            f for f in self._CRITICAL_FIELDS if getattr(data, f, None) is None
-        ]
-        missing_optional = [
-            f for f in self._OPTIONAL_FIELDS if getattr(data, f, None) is None
-        ]
+        missing_critical = [f for f in self._CRITICAL_FIELDS if getattr(data, f, None) is None]
+        missing_optional = [f for f in self._OPTIONAL_FIELDS if getattr(data, f, None) is None]
         critical_coverage = (
-            (len(self._CRITICAL_FIELDS) - len(missing_critical))
-            / len(self._CRITICAL_FIELDS)
+            (len(self._CRITICAL_FIELDS) - len(missing_critical)) / len(self._CRITICAL_FIELDS)
             if self._CRITICAL_FIELDS
             else 0.0
         )
@@ -459,18 +407,11 @@ class ComplianceScorer:
 
         # Check 1: Balance sheet equation (Assets = Liabilities + Equity)
         consistency_total += 1
-        if (
-            data.total_assets is not None
-            and data.total_liabilities is not None
-            and data.total_equity is not None
-        ):
+        if data.total_assets is not None and data.total_liabilities is not None and data.total_equity is not None:
             bs_sum = data.total_liabilities + data.total_equity
             bs_diff = abs(data.total_assets - bs_sum)
             # Allow 1% tolerance (shared with the SOX-local imbalance check)
-            if (
-                safe_divide(bs_diff, data.total_assets, default=1.0)
-                < _BS_IMBALANCE_TOLERANCE
-            ):
+            if safe_divide(bs_diff, data.total_assets, default=1.0) < _BS_IMBALANCE_TOLERANCE:
                 consistency_passed += 1
             else:
                 red_flags.append(
@@ -480,11 +421,7 @@ class ComplianceScorer:
 
         # Check 2: Gross profit = Revenue - COGS
         consistency_total += 1
-        if (
-            data.revenue is not None
-            and data.cogs is not None
-            and data.gross_profit is not None
-        ):
+        if data.revenue is not None and data.cogs is not None and data.gross_profit is not None:
             expected_gp = data.revenue - data.cogs
             gp_diff = abs(data.gross_profit - expected_gp)
             if safe_divide(gp_diff, data.revenue, default=1.0) < 0.01:
@@ -497,24 +434,15 @@ class ComplianceScorer:
 
         # Check 3: Operating income should be <= Gross profit
         consistency_total += 1
-        if (
-            data.operating_income is not None
-            and data.gross_profit is not None
-            and data.gross_profit > 0
-        ):
+        if data.operating_income is not None and data.gross_profit is not None and data.gross_profit > 0:
             if data.operating_income <= data.gross_profit * 1.01:
                 consistency_passed += 1
             else:
-                red_flags.append(
-                    "Operating income exceeds gross profit -- "
-                    "unusual accounting treatment"
-                )
+                red_flags.append("Operating income exceeds gross profit -- unusual accounting treatment")
         else:
             consistency_passed += 1  # Can't check, assume OK
 
-        consistency_pct = (
-            consistency_passed / consistency_total if consistency_total else 1.0
-        )
+        consistency_pct = consistency_passed / consistency_total if consistency_total else 1.0
         consistency_pts = int(20 * consistency_pct)
 
         total = completeness_pts + critical_pts + consistency_pts
@@ -577,8 +505,7 @@ class ComplianceScorer:
                 fail_count += 1
                 if severity == "critical":
                     critical_failures.append(
-                        f"{rule_name}: {metric_name}={current:.4f} "
-                        f"(threshold {operator} {threshold})"
+                        f"{rule_name}: {metric_name}={current:.4f} (threshold {operator} {threshold})"
                     )
 
             results.append(
@@ -666,18 +593,14 @@ class ComplianceScorer:
             z = self._analyzer.altman_z_score(data)
             if z and z.z_score is not None and z.z_score < 1.81:
                 going_concern = True
-                restatement_indicators.append(
-                    f"Altman Z-score {z.z_score:.2f} in distress zone"
-                )
+                restatement_indicators.append(f"Altman Z-score {z.z_score:.2f} in distress zone")
         except (AttributeError, TypeError, ValueError):
             pass  # Z-score unavailable for this data
 
         # Check 3: Critical regulatory failures >= 2
         if len(reg.critical_failures) >= 2:
             going_concern = True
-            restatement_indicators.append(
-                f"{len(reg.critical_failures)} critical regulatory threshold failures"
-            )
+            restatement_indicators.append(f"{len(reg.critical_failures)} critical regulatory threshold failures")
 
         # SOX material weaknesses
         if sox.material_weakness_indicators:
@@ -690,27 +613,16 @@ class ComplianceScorer:
         # Build recommendations
         if going_concern:
             recommendations.append(
-                "Going concern risk identified -- auditor should consider "
-                "going concern opinion paragraph"
+                "Going concern risk identified -- auditor should consider going concern opinion paragraph"
             )
         if sox.overall_risk == "high":
-            recommendations.append(
-                "High SOX risk -- recommend enhanced internal controls review"
-            )
+            recommendations.append("High SOX risk -- recommend enhanced internal controls review")
         if sec.disclosure_score < 50:
-            recommendations.append(
-                "Low filing quality score -- recommend improving data completeness "
-                "and consistency"
-            )
+            recommendations.append("Low filing quality score -- recommend improving data completeness and consistency")
         if reg.critical_failures:
-            recommendations.append(
-                "Critical regulatory threshold failures -- "
-                "recommend immediate remediation plan"
-            )
+            recommendations.append("Critical regulatory threshold failures -- recommend immediate remediation plan")
         if not recommendations:
-            recommendations.append(
-                "No critical findings -- standard audit procedures recommended"
-            )
+            recommendations.append("No critical findings -- standard audit procedures recommended")
 
         # Risk level
         if going_concern or total < 30:
@@ -751,21 +663,17 @@ class ComplianceScorer:
 
         summary_parts = [
             f"SOX risk: {sox.overall_risk} (score {sox.risk_score}/100).",
-            f"SEC filing quality: {sec.disclosure_score}/100 "
-            f"(Grade {sec.grade}).",
+            f"SEC filing quality: {sec.disclosure_score}/100 (Grade {sec.grade}).",
             f"Regulatory compliance: "
             f"{reg.compliance_pct:.0f}% ({reg.pass_count}/{reg.pass_count + reg.fail_count} passed)."
             if reg.compliance_pct is not None
             else "Regulatory compliance: N/A (insufficient data for all checks).",
-            f"Audit risk: {audit.risk_level} "
-            f"(score {audit.score}/100, Grade {audit.grade}).",
+            f"Audit risk: {audit.risk_level} (score {audit.score}/100, Grade {audit.grade}).",
         ]
         if audit.going_concern_risk:
             summary_parts.append("GOING CONCERN RISK IDENTIFIED.")
         if reg.critical_failures:
-            summary_parts.append(
-                f"{len(reg.critical_failures)} critical regulatory failure(s)."
-            )
+            summary_parts.append(f"{len(reg.critical_failures)} critical regulatory failure(s).")
 
         return ComplianceReport(
             sox=sox,

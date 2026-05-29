@@ -3,21 +3,20 @@
 import pytest
 
 from export_utils import (
+    _CATEGORY_MAP,
     _PERCENT_KEYWORDS,
-    _DOLLAR_KEYWORDS,
     _RATIO_KEYWORDS,
+    _categorize,
+    _is_dollar_key,
     _is_percent_key,
     _is_ratio_key,
-    _is_dollar_key,
-    _CATEGORY_MAP,
-    _categorize,
     score_to_grade,
 )
-
 
 # ---------------------------------------------------------------------------
 # score_to_grade (canonical 100-scale grading)
 # ---------------------------------------------------------------------------
+
 
 class TestScoreToGrade:
     def test_grade_a_at_80(self):
@@ -57,6 +56,7 @@ class TestScoreToGrade:
 # _is_percent_key
 # ---------------------------------------------------------------------------
 
+
 class TestIsPercentKey:
     def test_gross_margin_is_percent(self):
         assert _is_percent_key("gross_margin") is True
@@ -93,6 +93,7 @@ class TestIsPercentKey:
 # ---------------------------------------------------------------------------
 # _is_dollar_key
 # ---------------------------------------------------------------------------
+
 
 class TestIsDollarKey:
     def test_revenue_is_dollar(self):
@@ -133,6 +134,7 @@ class TestIsDollarKey:
 # ---------------------------------------------------------------------------
 # _categorize
 # ---------------------------------------------------------------------------
+
 
 class TestCategorize:
     # Liquidity
@@ -211,13 +213,27 @@ class TestCategorize:
 # _CATEGORY_MAP completeness - all 19 keys are present
 # ---------------------------------------------------------------------------
 
+
 class TestCategoryMapCompleteness:
     EXPECTED_KEYS = {
-        "current_ratio", "quick_ratio", "cash_ratio", "working_capital",
-        "gross_margin", "operating_margin", "net_margin", "roe", "roa", "roic",
-        "debt_to_equity", "debt_to_assets", "debt_ratio", "equity_multiplier",
+        "current_ratio",
+        "quick_ratio",
+        "cash_ratio",
+        "working_capital",
+        "gross_margin",
+        "operating_margin",
+        "net_margin",
+        "roe",
+        "roa",
+        "roic",
+        "debt_to_equity",
+        "debt_to_assets",
+        "debt_ratio",
+        "equity_multiplier",
         "interest_coverage",
-        "asset_turnover", "inventory_turnover", "receivables_turnover",
+        "asset_turnover",
+        "inventory_turnover",
+        "receivables_turnover",
         "payables_turnover",
     }
 
@@ -232,10 +248,10 @@ class TestCategoryMapCompleteness:
         assert set(_CATEGORY_MAP.values()).issubset(valid_categories)
 
 
-
 # ---------------------------------------------------------------------------
 # WS-3 P0-8: ratio keys must NOT be classified as percent
 # ---------------------------------------------------------------------------
+
 
 class TestIsRatioKey:
     """Regression tests for P0-8: 'ratio' keys must render as multipliers (1.50x), not percent (150%)."""

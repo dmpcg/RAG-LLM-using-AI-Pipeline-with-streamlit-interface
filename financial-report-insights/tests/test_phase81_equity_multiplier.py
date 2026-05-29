@@ -4,10 +4,11 @@ Tests for equity_multiplier_analysis() and EquityMultiplierResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     EquityMultiplierResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestEquityMultiplierDataclass:
     def test_defaults(self):
         r = EquityMultiplierResult()
@@ -68,6 +70,7 @@ class TestEquityMultiplierDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestEquityMultiplierAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -114,6 +117,7 @@ class TestEquityMultiplierAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestEquityMultiplierScoring:
     def test_low_leverage(self, analyzer):
@@ -202,6 +206,7 @@ class TestEquityMultiplierScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase81EdgeCases:
     def test_empty_data(self, analyzer):

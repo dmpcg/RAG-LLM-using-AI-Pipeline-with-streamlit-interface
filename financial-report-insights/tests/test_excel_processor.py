@@ -1,11 +1,7 @@
 """Tests for excel_processor.py core processing engine."""
 
-from pathlib import Path
-from unittest.mock import patch
-
 import pandas as pd
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -22,11 +18,13 @@ def processor(tmp_path):
 @pytest.fixture
 def sample_xlsx(tmp_path):
     """Create a sample xlsx file with financial data."""
-    df = pd.DataFrame({
-        "Line Item": ["Revenue", "COGS", "Gross Profit", "Operating Expenses", "Net Income"],
-        "Q1 2024": [1000000, 400000, 600000, 200000, 400000],
-        "Q2 2024": [1100000, 440000, 660000, 210000, 450000],
-    })
+    df = pd.DataFrame(
+        {
+            "Line Item": ["Revenue", "COGS", "Gross Profit", "Operating Expenses", "Net Income"],
+            "Q1 2024": [1000000, 400000, 600000, 200000, 400000],
+            "Q2 2024": [1100000, 440000, 660000, 210000, 450000],
+        }
+    )
     path = tmp_path / "test_financials.xlsx"
     df.to_excel(path, index=False)
     return path
@@ -35,10 +33,12 @@ def sample_xlsx(tmp_path):
 @pytest.fixture
 def sample_csv(tmp_path):
     """Create a sample CSV file."""
-    df = pd.DataFrame({
-        "Category": ["Revenue", "Expenses", "Net Income"],
-        "Amount": [500000, 300000, 200000],
-    })
+    df = pd.DataFrame(
+        {
+            "Category": ["Revenue", "Expenses", "Net Income"],
+            "Amount": [500000, 300000, 200000],
+        }
+    )
     path = tmp_path / "test_data.csv"
     df.to_csv(path, index=False)
     return path
@@ -47,10 +47,12 @@ def sample_csv(tmp_path):
 @pytest.fixture
 def sample_tsv(tmp_path):
     """Create a sample TSV file."""
-    df = pd.DataFrame({
-        "Item": ["Cash", "Inventory", "Receivables"],
-        "Value": [100000, 50000, 75000],
-    })
+    df = pd.DataFrame(
+        {
+            "Item": ["Cash", "Inventory", "Receivables"],
+            "Value": [100000, 50000, 75000],
+        }
+    )
     path = tmp_path / "test_data.tsv"
     df.to_csv(path, index=False, sep="\t")
     return path
@@ -382,6 +384,7 @@ class TestDuplicateColumnHandling:
     def test_openpyxl_deduplicates_columns(self, tmp_path):
         """_load_openpyxl should rename duplicate columns with _N suffix."""
         from excel_processor import ExcelProcessor
+
         df = pd.DataFrame({"A": [1, 2], "B": [3, 4], "A_dup": [5, 6]})
         df.columns = ["A", "B", "A"]  # Force duplicate
         path = tmp_path / "dup_cols.xlsx"
@@ -406,6 +409,7 @@ class TestEmbeddingSanitization:
     def test_empty_texts_return_zero_vectors(self):
         """Empty/whitespace-only texts should return zero vectors."""
         from unittest.mock import MagicMock
+
         from local_llm import LocalEmbedder
 
         embedder = object.__new__(LocalEmbedder)
@@ -420,7 +424,8 @@ class TestEmbeddingSanitization:
 
     def test_nul_bytes_stripped(self):
         """NUL bytes in text should be stripped before sending to DMR."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
+
         from local_llm import LocalEmbedder
 
         embedder = object.__new__(LocalEmbedder)
@@ -430,9 +435,7 @@ class TestEmbeddingSanitization:
         embedder._client = MagicMock()
 
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "data": [{"embedding": [1.0, 2.0, 3.0, 4.0]}]
-        }
+        mock_resp.json.return_value = {"data": [{"embedding": [1.0, 2.0, 3.0, 4.0]}]}
         mock_resp.raise_for_status = MagicMock()
         embedder._client.post.return_value = mock_resp
 
@@ -446,6 +449,7 @@ class TestEmbeddingSanitization:
     def test_mixed_empty_and_real_texts(self):
         """Mix of empty and real texts should return correct-length result."""
         from unittest.mock import MagicMock
+
         from local_llm import LocalEmbedder
 
         embedder = object.__new__(LocalEmbedder)
@@ -455,9 +459,7 @@ class TestEmbeddingSanitization:
         embedder._client = MagicMock()
 
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "data": [{"embedding": [1.0, 2.0]}]
-        }
+        mock_resp.json.return_value = {"data": [{"embedding": [1.0, 2.0]}]}
         mock_resp.raise_for_status = MagicMock()
         embedder._client.post.return_value = mock_resp
 

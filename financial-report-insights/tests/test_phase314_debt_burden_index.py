@@ -4,10 +4,11 @@ Tests for debt_burden_index_analysis() and DebtBurdenIndexResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DebtBurdenIndexResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDebtBurdenIndexDataclass:
     def test_defaults(self):
         r = DebtBurdenIndexResult()
@@ -68,6 +70,7 @@ class TestDebtBurdenIndexDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDebtBurdenIndexAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestDebtBurdenIndexAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestDebtBurdenIndexScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -133,6 +137,7 @@ class TestDebtBurdenIndexScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase314EdgeCases:
     def test_empty_data(self, analyzer):

@@ -1,15 +1,16 @@
 """Tests for reranker module: EmbeddingReranker, mmr_diversify, add_citations."""
 
-import numpy as np
-import pytest
 from unittest.mock import MagicMock, patch
 
-from reranker import EmbeddingReranker, mmr_diversify, add_citations
+import numpy as np
+import pytest
 
+from reranker import EmbeddingReranker, add_citations, mmr_diversify
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_embedder(query_vec=None, batch_vecs=None):
     """Create a mock embedder with configurable return values."""
@@ -25,26 +26,23 @@ def _make_embedder(query_vec=None, batch_vecs=None):
 
 def _make_docs(n=3):
     """Create n simple test documents."""
-    return [
-        {"content": f"Document {i}", "source": f"file{i}.xlsx", "type": "excel"}
-        for i in range(n)
-    ]
+    return [{"content": f"Document {i}", "source": f"file{i}.xlsx", "type": "excel"} for i in range(n)]
 
 
 # ===========================================================================
 # EmbeddingReranker tests
 # ===========================================================================
 
-class TestEmbeddingReranker:
 
+class TestEmbeddingReranker:
     def test_rerank_returns_top_k_sorted_by_similarity(self):
         """Reranked results should be ordered by descending similarity."""
         embedder = _make_embedder(
             query_vec=[1.0, 0.0, 0.0],
             batch_vecs=[
-                [0.0, 1.0, 0.0],   # orthogonal -> low sim
-                [1.0, 0.0, 0.0],   # identical  -> high sim
-                [0.5, 0.5, 0.0],   # mid sim
+                [0.0, 1.0, 0.0],  # orthogonal -> low sim
+                [1.0, 0.0, 0.0],  # identical  -> high sim
+                [0.5, 0.5, 0.0],  # mid sim
             ],
         )
         docs = _make_docs(3)
@@ -129,17 +127,17 @@ class TestEmbeddingReranker:
 # mmr_diversify tests
 # ===========================================================================
 
-class TestMMRDiversify:
 
+class TestMMRDiversify:
     def test_selects_diverse_documents(self):
         """MMR should prefer diverse docs over near-duplicates."""
         query_emb = [1.0, 0.0, 0.0]
         docs = _make_docs(4)
         doc_embs = [
-            [1.0, 0.0, 0.0],   # doc0: identical to query
+            [1.0, 0.0, 0.0],  # doc0: identical to query
             [0.99, 0.01, 0.0],  # doc1: near-duplicate of doc0
-            [0.7, 0.7, 0.0],   # doc2: moderate relevance but diverse direction
-            [0.5, 0.5, 0.0],   # doc3: moderate
+            [0.7, 0.7, 0.0],  # doc2: moderate relevance but diverse direction
+            [0.5, 0.5, 0.0],  # doc3: moderate
         ]
 
         # Low lambda emphasises diversity over relevance
@@ -156,9 +154,9 @@ class TestMMRDiversify:
         query_emb = [1.0, 0.0, 0.0]
         docs = _make_docs(3)
         doc_embs = [
-            [0.0, 1.0, 0.0],   # doc0: low relevance
-            [1.0, 0.0, 0.0],   # doc1: highest relevance
-            [0.5, 0.5, 0.0],   # doc2: medium relevance
+            [0.0, 1.0, 0.0],  # doc0: low relevance
+            [1.0, 0.0, 0.0],  # doc1: highest relevance
+            [0.5, 0.5, 0.0],  # doc2: medium relevance
         ]
 
         result = mmr_diversify(query_emb, docs, doc_embs, top_k=3, lambda_param=1.0)
@@ -170,9 +168,9 @@ class TestMMRDiversify:
         query_emb = [1.0, 0.0, 0.0]
         docs = _make_docs(3)
         doc_embs = [
-            [1.0, 0.0, 0.0],   # doc0
+            [1.0, 0.0, 0.0],  # doc0
             [0.99, 0.01, 0.0],  # doc1: near-duplicate of doc0
-            [0.0, 1.0, 0.0],   # doc2: very different
+            [0.0, 1.0, 0.0],  # doc2: very different
         ]
 
         result = mmr_diversify(query_emb, docs, doc_embs, top_k=2, lambda_param=0.0)
@@ -223,8 +221,8 @@ class TestMMRDiversify:
 # add_citations tests
 # ===========================================================================
 
-class TestAddCitations:
 
+class TestAddCitations:
     def test_adds_citation_and_id(self):
         """Each doc should get _citation and _citation_id."""
         docs = _make_docs(3)
@@ -246,15 +244,17 @@ class TestAddCitations:
 
     def test_includes_metadata_when_available(self):
         """Citation should include statement_type, chunk_index, period_columns."""
-        docs = [{
-            "content": "data",
-            "source": "report.xlsx",
-            "metadata": {
-                "statement_type": "income_statement",
-                "chunk_index": 2,
-                "period_columns": ["2023", "2024", "2025"],
-            },
-        }]
+        docs = [
+            {
+                "content": "data",
+                "source": "report.xlsx",
+                "metadata": {
+                    "statement_type": "income_statement",
+                    "chunk_index": 2,
+                    "period_columns": ["2023", "2024", "2025"],
+                },
+            }
+        ]
 
         result = add_citations(docs)
 
@@ -265,11 +265,13 @@ class TestAddCitations:
 
     def test_includes_table_structure(self):
         """Citation should include row range from table_structure."""
-        docs = [{
-            "content": "data",
-            "source": "report.xlsx",
-            "table_structure": {"row_range": [5, 20]},
-        }]
+        docs = [
+            {
+                "content": "data",
+                "source": "report.xlsx",
+                "table_structure": {"row_range": [5, 20]},
+            }
+        ]
 
         result = add_citations(docs)
 
@@ -277,11 +279,13 @@ class TestAddCitations:
 
     def test_includes_cell_references(self):
         """Citation should include cell_references if present."""
-        docs = [{
-            "content": "data",
-            "source": "report.xlsx",
-            "cell_references": "A1:D10",
-        }]
+        docs = [
+            {
+                "content": "data",
+                "source": "report.xlsx",
+                "cell_references": "A1:D10",
+            }
+        ]
 
         result = add_citations(docs)
 
@@ -301,11 +305,13 @@ class TestAddCitations:
 
     def test_skips_unknown_statement_type(self):
         """statement_type='unknown' should not appear in citation."""
-        docs = [{
-            "content": "data",
-            "source": "f.xlsx",
-            "metadata": {"statement_type": "unknown"},
-        }]
+        docs = [
+            {
+                "content": "data",
+                "source": "f.xlsx",
+                "metadata": {"statement_type": "unknown"},
+            }
+        ]
 
         result = add_citations(docs)
 
@@ -325,8 +331,8 @@ class TestAddCitations:
 # Config defaults
 # ===========================================================================
 
-class TestConfigDefaults:
 
+class TestConfigDefaults:
     def test_reranking_defaults(self):
         """Config should have correct retrieval enhancement defaults."""
         from config import Settings
@@ -350,6 +356,7 @@ class TestConfigDefaults:
 # ===========================================================================
 # P1-A3: Content-hash LRU cache on EmbeddingReranker
 # ===========================================================================
+
 
 def _vec(seed: float, dim: int = 3) -> list:
     """Return a deterministic unit-ish float vector."""
@@ -386,8 +393,8 @@ class TestEmbeddingRerankerCache:
             {"content": "Beta text"},
         ]
         docs_second = [
-            {"content": "Alpha text"},   # cache hit
-            {"content": "Gamma text"},   # cache miss
+            {"content": "Alpha text"},  # cache hit
+            {"content": "Gamma text"},  # cache miss
         ]
 
         reranker.rerank("query", docs_first, top_k=2)
@@ -489,6 +496,7 @@ class TestEmbeddingRerankerCache:
 # P1-D6: Integration test - reranker activation via retrieve()
 # ===========================================================================
 
+
 class TestRerankerActivationIntegration:
     """P1-D6: spy-based integration tests for reranker wiring in SimpleRAG.retrieve()."""
 
@@ -498,9 +506,7 @@ class TestRerankerActivationIntegration:
 
         mock_embedder = MagicMock()
         mock_embedder.embed.return_value = [1.0, 0.0, 0.0]
-        mock_embedder.embed_batch.side_effect = (
-            lambda texts: [[float(i + 1), 0.0, 0.0] for i in range(len(texts))]
-        )
+        mock_embedder.embed_batch.side_effect = lambda texts: [[float(i + 1), 0.0, 0.0] for i in range(len(texts))]
 
         mock_llm = MagicMock()
 
@@ -511,10 +517,7 @@ class TestRerankerActivationIntegration:
         )
 
         # Pre-populate in-memory documents and embeddings
-        rag.documents = [
-            {"content": f"Document {i}", "source": f"file{i}.txt"}
-            for i in range(4)
-        ]
+        rag.documents = [{"content": f"Document {i}", "source": f"file{i}.txt"} for i in range(4)]
         rag.embeddings = [[float(i + 1), 0.0, 0.0] for i in range(4)]
 
         # Build numpy index so _semantic_search uses it directly
@@ -560,8 +563,10 @@ class TestRerankerActivationIntegration:
 
         mock_settings = self._settings_patch(enable_reranking=True)
 
-        with patch("app_local.settings", mock_settings), \
-             patch.object(EmbeddingReranker, "rerank", return_value=sentinel_list) as spy:
+        with (
+            patch("app_local.settings", mock_settings),
+            patch.object(EmbeddingReranker, "rerank", return_value=sentinel_list) as spy,
+        ):
             result = rag.retrieve("what is profit?", top_k=3)
 
         # Reranker must have been invoked
@@ -569,8 +574,7 @@ class TestRerankerActivationIntegration:
 
         # The reranker output must flow through to retrieve()'s return
         assert result == sentinel_list, (
-            "retrieve() did not use the reranker output: "
-            f"got {result!r}, expected {sentinel_list!r}"
+            f"retrieve() did not use the reranker output: got {result!r}, expected {sentinel_list!r}"
         )
 
     def test_retrieve_graceful_when_rerank_raises(self):
@@ -580,9 +584,11 @@ class TestRerankerActivationIntegration:
         rag = self._make_rag()
         mock_settings = self._settings_patch(enable_reranking=True)
 
-        with patch("app_local.settings", mock_settings), \
-             patch.object(EmbeddingReranker, "rerank", side_effect=RuntimeError("boom")) as spy, \
-             patch("app_local.logger") as mock_logger:
+        with (
+            patch("app_local.settings", mock_settings),
+            patch.object(EmbeddingReranker, "rerank", side_effect=RuntimeError("boom")) as spy,
+            patch("app_local.logger") as mock_logger,
+        ):
             result = rag.retrieve("what is revenue?", top_k=3)
 
         # Must not raise; must return a list

@@ -6,7 +6,6 @@ outlier detection, and visualization-ready output using scikit-learn.
 
 from __future__ import annotations
 
-import math
 from typing import Optional
 
 import numpy as np
@@ -79,9 +78,7 @@ class FinancialClusterer:
         self.pca_coords_ = self.pca_.fit_transform(scaled)
         # Pad to 2 columns if only 1 component
         if self.pca_coords_.shape[1] < 2:
-            self.pca_coords_ = np.column_stack(
-                [self.pca_coords_, np.zeros(n_samples)]
-            )
+            self.pca_coords_ = np.column_stack([self.pca_coords_, np.zeros(n_samples)])
 
         # Cluster
         if self.method == "kmeans":
@@ -176,10 +173,7 @@ class FinancialClusterer:
             cluster_data = matrix[mask]
             cluster_mean = cluster_data.mean(axis=0)
 
-            mean_features = {
-                name: float(cluster_mean[i])
-                for i, name in enumerate(feature_names)
-            }
+            mean_features = {name: float(cluster_mean[i]) for i, name in enumerate(feature_names)}
 
             # Distinguishing features: largest absolute deviation from overall mean
             deviations = np.abs(cluster_mean - overall_mean)
@@ -236,10 +230,7 @@ class FinancialClusterer:
         nn.fit(self._scaled_matrix)
         distances, indices = nn.kneighbors(scaled)
 
-        return [
-            (int(idx), float(dist))
-            for idx, dist in zip(indices[0], distances[0])
-        ]
+        return [(int(idx), float(dist)) for idx, dist in zip(indices[0], distances[0])]
 
     # ------------------------------------------------------------------ #
     # Outlier detection
@@ -284,9 +275,7 @@ class FinancialClusterer:
         if self.cluster_centers_ is not None and self.pca_ is not None:
             projected = self.pca_.transform(self.cluster_centers_)
             if projected.shape[1] < 2:
-                projected = np.column_stack(
-                    [projected, np.zeros(projected.shape[0])]
-                )
+                projected = np.column_stack([projected, np.zeros(projected.shape[0])])
             result["cluster_centers_2d"] = projected.tolist()
         else:
             result["cluster_centers_2d"] = None

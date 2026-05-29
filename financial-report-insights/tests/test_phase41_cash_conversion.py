@@ -4,10 +4,11 @@ Tests for cash_conversion_analysis() and CashConversionResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    CashConversionResult,
     CharlieAnalyzer,
     FinancialData,
-    CashConversionResult,
 )
 
 
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCashConversionDataclass:
     def test_defaults(self):
         r = CashConversionResult()
@@ -68,6 +70,7 @@ class TestCashConversionDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCashConversionAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -120,18 +123,19 @@ class TestCashConversionAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestCashConversionScoring:
     def test_excellent(self, analyzer):
         """Short CCC + high OCF ratios => Excellent."""
         data = FinancialData(
             revenue=2_000_000,
             cogs=1_000_000,
-            accounts_receivable=50_000,   # DSO = 50k/2M*365 = 9.1 days (<30: +0.5)
-            inventory=30_000,             # DIO = 30k/1M*365 = 10.95 days
-            accounts_payable=100_000,     # DPO = 100k/1M*365 = 36.5 days
+            accounts_receivable=50_000,  # DSO = 50k/2M*365 = 9.1 days (<30: +0.5)
+            inventory=30_000,  # DIO = 30k/1M*365 = 10.95 days
+            accounts_payable=100_000,  # DPO = 100k/1M*365 = 36.5 days
             # CCC = 9.1 + 10.95 - 36.5 = -16.4 (<30: +2.0)
             operating_cash_flow=500_000,  # OCF/Rev = 25% (>=0.20: +1.0)
-            ebitda=400_000,               # OCF/EBITDA = 125% (>=0.80: +0.5)
+            ebitda=400_000,  # OCF/EBITDA = 125% (>=0.80: +0.5)
             cash=200_000,
         )
         result = analyzer.cash_conversion_analysis(data)
@@ -145,11 +149,11 @@ class TestCashConversionScoring:
             revenue=1_000_000,
             cogs=500_000,
             accounts_receivable=350_000,  # DSO = 127.75 days (>90: -0.5)
-            inventory=200_000,            # DIO = 146 days
-            accounts_payable=30_000,      # DPO = 21.9 days
+            inventory=200_000,  # DIO = 146 days
+            accounts_payable=30_000,  # DPO = 21.9 days
             # CCC = 127.75+146-21.9 = 251.8 (>120: -2.0)
             operating_cash_flow=-50_000,  # OCF/Rev = -5% (<0: -1.0)
-            ebitda=100_000,               # OCF/EBITDA = -50% (<0.50: -0.5)
+            ebitda=100_000,  # OCF/EBITDA = -50% (<0.50: -0.5)
             cash=10_000,
         )
         result = analyzer.cash_conversion_analysis(data)
@@ -159,6 +163,7 @@ class TestCashConversionScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase41EdgeCases:
     def test_empty_data(self, analyzer):

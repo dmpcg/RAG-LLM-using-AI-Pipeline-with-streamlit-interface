@@ -4,6 +4,7 @@ Tests for net_debt_position_analysis() and NetDebtPositionResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestNetDebtPositionDataclass:
     def test_defaults(self):
         r = NetDebtPositionResult()
@@ -68,6 +70,7 @@ class TestNetDebtPositionDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestNetDebtPositionAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -105,6 +108,7 @@ class TestNetDebtPositionAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestNetDebtPositionScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """ND/EBITDA=1.40 in (1.0,2.0]=>base 7.0. Cash/Debt=0.125<0.30(no adj). Debt>0(+0.5). Score=7.5."""
@@ -138,6 +142,7 @@ class TestNetDebtPositionScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase286EdgeCases:
     def test_empty_data(self, analyzer):

@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -32,9 +31,11 @@ def mock_rag():
 def client(mock_rag):
     """TestClient with the RAG singleton patched."""
     import api as api_module
+
     api_module._rag_instance = mock_rag
     api_module._rate_log.clear()
     from api import app
+
     with TestClient(app) as c:
         yield c
     api_module._rag_instance = None
@@ -101,6 +102,7 @@ class TestQueryEndpoint:
 
     def test_query_llm_connection_error(self, client, mock_rag):
         from local_llm import LLMConnectionError
+
         mock_rag.answer.side_effect = LLMConnectionError("down")
         resp = client.post("/query", json={"text": "Test"})
         assert resp.status_code == 503
@@ -138,9 +140,7 @@ class TestAnalyzeEndpoint:
         mock_report.generated_at = "2026-01-01"
         mock_rag.charlie_analyzer.generate_report.return_value = mock_report
 
-        resp = client.post("/analyze", json={
-            "financial_data": {"revenue": 1000000, "net_income": 200000}
-        })
+        resp = client.post("/analyze", json={"financial_data": {"revenue": 1000000, "net_income": 200000}})
         assert resp.status_code == 200
         body = resp.json()
         assert body["executive_summary"] == "Company looks healthy."
@@ -159,9 +159,7 @@ class TestAnalyzeEndpoint:
         mock_report.generated_at = ""
         mock_rag.charlie_analyzer.generate_report.return_value = mock_report
 
-        resp = client.post("/analyze", json={
-            "financial_data": {"revenue": 500, "unknown_field_xyz": 99}
-        })
+        resp = client.post("/analyze", json={"financial_data": {"revenue": 500, "unknown_field_xyz": 99}})
         assert resp.status_code == 200
 
 
@@ -291,6 +289,7 @@ class TestRateLimiting:
     def test_rate_limit_enforced(self, client):
         """Exceed rate limit and verify 429 response."""
         import api as api_module
+
         # Reset rate log
         api_module._rate_log.clear()
         old_limit = api_module._RATE_LIMIT
@@ -311,6 +310,7 @@ class TestRateLimiting:
     def test_health_exempt_from_rate_limit(self, client):
         """Health endpoint should bypass rate limiting."""
         import api as api_module
+
         api_module._rate_log.clear()
         old_limit = api_module._RATE_LIMIT
         api_module._RATE_LIMIT = 1
@@ -334,16 +334,22 @@ class TestRateLimiting:
 class TestExportEndpoints:
     def test_export_xlsx_returns_501_when_no_analyzer(self, client, mock_rag):
         mock_rag.charlie_analyzer = None
-        resp = client.post("/export/xlsx", json={
-            "financial_data": {"revenue": 1000},
-        })
+        resp = client.post(
+            "/export/xlsx",
+            json={
+                "financial_data": {"revenue": 1000},
+            },
+        )
         assert resp.status_code == 501
 
     def test_export_pdf_returns_501_when_no_analyzer(self, client, mock_rag):
         mock_rag.charlie_analyzer = None
-        resp = client.post("/export/pdf", json={
-            "financial_data": {"revenue": 1000},
-        })
+        resp = client.post(
+            "/export/pdf",
+            json={
+                "financial_data": {"revenue": 1000},
+            },
+        )
         assert resp.status_code == 501
 
     def test_export_xlsx_happy_path(self, client, mock_rag):
@@ -358,9 +364,12 @@ class TestExportEndpoints:
         mock_exporter_instance = MagicMock()
         mock_exporter_instance.export_full_report.return_value = b"PK\x03\x04fake_xlsx"
         with patch("api.FinancialExcelExporter", return_value=mock_exporter_instance):
-            resp = client.post("/export/xlsx", json={
-                "financial_data": {"revenue": 1000, "total_assets": 5000},
-            })
+            resp = client.post(
+                "/export/xlsx",
+                json={
+                    "financial_data": {"revenue": 1000, "total_assets": 5000},
+                },
+            )
         assert resp.status_code == 200
         assert "spreadsheetml" in resp.headers["content-type"]
         assert resp.headers["content-disposition"].endswith('.xlsx"')
@@ -378,9 +387,12 @@ class TestExportEndpoints:
         mock_exporter_instance = MagicMock()
         mock_exporter_instance.export_full_report.return_value = b"%PDF-1.4 fake"
         with patch("api.FinancialPDFExporter", return_value=mock_exporter_instance):
-            resp = client.post("/export/pdf", json={
-                "financial_data": {"revenue": 1000, "total_assets": 5000},
-            })
+            resp = client.post(
+                "/export/pdf",
+                json={
+                    "financial_data": {"revenue": 1000, "total_assets": 5000},
+                },
+            )
         assert resp.status_code == 200
         assert "pdf" in resp.headers["content-type"]
         assert resp.headers["content-disposition"].endswith('.pdf"')
@@ -389,27 +401,36 @@ class TestExportEndpoints:
     def test_export_xlsx_analyzer_error(self, client, mock_rag):
         """Analyzer exception during export should return 422."""
         mock_rag.charlie_analyzer.analyze.side_effect = ValueError("bad data")
-        resp = client.post("/export/xlsx", json={
-            "financial_data": {"revenue": 1000},
-        })
+        resp = client.post(
+            "/export/xlsx",
+            json={
+                "financial_data": {"revenue": 1000},
+            },
+        )
         assert resp.status_code == 422
         assert "Could not generate" in resp.json()["detail"]
 
     def test_export_pdf_analyzer_error(self, client, mock_rag):
         """Analyzer exception during export should return 422."""
         mock_rag.charlie_analyzer.analyze.side_effect = ValueError("bad data")
-        resp = client.post("/export/pdf", json={
-            "financial_data": {"revenue": 1000},
-        })
+        resp = client.post(
+            "/export/pdf",
+            json={
+                "financial_data": {"revenue": 1000},
+            },
+        )
         assert resp.status_code == 422
         assert "Could not generate" in resp.json()["detail"]
 
     # WS-3 WP-8 (lock-only): company_name over 200 chars is rejected (422).
     def test_export_company_name_over_max_length_rejected(self, client, mock_rag):
-        resp = client.post("/export/xlsx", json={
-            "financial_data": {"revenue": 1000},
-            "company_name": "X" * 201,
-        })
+        resp = client.post(
+            "/export/xlsx",
+            json={
+                "financial_data": {"revenue": 1000},
+                "company_name": "X" * 201,
+            },
+        )
         assert resp.status_code == 422
 
 
@@ -421,9 +442,12 @@ class TestExportEndpoints:
 class TestAnalyzeExceptionHandling:
     def test_analyze_exception_returns_422(self, client, mock_rag):
         mock_rag.charlie_analyzer.generate_report.side_effect = ValueError("bad data")
-        resp = client.post("/analyze", json={
-            "financial_data": {"revenue": 1000},
-        })
+        resp = client.post(
+            "/analyze",
+            json={
+                "financial_data": {"revenue": 1000},
+            },
+        )
         assert resp.status_code == 422
         assert "Could not process" in resp.json()["detail"]
 
@@ -499,9 +523,7 @@ class TestFieldCountValidator:
 class TestErrorSanitization:
     def test_analyze_error_does_not_leak_details(self, client, mock_rag):
         """Internal exception details must not appear in the response."""
-        mock_rag.charlie_analyzer.generate_report.side_effect = RuntimeError(
-            "SECRET_DB_CONNECTION_STRING"
-        )
+        mock_rag.charlie_analyzer.generate_report.side_effect = RuntimeError("SECRET_DB_CONNECTION_STRING")
         resp = client.post("/analyze", json={"financial_data": {"revenue": 1000}})
         assert resp.status_code == 422
         assert "SECRET_DB_CONNECTION_STRING" not in resp.json()["detail"]
@@ -588,6 +610,7 @@ class TestCompareQuickReturn:
         New code: guards on `not rag.documents` FIRST.
         """
         import api as api_module
+
         empty_rag = self._make_empty_rag()
         # Explicitly set _period_financial_data to {} so the old code path
         # (if not period_data: call _get_financial_analysis_context) would
@@ -596,6 +619,7 @@ class TestCompareQuickReturn:
         api_module._rag_instance = empty_rag
         api_module._rate_log.clear()
         from api import app
+
         with TestClient(app) as client:
             resp = client.post(
                 "/compare",
@@ -617,16 +641,16 @@ class TestCompareQuickReturn:
         REGRESSION GUARD: when documents ARE loaded, the analyser path must
         still run (_get_financial_analysis_context must be called).
         """
-        import api as api_module
         from unittest.mock import MagicMock
 
+        import api as api_module
+
         rag = MagicMock()
-        rag.documents = [
-            {"source": "report.pdf", "type": "pdf", "content": "Revenue $1M."}
-        ]
+        rag.documents = [{"source": "report.pdf", "type": "pdf", "content": "Revenue $1M."}]
         rag._graph_store = None
         # _period_financial_data starts empty so the lazy-populate path triggers
         rag._period_financial_data = {}
+
         # After _get_financial_analysis_context is called, populate period data
         # with a minimal FinancialData-like object so run_all_ratios can run.
         # We use a side_effect to simulate the lazy population.
@@ -639,6 +663,7 @@ class TestCompareQuickReturn:
         api_module._rag_instance = rag
         api_module._rate_log.clear()
         from api import app
+
         with TestClient(app) as client:
             resp = client.post(
                 "/compare",
@@ -664,6 +689,7 @@ class TestEagerExporterImport:
     def test_excel_exporter_symbol_available_at_module_level(self):
         """FinancialExcelExporter must be accessible as api.FinancialExcelExporter."""
         import api as api_module
+
         assert hasattr(api_module, "FinancialExcelExporter"), (
             "api.FinancialExcelExporter not found — eager lifespan import missing"
         )
@@ -671,6 +697,7 @@ class TestEagerExporterImport:
     def test_pdf_exporter_symbol_available_at_module_level(self):
         """FinancialPDFExporter must be accessible as api.FinancialPDFExporter."""
         import api as api_module
+
         assert hasattr(api_module, "FinancialPDFExporter"), (
             "api.FinancialPDFExporter not found — eager lifespan import missing"
         )
@@ -752,16 +779,20 @@ class TestSSEChunkClientSideTimeout:
         tests run in sequence with different loops).
         """
         import asyncio as _asyncio
+
         try:
             from sse_starlette.sse import AppStatus
+
             AppStatus.should_exit_event = None
         except Exception:
             pass
 
         class _HungIterator:
             """Iterator that raises TimeoutError on first next() call."""
+
             def __iter__(self):
                 return self
+
             def __next__(self):
                 raise _asyncio.TimeoutError()
 
@@ -785,8 +816,9 @@ class TestRateLimiterCrossIPSweep:
 
     def test_stale_ip_evicted_after_later_request_from_any_ip(self):
         """An IP whose timestamps all expire IS removed after a later request from any IP."""
-        import api as api_module
         import time as time_mod
+
+        import api as api_module
 
         api_module._rate_log.clear()
         # Inject a stale entry for ip_old (timestamp far in the past)
@@ -797,7 +829,7 @@ class TestRateLimiterCrossIPSweep:
         # Re-inject: stale ip_old + active ip_new
         now = time_mod.monotonic()
         api_module._rate_log["ip_old"] = [now - 120]  # outside the 60s window
-        api_module._rate_log["ip_new"] = [now - 5]    # inside the 60s window
+        api_module._rate_log["ip_new"] = [now - 5]  # inside the 60s window
 
         # Simulate a new request from ip_trigger by calling the rate-limit
         # logic directly (avoids needing TestClient / HTTP stack overhead)
@@ -807,8 +839,7 @@ class TestRateLimiterCrossIPSweep:
             api_module._rate_log["ip_trigger"] = []
             api_module._rate_log["ip_trigger"].append(now)
             # Perform the cross-IP sweep
-            stale_keys = [k for k, v in list(api_module._rate_log.items())
-                          if not [t for t in v if t > cutoff]]
+            stale_keys = [k for k, v in list(api_module._rate_log.items()) if not [t for t in v if t > cutoff]]
             for k in stale_keys:
                 del api_module._rate_log[k]
 
@@ -819,8 +850,9 @@ class TestRateLimiterCrossIPSweep:
 
     def test_hard_cap_still_clears_dict(self):
         """The 10K hard cap must still clear the entire dict."""
-        import api as api_module
         import time as time_mod
+
+        import api as api_module
 
         api_module._rate_log.clear()
         now = time_mod.monotonic()
@@ -829,6 +861,7 @@ class TestRateLimiterCrossIPSweep:
 
         # Trigger via TestClient request so the middleware fires
         from api import app
+
         api_module._rag_instance = MagicMock()
         api_module._rag_instance.documents = []
         api_module._rag_instance._graph_store = None
@@ -842,8 +875,9 @@ class TestRateLimiterCrossIPSweep:
 
     def test_active_ip_not_evicted_by_sweep(self):
         """An IP with a recent in-window timestamp must not be removed by the sweep."""
-        import api as api_module
         import time as time_mod
+
+        import api as api_module
 
         api_module._rate_log.clear()
         now = time_mod.monotonic()
@@ -851,8 +885,7 @@ class TestRateLimiterCrossIPSweep:
 
         cutoff = now - api_module._RATE_WINDOW
         with api_module._rate_lock:
-            stale_keys = [k for k, v in list(api_module._rate_log.items())
-                          if not [t for t in v if t > cutoff]]
+            stale_keys = [k for k, v in list(api_module._rate_log.items()) if not [t for t in v if t > cutoff]]
             for k in stale_keys:
                 del api_module._rate_log[k]
 
@@ -872,6 +905,7 @@ class TestLLMConnectionError503:
 
     def _llm_error(self):
         from local_llm import LLMConnectionError
+
         return LLMConnectionError("LLM offline")
 
     # --- /analyze ---
@@ -918,6 +952,7 @@ class TestLLMConnectionError503:
 
     def test_portfolio_analyze_llm_connection_error_yields_503(self, client, mock_rag):
         from unittest.mock import patch as _patch
+
         with _patch("api._get_portfolio_analyzer") as mock_pa_factory:
             mock_pa = MagicMock()
             mock_pa.full_portfolio_analysis.side_effect = self._llm_error()
@@ -935,6 +970,7 @@ class TestLLMConnectionError503:
 
     def test_portfolio_correlation_llm_connection_error_yields_503(self, client, mock_rag):
         from unittest.mock import patch as _patch
+
         with _patch("api._get_portfolio_analyzer") as mock_pa_factory:
             mock_pa = MagicMock()
             mock_pa.correlation_matrix.side_effect = self._llm_error()
@@ -954,6 +990,7 @@ class TestLLMConnectionError503:
 
     def test_compliance_analyze_llm_connection_error_yields_503(self, client, mock_rag):
         from unittest.mock import patch as _patch
+
         with _patch("api._get_compliance_scorer") as mock_cs_factory:
             mock_cs = MagicMock()
             mock_cs.full_compliance_report.side_effect = self._llm_error()
@@ -977,19 +1014,18 @@ class TestDocumentsPagination:
 
     def _make_rag_with_docs(self):
         rag = MagicMock()
-        rag.documents = [
-            {"source": f"doc_{i}.pdf", "type": "pdf", "content": f"content {i}"}
-            for i in range(10)
-        ]
+        rag.documents = [{"source": f"doc_{i}.pdf", "type": "pdf", "content": f"content {i}"} for i in range(10)]
         return rag
 
     def test_default_params_unchanged_behaviour(self):
         """No params: all unique sources returned (up to default limit=100)."""
         import api as api_module
+
         rag = self._make_rag_with_docs()
         api_module._rag_instance = rag
         api_module._rate_log.clear()
         from api import app
+
         with TestClient(app) as c:
             resp = c.get("/documents")
         api_module._rag_instance = None
@@ -1000,10 +1036,12 @@ class TestDocumentsPagination:
     def test_limit_slices_results(self):
         """limit=3 returns only the first 3 documents."""
         import api as api_module
+
         rag = self._make_rag_with_docs()
         api_module._rag_instance = rag
         api_module._rate_log.clear()
         from api import app
+
         with TestClient(app) as c:
             resp = c.get("/documents?limit=3")
         api_module._rag_instance = None
@@ -1014,10 +1052,12 @@ class TestDocumentsPagination:
     def test_offset_skips_results(self):
         """offset=7 skips first 7, returns remaining 3."""
         import api as api_module
+
         rag = self._make_rag_with_docs()
         api_module._rag_instance = rag
         api_module._rate_log.clear()
         from api import app
+
         with TestClient(app) as c:
             resp = c.get("/documents?offset=7")
         api_module._rag_instance = None
@@ -1028,10 +1068,12 @@ class TestDocumentsPagination:
     def test_limit_and_offset_combined(self):
         """offset=2, limit=4 returns docs 2..5 inclusive."""
         import api as api_module
+
         rag = self._make_rag_with_docs()
         api_module._rag_instance = rag
         api_module._rate_log.clear()
         from api import app
+
         with TestClient(app) as c:
             resp = c.get("/documents?offset=2&limit=4")
         api_module._rag_instance = None
@@ -1045,10 +1087,12 @@ class TestDocumentsPagination:
     def test_source_filter_returns_only_matching(self):
         """source=doc_3.pdf returns only the doc_3.pdf entry."""
         import api as api_module
+
         rag = self._make_rag_with_docs()
         api_module._rag_instance = rag
         api_module._rate_log.clear()
         from api import app
+
         with TestClient(app) as c:
             resp = c.get("/documents?source=doc_3.pdf")
         api_module._rag_instance = None
@@ -1061,10 +1105,12 @@ class TestDocumentsPagination:
     def test_source_filter_no_match_returns_empty(self):
         """source filter with no match returns empty list, not 404."""
         import api as api_module
+
         rag = self._make_rag_with_docs()
         api_module._rag_instance = rag
         api_module._rate_log.clear()
         from api import app
+
         with TestClient(app) as c:
             resp = c.get("/documents?source=nonexistent.pdf")
         api_module._rag_instance = None
@@ -1081,6 +1127,7 @@ class TestDocumentsPagination:
 def _make_mock_pa_report(company_names):
     """Build a minimal PortfolioReport-like mock for portfolio_analyze tests."""
     from unittest.mock import MagicMock
+
     report = MagicMock()
     report.num_companies = len(company_names)
     report.risk_summary.avg_health_score = 70.0
@@ -1100,6 +1147,7 @@ def _make_mock_pa_report(company_names):
 def _make_mock_corr(company_names):
     """Build a minimal CorrelationMatrix-like mock for portfolio_correlation tests."""
     from unittest.mock import MagicMock
+
     corr = MagicMock()
     corr.company_names = list(company_names)
     corr.ratio_names = ["net_margin"]
@@ -1112,6 +1160,7 @@ def _make_mock_corr(company_names):
 def _make_mock_compliance_report():
     """Build a minimal ComplianceReport-like mock for compliance_analyze tests."""
     from unittest.mock import MagicMock
+
     report = MagicMock()
     report.sox.overall_risk = "low"
     report.sox.risk_score = 20
@@ -1160,9 +1209,11 @@ class TestGraphStoreWiringD3D4:
 
     def test_portfolio_analyze_store_called_with_mock_graph(self):
         """D3: store_portfolio_analysis called once after successful analysis."""
+        from unittest.mock import MagicMock
+        from unittest.mock import patch as _patch
+
         import api as api_module
         from api import app
-        from unittest.mock import MagicMock, patch as _patch
 
         mock_store = MagicMock()
         self._setup_rag(api_module, mock_store)
@@ -1187,9 +1238,11 @@ class TestGraphStoreWiringD3D4:
 
     def test_portfolio_analyze_no_store_returns_200(self):
         """D3: missing _graph_store does not fail /portfolio/analyze."""
+        from unittest.mock import MagicMock
+        from unittest.mock import patch as _patch
+
         import api as api_module
         from api import app
-        from unittest.mock import MagicMock, patch as _patch
 
         self._setup_rag(api_module, None)
         report = _make_mock_pa_report(["AcmeCo"])
@@ -1206,9 +1259,11 @@ class TestGraphStoreWiringD3D4:
 
     def test_portfolio_analyze_store_raises_returns_200(self):
         """D3: raising store_portfolio_analysis does not fail /portfolio/analyze (best-effort)."""
+        from unittest.mock import MagicMock
+        from unittest.mock import patch as _patch
+
         import api as api_module
         from api import app
-        from unittest.mock import MagicMock, patch as _patch
 
         mock_store = MagicMock()
         mock_store.store_portfolio_analysis.side_effect = RuntimeError("neo4j down")
@@ -1231,9 +1286,11 @@ class TestGraphStoreWiringD3D4:
 
     def test_portfolio_correlation_store_called_with_mock_graph(self):
         """D3: store_portfolio_analysis called once after successful correlation."""
+        from unittest.mock import MagicMock
+        from unittest.mock import patch as _patch
+
         import api as api_module
         from api import app
-        from unittest.mock import MagicMock, patch as _patch
 
         mock_store = MagicMock()
         self._setup_rag(api_module, mock_store)
@@ -1252,9 +1309,11 @@ class TestGraphStoreWiringD3D4:
 
     def test_portfolio_correlation_no_store_returns_200(self):
         """D3: missing _graph_store does not fail /portfolio/correlation."""
+        from unittest.mock import MagicMock
+        from unittest.mock import patch as _patch
+
         import api as api_module
         from api import app
-        from unittest.mock import MagicMock, patch as _patch
 
         self._setup_rag(api_module, None)
         corr = _make_mock_corr(["AcmeCo"])
@@ -1271,9 +1330,11 @@ class TestGraphStoreWiringD3D4:
 
     def test_portfolio_correlation_store_raises_returns_200(self):
         """D3: raising store_portfolio_analysis does not fail /portfolio/correlation (best-effort)."""
+        from unittest.mock import MagicMock
+        from unittest.mock import patch as _patch
+
         import api as api_module
         from api import app
-        from unittest.mock import MagicMock, patch as _patch
 
         mock_store = MagicMock()
         mock_store.store_portfolio_analysis.side_effect = RuntimeError("neo4j down")
@@ -1296,9 +1357,11 @@ class TestGraphStoreWiringD3D4:
 
     def test_compliance_analyze_store_called_with_mock_graph(self):
         """D4: store_compliance_report called once after successful compliance analysis."""
+        from unittest.mock import MagicMock
+        from unittest.mock import patch as _patch
+
         import api as api_module
         from api import app
-        from unittest.mock import MagicMock, patch as _patch
 
         mock_store = MagicMock()
         self._setup_rag(api_module, mock_store)
@@ -1323,9 +1386,11 @@ class TestGraphStoreWiringD3D4:
 
     def test_compliance_analyze_no_store_returns_200(self):
         """D4: missing _graph_store does not fail /compliance/analyze."""
+        from unittest.mock import MagicMock
+        from unittest.mock import patch as _patch
+
         import api as api_module
         from api import app
-        from unittest.mock import MagicMock, patch as _patch
 
         self._setup_rag(api_module, None)
         report = _make_mock_compliance_report()
@@ -1342,9 +1407,11 @@ class TestGraphStoreWiringD3D4:
 
     def test_compliance_analyze_store_raises_returns_200(self):
         """D4: raising store_compliance_report does not fail /compliance/analyze (best-effort)."""
+        from unittest.mock import MagicMock
+        from unittest.mock import patch as _patch
+
         import api as api_module
         from api import app
-        from unittest.mock import MagicMock, patch as _patch
 
         mock_store = MagicMock()
         mock_store.store_compliance_report.side_effect = RuntimeError("neo4j down")

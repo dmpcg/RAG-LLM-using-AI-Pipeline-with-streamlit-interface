@@ -1,15 +1,16 @@
 """Tests for query enhancement features: BM25 tokenization, query classification,
 HyDE expansion, and LLM-based query decomposition."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from app_local import SimpleRAG
+import pytest
 
+from app_local import SimpleRAG
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def rag():
@@ -29,6 +30,7 @@ def rag():
 # ---------------------------------------------------------------------------
 # _tokenize_for_bm25
 # ---------------------------------------------------------------------------
+
 
 class TestTokenizeForBM25:
     """Tests for BM25 tokenizer with stop-word removal and stemming."""
@@ -112,6 +114,7 @@ class TestTokenizeForBM25:
 # _classify_query
 # ---------------------------------------------------------------------------
 
+
 class TestClassifyQuery:
     """Tests for query type classification."""
 
@@ -168,6 +171,7 @@ class TestClassifyQuery:
 # _hyde_expand_query
 # ---------------------------------------------------------------------------
 
+
 class TestHydeExpandQuery:
     """Tests for HyDE (Hypothetical Document Embeddings) query expansion."""
 
@@ -183,9 +187,7 @@ class TestHydeExpandQuery:
         assert "What is the revenue?" in prompt_arg
 
         # Embedder should embed the hypothetical answer, not the question
-        rag.embedder.embed.assert_called_once_with(
-            "The company's revenue was $10M with a 15% margin."
-        )
+        rag.embedder.embed.assert_called_once_with("The company's revenue was $10M with a 15% margin.")
         assert result == [0.5] * 10
 
     def test_falls_back_on_llm_failure(self, rag):
@@ -210,6 +212,7 @@ class TestHydeExpandQuery:
 # ---------------------------------------------------------------------------
 # _decompose_query (LLM-based with keyword fallback)
 # ---------------------------------------------------------------------------
+
 
 class TestDecomposeQuery:
     """Tests for LLM-based query decomposition with keyword fallback."""
@@ -265,6 +268,7 @@ class TestDecomposeQuery:
 # _keyword_decompose_query
 # ---------------------------------------------------------------------------
 
+
 class TestKeywordDecomposeQuery:
     """Tests for the keyword-based decomposition fallback."""
 
@@ -301,6 +305,7 @@ class TestKeywordDecomposeQuery:
 # ---------------------------------------------------------------------------
 # _filter_low_quality_chunks
 # ---------------------------------------------------------------------------
+
 
 class TestFilterLowQualityChunks:
     """Tests for chunk quality filtering."""
@@ -346,11 +351,13 @@ class TestFilterLowQualityChunks:
 # Config settings
 # ---------------------------------------------------------------------------
 
+
 class TestQueryEnhancementConfig:
     """Tests for query enhancement config settings."""
 
     def test_config_defaults(self):
         from config import Settings
+
         s = Settings()
         assert s.enable_hyde is True
         assert s.enable_query_decomposition is True

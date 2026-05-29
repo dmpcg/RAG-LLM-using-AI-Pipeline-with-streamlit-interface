@@ -10,9 +10,7 @@ All heavy lifting uses NumPy only – no special ML dependencies required.
 from __future__ import annotations
 
 import logging
-import os
 import threading
-import time
 from pathlib import Path
 from typing import Optional
 
@@ -66,8 +64,8 @@ def quantize_embeddings(
 
     if method == "int8":
         # Per-dimension min/max calibration
-        dim_min = arr.min(axis=0)   # shape (dim,)
-        dim_max = arr.max(axis=0)   # shape (dim,)
+        dim_min = arr.min(axis=0)  # shape (dim,)
+        dim_max = arr.max(axis=0)  # shape (dim,)
         # Avoid division by zero for constant dimensions
         span = dim_max - dim_min
         span = np.where(span == 0.0, 1.0, span)
@@ -153,9 +151,7 @@ def truncate_embeddings(
 
     original_dim = len(embeddings[0])
     if target_dim > original_dim:
-        raise ValueError(
-            f"target_dim ({target_dim}) exceeds original dimension ({original_dim})."
-        )
+        raise ValueError(f"target_dim ({target_dim}) exceeds original dimension ({original_dim}).")
 
     arr = np.asarray(embeddings, dtype=np.float32)[:, :target_dim]
 
@@ -170,6 +166,7 @@ def truncate_embeddings(
 # ---------------------------------------------------------------------------
 # Quality-loss measurement
 # ---------------------------------------------------------------------------
+
 
 def _cosine_sim_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Return pairwise cosine similarities between rows of *a* and *b*.
@@ -206,7 +203,7 @@ def _spearman_correlation(x: np.ndarray, y: np.ndarray) -> float:
     rx = np.argsort(np.argsort(x)).astype(np.float64)
     ry = np.argsort(np.argsort(y)).astype(np.float64)
     d = rx - ry
-    return float(1.0 - 6.0 * np.sum(d ** 2) / (n * (n ** 2 - 1)))
+    return float(1.0 - 6.0 * np.sum(d**2) / (n * (n**2 - 1)))
 
 
 def measure_quality_loss(
@@ -250,8 +247,8 @@ def measure_quality_loss(
     q_orig = orig_arr if queries is None else np.asarray(queries, dtype=np.float32)
     q_proc = proc_arr if queries is None else np.asarray(queries, dtype=np.float32)
 
-    sim_orig = _cosine_sim_matrix(q_orig, orig_arr)   # (q, n)
-    sim_proc = _cosine_sim_matrix(q_proc, proc_arr)   # (q, n)
+    sim_orig = _cosine_sim_matrix(q_orig, orig_arr)  # (q, n)
+    sim_proc = _cosine_sim_matrix(q_proc, proc_arr)  # (q, n)
 
     mae = float(np.mean(np.abs(sim_orig - sim_proc)))
 

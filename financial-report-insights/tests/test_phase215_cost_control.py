@@ -4,10 +4,11 @@ Tests for cost_control_analysis() and CostControlResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     CostControlResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCostControlDataclass:
     def test_defaults(self):
         r = CostControlResult()
@@ -68,6 +70,7 @@ class TestCostControlDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCostControlAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -110,6 +113,7 @@ class TestCostControlAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestCostControlScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """OpEx/Rev=0.20 <=0.20 => base 8.5. OI/Rev=0.20 <0.25 => no adj. COGS/Rev=0.60 >0.40 but <=0.75 => no adj. Score=8.5."""
@@ -149,6 +153,7 @@ class TestCostControlScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase215EdgeCases:
     def test_empty_data(self, analyzer):

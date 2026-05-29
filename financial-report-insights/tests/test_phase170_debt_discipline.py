@@ -4,10 +4,11 @@ Tests for debt_discipline_analysis() and DebtDisciplineResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DebtDisciplineResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDebtDisciplineDataclass:
     def test_defaults(self):
         r = DebtDisciplineResult()
@@ -68,6 +70,7 @@ class TestDebtDisciplineDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDebtDisciplineAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestDebtDisciplineAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestDebtDisciplineScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """DPR=0.20 => base 8.5. DCS=0.55 >=0.50 => +0.5. DEL=0.333 no adj. Score=9.0."""
@@ -157,6 +161,7 @@ class TestDebtDisciplineScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase170EdgeCases:
     def test_empty_data(self, analyzer):

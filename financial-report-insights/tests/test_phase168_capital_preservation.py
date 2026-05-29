@@ -4,10 +4,11 @@ Tests for capital_preservation_analysis() and CapitalPreservationResult dataclas
 """
 
 import pytest
+
 from financial_analyzer import (
+    CapitalPreservationResult,
     CharlieAnalyzer,
     FinancialData,
-    CapitalPreservationResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCapitalPreservationDataclass:
     def test_defaults(self):
         r = CapitalPreservationResult()
@@ -68,6 +70,7 @@ class TestCapitalPreservationDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCapitalPreservationAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestCapitalPreservationAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestCapitalPreservationScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """REP=0.30 => base 7.0. CER=0.625 no adj. OCR=0.55 >=0.50 => +0.5. Score=7.5."""
@@ -161,6 +165,7 @@ class TestCapitalPreservationScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase168EdgeCases:
     def test_empty_data(self, analyzer):

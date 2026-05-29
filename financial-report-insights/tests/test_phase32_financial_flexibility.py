@@ -4,6 +4,7 @@ Tests for financial_flexibility_analysis() and FinancialFlexibilityResult datacl
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestFinancialFlexibilityDataclass:
     def test_defaults(self):
         r = FinancialFlexibilityResult()
@@ -66,6 +68,7 @@ class TestFinancialFlexibilityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestFinancialFlexibility:
     def test_returns_result(self, analyzer, sample_data):
@@ -127,6 +130,7 @@ class TestFinancialFlexibility:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestFinancialFlexibilityScoring:
     def test_highly_flexible(self, analyzer):
@@ -195,6 +199,7 @@ class TestFinancialFlexibilityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase32EdgeCases:
     def test_empty_data(self, analyzer):

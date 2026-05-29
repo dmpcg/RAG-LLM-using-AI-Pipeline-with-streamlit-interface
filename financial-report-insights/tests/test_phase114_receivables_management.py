@@ -4,6 +4,7 @@ Tests for receivables_management_analysis() and ReceivablesManagementResult data
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestReceivablesManagementDataclass:
     def test_defaults(self):
         r = ReceivablesManagementResult()
@@ -68,6 +70,7 @@ class TestReceivablesManagementDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestReceivablesManagementAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestReceivablesManagementAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestReceivablesManagementScoring:
     def test_moderate_dso(self, analyzer, sample_data):
         """DSO=54.75 in 45-60 => base 7.0. RT=6.67 (4-12) => no adj. CE=0.85 (0.70-0.90) => no adj. Score=7.0."""
@@ -150,6 +154,7 @@ class TestReceivablesManagementScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase114EdgeCases:
     def test_empty_data(self, analyzer):

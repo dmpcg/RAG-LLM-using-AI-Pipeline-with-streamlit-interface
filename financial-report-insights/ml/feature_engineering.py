@@ -12,10 +12,10 @@ from typing import Any, Optional
 
 from financial_analyzer import FinancialData
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def safe_divide(
     numerator: Optional[float],
@@ -33,6 +33,7 @@ def safe_divide(
 # ---------------------------------------------------------------------------
 # Scalers (lightweight, no numpy/sklearn dependency)
 # ---------------------------------------------------------------------------
+
 
 class _RobustScaler:
     """Scales features by removing the median and scaling to IQR."""
@@ -147,8 +148,8 @@ INDUSTRY_SECTORS = [
 ]
 
 REVENUE_THRESHOLDS = {
-    "small": 50_000_000,       # < $50M
-    "medium": 1_000_000_000,   # < $1B
+    "small": 50_000_000,  # < $50M
+    "medium": 1_000_000_000,  # < $1B
     # anything >= $1B is "large"
 }
 
@@ -159,15 +160,13 @@ REPORT_TYPES = ["annual", "quarterly", "interim"]
 # FinancialFeatureExtractor
 # ===================================================================
 
+
 class FinancialFeatureExtractor:
     """Extracts, combines, and scales features from financial data."""
 
     def __init__(self, scaler_type: str = "robust") -> None:
         if scaler_type not in _SCALER_MAP:
-            raise ValueError(
-                f"Unknown scaler_type '{scaler_type}'. "
-                f"Choose from {list(_SCALER_MAP.keys())}."
-            )
+            raise ValueError(f"Unknown scaler_type '{scaler_type}'. Choose from {list(_SCALER_MAP.keys())}.")
         self._scaler_type = scaler_type
         self._scaler = _SCALER_MAP[scaler_type]()
         self._is_fitted = False
@@ -262,21 +261,11 @@ class FinancialFeatureExtractor:
                     growth_rates.append(gr)
 
         features["growth_rate_latest"] = growth_rates[-1] if growth_rates else None
-        features["growth_rate_mean"] = (
-            sum(growth_rates) / len(growth_rates) if growth_rates else None
-        )
+        features["growth_rate_mean"] = sum(growth_rates) / len(growth_rates) if growth_rates else None
 
         # -- Moving averages ----------------------------------------------
-        features["ma_3"] = (
-            sum(numeric_values[-3:]) / min(3, len(numeric_values))
-            if numeric_values
-            else None
-        )
-        features["ma_5"] = (
-            sum(numeric_values[-5:]) / min(5, len(numeric_values))
-            if numeric_values
-            else None
-        )
+        features["ma_3"] = sum(numeric_values[-3:]) / min(3, len(numeric_values)) if numeric_values else None
+        features["ma_5"] = sum(numeric_values[-5:]) / min(5, len(numeric_values)) if numeric_values else None
 
         # -- Volatility ---------------------------------------------------
         if len(growth_rates) >= 2:
@@ -414,6 +403,7 @@ class FinancialFeatureExtractor:
 # ===================================================================
 # FeatureSelector
 # ===================================================================
+
 
 class FeatureSelector:
     """Utility methods for feature selection (variance, correlation, top-k)."""

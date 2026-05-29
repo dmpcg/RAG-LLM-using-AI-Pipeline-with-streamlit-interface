@@ -4,6 +4,7 @@ Tests for operating_margin_analysis() and OperatingMarginResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestOperatingMarginDataclass:
     def test_defaults(self):
         r = OperatingMarginResult()
@@ -68,6 +70,7 @@ class TestOperatingMarginDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestOperatingMarginAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestOperatingMarginAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestOperatingMarginScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -135,6 +139,7 @@ class TestOperatingMarginScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase349EdgeCases:
     def test_empty_data(self, analyzer):

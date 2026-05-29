@@ -7,8 +7,8 @@ calls are made.
 
 from __future__ import annotations
 
-import os
-import tempfile
+# Make sure the project root is on sys.path when running from the repo root
+import sys
 from pathlib import Path
 from typing import List
 from unittest.mock import MagicMock
@@ -16,8 +16,6 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-# Make sure the project root is on sys.path when running from the repo root
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from ml.embedding_optimizer import (
@@ -28,7 +26,6 @@ from ml.embedding_optimizer import (
     quantize_embeddings,
     truncate_embeddings,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -58,9 +55,7 @@ class TestInt8Quantization:
         quantized, meta = quantize_embeddings(original, method="int8")
         recovered = dequantize_embeddings(quantized, meta)
         orig_arr = np.asarray(original, dtype=np.float32)
-        assert np.allclose(orig_arr, recovered, atol=0.01), (
-            "int8 round-trip error exceeds tolerance of 0.01"
-        )
+        assert np.allclose(orig_arr, recovered, atol=0.01), "int8 round-trip error exceeds tolerance of 0.01"
 
     def test_output_dtype_is_int8(self):
         embeddings = make_embeddings(5, 16)
@@ -445,9 +440,9 @@ class TestEmbeddingCache:
 
     def test_stats_tracking_hits_and_misses(self, tmp_cache):
         tmp_cache.put("k1", [0.1, 0.2])
-        tmp_cache.get("k1")   # hit
-        tmp_cache.get("k1")   # hit
-        tmp_cache.get("k2")   # miss
+        tmp_cache.get("k1")  # hit
+        tmp_cache.get("k1")  # hit
+        tmp_cache.get("k2")  # miss
 
         stats = tmp_cache.get_stats()
         assert stats["hits"] == 2
@@ -495,9 +490,7 @@ class TestBatchEmbedder:
     def _make_mock_embedder(self, dim: int = 16) -> MagicMock:
         """Return a mock that records embed_batch calls."""
         mock = MagicMock()
-        mock.embed_batch.side_effect = lambda texts: [
-            [float(i) / (dim + 1) for i in range(dim)] for _ in texts
-        ]
+        mock.embed_batch.side_effect = lambda texts: [[float(i) / (dim + 1) for i in range(dim)] for _ in texts]
         return mock
 
     def test_embed_all_calls_embedder_in_batches(self):
@@ -611,16 +604,20 @@ class TestConfigFields:
 
     def test_embedding_quantization_default(self):
         from config import settings
+
         assert settings.embedding_quantization == "none"
 
     def test_embedding_truncation_dim_default(self):
         from config import settings
+
         assert settings.embedding_truncation_dim == 0
 
     def test_embedding_batch_size_default(self):
         from config import settings
+
         assert settings.embedding_batch_size == 32
 
     def test_embedding_cache_version_default(self):
         from config import settings
+
         assert settings.embedding_cache_version == "1.0"

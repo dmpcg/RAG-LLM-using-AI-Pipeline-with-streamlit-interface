@@ -4,10 +4,11 @@ Tests for earnings_to_debt_analysis() and EarningsToDebtResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     EarningsToDebtResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestEarningsToDebtDataclass:
     def test_defaults(self):
         r = EarningsToDebtResult()
@@ -68,6 +70,7 @@ class TestEarningsToDebtDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestEarningsToDebtAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestEarningsToDebtAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestEarningsToDebtScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -135,6 +139,7 @@ class TestEarningsToDebtScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase353EdgeCases:
     def test_empty_data(self, analyzer):

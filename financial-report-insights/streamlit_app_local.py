@@ -4,18 +4,15 @@ No API keys required - runs entirely on your machine.
 Enhanced with Excel processing and financial insights dashboard.
 """
 
-import streamlit as st
 import os
 from pathlib import Path
+
+import streamlit as st
 
 from config import settings
 
 # Page configuration
-st.set_page_config(
-    page_title="Local RAG - Financial Report Insights",
-    page_icon="📊",
-    layout="wide"
-)
+st.set_page_config(page_title="Local RAG - Financial Report Insights", page_icon="📊", layout="wide")
 
 # Initialize session state
 if "rag_system" not in st.session_state:
@@ -78,10 +75,11 @@ def load_rag_system():
         st.stop()
 
     from app_local import SimpleRAG
+
     return SimpleRAG(
         docs_folder="./documents",
         llm_model=os.getenv("OLLAMA_MODEL", "llama3.2"),
-        embedding_model=os.getenv("EMBEDDING_MODEL", settings.embedding_model)
+        embedding_model=os.getenv("EMBEDDING_MODEL", settings.embedding_model),
     )
 
 
@@ -89,11 +87,7 @@ def render_sidebar():
     """Render the sidebar with navigation and settings."""
     with st.sidebar:
         st.header("🧭 Navigation")
-        page = st.radio(
-            "Go to",
-            ["Q&A Chat", "Financial Insights", "Document Manager"],
-            label_visibility="collapsed"
-        )
+        page = st.radio("Go to", ["Q&A Chat", "Financial Insights", "Document Manager"], label_visibility="collapsed")
 
         st.divider()
 
@@ -165,6 +159,7 @@ def _render_system_status():
     """Show Ollama connection status in sidebar (cached to avoid repeated checks)."""
     try:
         from healthcheck import check_ollama_connection
+
         result = check_ollama_connection(os.environ.get("OLLAMA_HOST"))
         if result["status"] == "ok":
             st.sidebar.success("Ollama: Connected")
@@ -188,6 +183,7 @@ def main():
     elif page == "Document Manager":
         render_document_manager()
 
+
 def render_qa_page():
     """Render the Q&A Chat page."""
     # Header
@@ -206,9 +202,9 @@ def render_qa_page():
                 rag = load_rag_system()
 
             # Display document count with type breakdown
-            excel_count = sum(1 for d in rag.documents if d.get('type') == 'excel')
-            pdf_count = sum(1 for d in rag.documents if d.get('type') == 'pdf')
-            text_count = sum(1 for d in rag.documents if d.get('type') == 'text')
+            excel_count = sum(1 for d in rag.documents if d.get("type") == "excel")
+            pdf_count = sum(1 for d in rag.documents if d.get("type") == "pdf")
+            text_count = sum(1 for d in rag.documents if d.get("type") == "text")
 
             info_text = f"📚 {len(rag.documents)} chunks indexed"
             if excel_count > 0:
@@ -227,8 +223,7 @@ def render_qa_page():
 
         # Query input
         user_query = st.text_input(
-            "Enter your question:",
-            placeholder="What are the key financial highlights? What is the revenue trend?"
+            "Enter your question:", placeholder="What are the key financial highlights? What is the revenue trend?"
         )
 
         # Example queries
@@ -259,25 +254,20 @@ def render_qa_page():
 
                     # Stream the answer (tokens appear as they arrive)
                     st.markdown("### Answer")
-                    answer = st.write_stream(
-                        rag.answer_stream(user_query, retrieved_docs=relevant_docs)
-                    )
+                    answer = st.write_stream(rag.answer_stream(user_query, retrieved_docs=relevant_docs))
 
                     # Show retrieved documents (reusing same results)
                     with st.expander("📄 Retrieved Context"):
                         for i, doc in enumerate(relevant_docs, 1):
-                            doc_type = doc.get('type', 'unknown')
+                            doc_type = doc.get("type", "unknown")
                             icon = {"excel": "📊", "pdf": "📄", "text": "📝"}.get(doc_type, "📁")
                             st.markdown(f"**Source {i}:** {icon} {doc['source']}")
-                            content = doc['content']
+                            content = doc["content"]
                             st.text(content[:500] + "..." if len(content) > 500 else content)
                             st.divider()
 
                     # Add to history
-                    st.session_state.chat_history.append({
-                        "query": user_query,
-                        "answer": answer
-                    })
+                    st.session_state.chat_history.append({"query": user_query, "answer": answer})
 
                 except Exception as e:
                     st.error(f"Error: {e}")
@@ -304,6 +294,7 @@ def render_insights_page():
     """Render the Financial Insights dashboard page."""
     try:
         from insights_page import render_insights_page as render_dashboard
+
         render_dashboard(docs_folder="./documents")
     except ImportError as e:
         st.error(f"Financial Insights module not available: {e}")
@@ -325,9 +316,9 @@ def render_document_manager():
 
     uploaded_files = st.file_uploader(
         "Upload financial documents",
-        type=['pdf', 'xlsx', 'xlsm', 'xls', 'csv', 'txt', 'md', 'tsv', 'docx'],
+        type=["pdf", "xlsx", "xlsm", "xls", "csv", "txt", "md", "tsv", "docx"],
         accept_multiple_files=True,
-        help="Supports PDF, Word (docx), Excel (xlsx, xlsm, xls), CSV, TSV, and text files"
+        help="Supports PDF, Word (docx), Excel (xlsx, xlsm, xls), CSV, TSV, and text files",
     )
 
     if uploaded_files:
@@ -354,7 +345,7 @@ def render_document_manager():
             rel_path = f.relative_to(docs_path)
 
             with col1:
-                if f.suffix.lower() in ['.xlsx', '.xlsm', '.xls', '.csv', '.tsv']:
+                if f.suffix.lower() in [".xlsx", ".xlsm", ".xls", ".csv", ".tsv"]:
                     icon = "📊"
                 elif f.suffix.lower() == ".docx":
                     icon = "📝"
@@ -365,7 +356,7 @@ def render_document_manager():
             with col2:
                 size_kb = f.stat().st_size / 1024
                 if size_kb > 1024:
-                    st.caption(f"{size_kb/1024:.1f} MB")
+                    st.caption(f"{size_kb / 1024:.1f} MB")
                 else:
                     st.caption(f"{size_kb:.1f} KB")
 
@@ -403,15 +394,22 @@ def _generate_sample_income_statement(docs_path: Path):
     import pandas as pd
 
     data = {
-        'Line Item': [
-            'Revenue', 'Cost of Goods Sold', 'Gross Profit',
-            'Operating Expenses', 'SG&A', 'R&D', 'Depreciation',
-            'Operating Income', 'Interest Expense', 'Net Income'
+        "Line Item": [
+            "Revenue",
+            "Cost of Goods Sold",
+            "Gross Profit",
+            "Operating Expenses",
+            "SG&A",
+            "R&D",
+            "Depreciation",
+            "Operating Income",
+            "Interest Expense",
+            "Net Income",
         ],
-        'Q1 2024': [1000000, 400000, 600000, 200000, 100000, 50000, 30000, 220000, 20000, 200000],
-        'Q2 2024': [1100000, 440000, 660000, 210000, 105000, 55000, 30000, 260000, 20000, 240000],
-        'Q3 2024': [1200000, 480000, 720000, 220000, 110000, 60000, 30000, 300000, 20000, 280000],
-        'Q4 2024': [1350000, 540000, 810000, 230000, 115000, 65000, 30000, 370000, 20000, 350000]
+        "Q1 2024": [1000000, 400000, 600000, 200000, 100000, 50000, 30000, 220000, 20000, 200000],
+        "Q2 2024": [1100000, 440000, 660000, 210000, 105000, 55000, 30000, 260000, 20000, 240000],
+        "Q3 2024": [1200000, 480000, 720000, 220000, 110000, 60000, 30000, 300000, 20000, 280000],
+        "Q4 2024": [1350000, 540000, 810000, 230000, 115000, 65000, 30000, 370000, 20000, 350000],
     }
 
     df = pd.DataFrame(data)
@@ -423,17 +421,23 @@ def _generate_sample_budget(docs_path: Path):
     import pandas as pd
 
     data = {
-        'Category': [
-            'Revenue', 'Marketing', 'Salaries', 'Technology',
-            'Office', 'Travel', 'Professional Services', 'Other'
+        "Category": [
+            "Revenue",
+            "Marketing",
+            "Salaries",
+            "Technology",
+            "Office",
+            "Travel",
+            "Professional Services",
+            "Other",
         ],
-        'Budget': [1200000, 100000, 500000, 80000, 50000, 30000, 40000, 20000],
-        'Actual': [1150000, 120000, 480000, 95000, 45000, 35000, 38000, 22000]
+        "Budget": [1200000, 100000, 500000, 80000, 50000, 30000, 40000, 20000],
+        "Actual": [1150000, 120000, 480000, 95000, 45000, 35000, 38000, 22000],
     }
 
     df = pd.DataFrame(data)
-    df['Variance'] = df['Actual'] - df['Budget']
-    df['Variance %'] = ((df['Actual'] - df['Budget']) / df['Budget'] * 100).round(1)
+    df["Variance"] = df["Actual"] - df["Budget"]
+    df["Variance %"] = ((df["Actual"] - df["Budget"]) / df["Budget"] * 100).round(1)
     df.to_excel(docs_path / "sample_budget_vs_actual.xlsx", index=False)
 
 

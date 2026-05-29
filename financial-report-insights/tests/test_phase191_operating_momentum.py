@@ -4,6 +4,7 @@ Tests for operating_momentum_analysis() and OperatingMomentumResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestOperatingMomentumDataclass:
     def test_defaults(self):
         r = OperatingMomentumResult()
@@ -68,6 +70,7 @@ class TestOperatingMomentumDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestOperatingMomentumAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestOperatingMomentumAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestOperatingMomentumScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """EM=0.25 => base 8.5. GtOC=0.50 >=0.50 => +0.5. OCC=1.10 >=1.0 => +0.5. Score=9.5."""
@@ -155,6 +159,7 @@ class TestOperatingMomentumScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase191EdgeCases:
     def test_empty_data(self, analyzer):

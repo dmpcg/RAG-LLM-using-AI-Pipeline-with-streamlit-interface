@@ -2,15 +2,12 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from graph_retriever import (
     format_graph_context,
     graph_enhanced_search,
     persist_analysis_to_graph,
     persist_structured_analysis_to_graph,
 )
-
 
 # ---------------------------------------------------------------------------
 # graph_enhanced_search
@@ -70,12 +67,14 @@ class TestGraphEnhancedSearch:
 
 class TestFormatGraphContext:
     def test_formats_ratios_and_scores(self):
-        context = [{
-            "document": "report.pdf",
-            "period": "FY2024",
-            "ratios": [{"name": "current_ratio", "value": 2.1, "category": "liquidity"}],
-            "scores": [{"model": "altman_z", "value": 3.2, "grade": "Safe"}],
-        }]
+        context = [
+            {
+                "document": "report.pdf",
+                "period": "FY2024",
+                "ratios": [{"name": "current_ratio", "value": 2.1, "category": "liquidity"}],
+                "scores": [{"model": "altman_z", "value": 3.2, "grade": "Safe"}],
+            }
+        ]
         text = format_graph_context(context)
         assert "report.pdf" in text
         assert "FY2024" in text
@@ -87,12 +86,14 @@ class TestFormatGraphContext:
         assert format_graph_context([]) == ""
 
     def test_context_without_ratios(self):
-        context = [{
-            "document": "d.pdf",
-            "period": "Q1",
-            "ratios": [],
-            "scores": [{"model": "zscore", "value": 2.5, "grade": "Grey"}],
-        }]
+        context = [
+            {
+                "document": "d.pdf",
+                "period": "Q1",
+                "ratios": [],
+                "scores": [{"model": "zscore", "value": 2.5, "grade": "Grey"}],
+            }
+        ]
         text = format_graph_context(context)
         assert "zscore" in text
         assert "Ratios:" not in text
@@ -145,11 +146,16 @@ class TestPersistAnalysisToGraph:
 class TestPersistStructuredAnalysis:
     def test_structured_persist_with_financial_data(self):
         from financial_analyzer import FinancialData
+
         store = MagicMock()
         fd = FinancialData(revenue=1_000_000, net_income=200_000, total_assets=5_000_000)
 
         persist_structured_analysis_to_graph(
-            store, "doc.pdf", "FY2024", financial_data=fd, ratio_results=None,
+            store,
+            "doc.pdf",
+            "FY2024",
+            financial_data=fd,
+            ratio_results=None,
         )
         # Should call store_line_items and store_derived_from_edges
         store.store_line_items.assert_called_once()
@@ -158,12 +164,17 @@ class TestPersistStructuredAnalysis:
     def test_structured_persist_with_ratio_results(self):
         store = MagicMock()
         from ratio_framework import RatioResult
+
         results = {
             "roa": RatioResult(name="Return on Assets (ROA)", value=0.04, score=4.0, grade="Weak", summary=""),
         }
 
         persist_structured_analysis_to_graph(
-            store, "doc.pdf", "FY2024", financial_data=None, ratio_results=results,
+            store,
+            "doc.pdf",
+            "FY2024",
+            financial_data=None,
+            ratio_results=results,
         )
         store.store_financial_data.assert_called_once()
         call_kwargs = store.store_financial_data.call_args
@@ -183,20 +194,25 @@ class TestPersistStructuredAnalysis:
 class TestNeo4jHealthCheck:
     def test_returns_ok_when_not_configured(self):
         from unittest.mock import patch
+
         with patch.dict("os.environ", {}, clear=False):
             import os
+
             os.environ.pop("NEO4J_URI", None)
             from healthcheck import check_neo4j_connection
+
             result = check_neo4j_connection()
             assert result["status"] == "ok"
             assert "not configured" in result["detail"]
 
     def test_returns_ok_when_connected(self):
         from unittest.mock import patch
+
         mock_store = MagicMock()
         with patch.dict("os.environ", {"NEO4J_URI": "bolt://localhost:7687"}):
             with patch("graph_store.Neo4jStore.connect", return_value=mock_store):
                 from healthcheck import check_neo4j_connection
+
                 result = check_neo4j_connection()
                 assert result["status"] == "ok"
                 mock_store.close.assert_called_once()

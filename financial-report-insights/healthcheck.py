@@ -77,6 +77,7 @@ def check_ollama_connection(host: str | None = None) -> Dict[str, str]:
     """Check if Ollama is reachable and return status."""
     try:
         import ollama
+
         if host:
             client = ollama.Client(host=host)
             client.list()
@@ -92,6 +93,7 @@ def check_model_available(model_name: str, host: str | None = None) -> Dict[str,
     """Check if a specific Ollama model is pulled."""
     try:
         import ollama
+
         if host:
             client = ollama.Client(host=host)
             models = client.list()
@@ -106,8 +108,7 @@ def check_model_available(model_name: str, host: str | None = None) -> Dict[str,
             return {"status": "ok", "detail": f"Model '{model_name}' is available"}
         return {
             "status": "warning",
-            "detail": f"Model '{model_name}' not found. Available: {model_names}. "
-                       f"Run: ollama pull {model_name}"
+            "detail": f"Model '{model_name}' not found. Available: {model_names}. Run: ollama pull {model_name}",
         }
     except Exception as e:
         logger.warning("Healthcheck model check failed: %s", e)
@@ -144,6 +145,7 @@ def check_neo4j_connection() -> Dict[str, str]:
         return {"status": "ok", "detail": "Neo4j not configured (optional)"}
     try:
         from graph_store import Neo4jStore
+
         store = Neo4jStore.connect()
         if store:
             store.close()
@@ -156,6 +158,7 @@ def check_neo4j_connection() -> Dict[str, str]:
 def check_cache_folders() -> Dict[str, str]:
     """Check if cache directories exist and are writable."""
     from config import settings
+
     cache_dirs = [settings.embedding_cache_dir, settings.llm_cache_dir]
     issues = []
     for d in cache_dirs:

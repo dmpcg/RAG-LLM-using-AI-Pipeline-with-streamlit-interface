@@ -7,13 +7,10 @@ predetermined string, bypassing the real BaseAgent loop entirely.
 
 from __future__ import annotations
 
-import time
 from typing import Any, Dict, List
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
-
-from agents.base import AgentMemory, AgentMessage, BaseAgent, ToolRegistry
+from agents.base import AgentMemory, AgentMessage
 from agents.specialized import (
     RatioAnalystAgent,
     ReportWriterAgent,
@@ -28,10 +25,9 @@ from agents.workflows import (
     WorkflowStep,
     _resolve_template,
     create_comprehensive_analysis_workflow,
-    create_quick_scan_workflow,
     create_query_router_workflow,
+    create_quick_scan_workflow,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -106,9 +102,7 @@ class TestWorkflowStep:
         assert step.output_key == "ratio_analyst"
 
     def test_explicit_output_key(self):
-        step = WorkflowStep(
-            agent_name="ratio_analyst", query_template="q", output_key="my_key"
-        )
+        step = WorkflowStep(agent_name="ratio_analyst", query_template="q", output_key="my_key")
         assert step.output_key == "my_key"
 
     def test_default_depends_on_empty(self):
@@ -116,9 +110,7 @@ class TestWorkflowStep:
         assert step.depends_on == []
 
     def test_depends_on_stored(self):
-        step = WorkflowStep(
-            agent_name="b", query_template="q", depends_on=["a_result"]
-        )
+        step = WorkflowStep(agent_name="b", query_template="q", depends_on=["a_result"])
         assert "a_result" in step.depends_on
 
 

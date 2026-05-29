@@ -1,13 +1,11 @@
 """Tests for app_local.py SimpleRAG core engine."""
 
-import hashlib
 import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Mock providers (satisfy protocols.py LLMProvider / EmbeddingProvider)
@@ -76,10 +74,12 @@ def docs_folder_with_xlsx(tmp_path):
 
     docs = tmp_path / "xlsx_documents"
     docs.mkdir()
-    df = pd.DataFrame({
-        "Line Item": ["Revenue", "COGS", "Net Income"],
-        "Amount": [1000000, 600000, 200000],
-    })
+    df = pd.DataFrame(
+        {
+            "Line Item": ["Revenue", "COGS", "Net Income"],
+            "Amount": [1000000, 600000, 200000],
+        }
+    )
     df.to_excel(docs / "financials.xlsx", index=False)
     return docs
 
@@ -919,8 +919,7 @@ class TestExpandParentChunks:
                     "parent_text": "expanded parent",
                 },
             },
-            {"content": "table chunk", "source": "data.xlsx",
-             "metadata": {"chunk_level": "atomic_table"}},
+            {"content": "table chunk", "source": "data.xlsx", "metadata": {"chunk_level": "atomic_table"}},
         ]
         result = rag_empty._expand_parent_chunks(docs)
         assert len(result) == 3
@@ -942,18 +941,15 @@ class TestPromptsAvailableRemoved:
     def test_flag_does_not_exist_in_module(self):
         import app_local
 
-        assert not hasattr(app_local, "_PROMPTS_AVAILABLE"), (
-            "_PROMPTS_AVAILABLE must be removed from app_local (WP-B9)"
-        )
+        assert not hasattr(app_local, "_PROMPTS_AVAILABLE"), "_PROMPTS_AVAILABLE must be removed from app_local (WP-B9)"
 
     def test_prompts_functions_importable(self):
         # The real prompts subtree must be importable (permanent dependency).
-        from prompts import get_prompt_for_query_type, build_prompt, format_context_with_citations  # noqa: F401
+        from prompts import build_prompt, format_context_with_citations, get_prompt_for_query_type  # noqa: F401
 
     def test_answer_uses_real_prompt_for_non_financial_query(self, rag_with_docs):
         """Non-financial query (no charlie_analyzer path) must use the real
         prompts-module path and produce a string prompt that the LLM sees."""
-        from unittest.mock import patch
 
         captured_prompts = []
 

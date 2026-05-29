@@ -4,10 +4,11 @@ Tests for cash_flow_stability_analysis() and CashFlowStabilityResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    CashFlowStabilityResult,
     CharlieAnalyzer,
     FinancialData,
-    CashFlowStabilityResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCashFlowStabilityDataclass:
     def test_defaults(self):
         r = CashFlowStabilityResult()
@@ -68,6 +70,7 @@ class TestCashFlowStabilityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCashFlowStabilityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestCashFlowStabilityAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestCashFlowStabilityScoring:
     def test_strong_stability(self, analyzer, sample_data):
         """OCF Margin=0.22 => base 8.5. OCF/EBITDA=0.88 (not >=0.90) => 0. CFS=1.467 (not >=1.5) => 0. Score=8.5."""
@@ -154,6 +158,7 @@ class TestCashFlowStabilityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase125EdgeCases:
     def test_empty_data(self, analyzer):

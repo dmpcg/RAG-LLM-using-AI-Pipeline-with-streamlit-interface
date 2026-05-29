@@ -4,14 +4,15 @@ Tests for tornado/driver ranking, breakeven analysis, and KPI threshold monitori
 """
 
 import pytest
+
 from financial_analyzer import (
+    BreakevenResult,
     CharlieAnalyzer,
+    CovenantCheck,
+    CovenantMonitorResult,
     FinancialData,
     TornadoDriver,
     TornadoResult,
-    BreakevenResult,
-    CovenantCheck,
-    CovenantMonitorResult,
 )
 
 
@@ -59,6 +60,7 @@ def minimal_data():
 
 # ===== TORNADO DRIVER DATACLASS =====
 
+
 class TestTornadoDriverDataclass:
     def test_defaults(self):
         d = TornadoDriver()
@@ -85,6 +87,7 @@ class TestTornadoResultDataclass:
 
 # ===== BREAKEVEN DATACLASS =====
 
+
 class TestBreakevenResultDataclass:
     def test_defaults(self):
         r = BreakevenResult()
@@ -97,6 +100,7 @@ class TestBreakevenResultDataclass:
 
 
 # ===== COVENANT DATACLASSES =====
+
 
 class TestCovenantCheckDataclass:
     def test_defaults(self):
@@ -120,6 +124,7 @@ class TestCovenantMonitorResultDataclass:
 
 # ===== TORNADO ANALYSIS =====
 
+
 class TestTornadoAnalysis:
     def test_returns_tornado_result(self, analyzer, sample_data):
         result = analyzer.tornado_analysis(sample_data)
@@ -130,17 +135,15 @@ class TestTornadoAnalysis:
         assert len(result.drivers) > 0
         # Should include revenue, cogs, etc.
         var_names = [d.variable for d in result.drivers]
-        assert 'revenue' in var_names
-        assert 'cogs' in var_names
+        assert "revenue" in var_names
+        assert "cogs" in var_names
 
     def test_custom_variables(self, analyzer, sample_data):
-        result = analyzer.tornado_analysis(
-            sample_data, variables=['revenue', 'cogs']
-        )
+        result = analyzer.tornado_analysis(sample_data, variables=["revenue", "cogs"])
         assert len(result.drivers) == 2
         var_names = [d.variable for d in result.drivers]
-        assert 'revenue' in var_names
-        assert 'cogs' in var_names
+        assert "revenue" in var_names
+        assert "cogs" in var_names
 
     def test_drivers_sorted_by_spread(self, analyzer, sample_data):
         result = analyzer.tornado_analysis(sample_data)
@@ -152,13 +155,12 @@ class TestTornadoAnalysis:
         assert result.top_driver == result.drivers[0].variable
 
     def test_base_metric_value_populated(self, analyzer, sample_data):
-        result = analyzer.tornado_analysis(sample_data, target_metric='health_score')
+        result = analyzer.tornado_analysis(sample_data, target_metric="health_score")
         assert result.base_metric_value > 0
 
     def test_different_targets(self, analyzer, sample_data):
         """All supported target metrics should work."""
-        for target in ['health_score', 'z_score', 'f_score', 'net_margin',
-                        'current_ratio', 'roe', 'debt_to_equity']:
+        for target in ["health_score", "z_score", "f_score", "net_margin", "current_ratio", "roe", "debt_to_equity"]:
             result = analyzer.tornado_analysis(sample_data, target_metric=target)
             assert isinstance(result, TornadoResult)
             assert result.target_metric == target
@@ -170,8 +172,8 @@ class TestTornadoAnalysis:
 
     def test_higher_swing_wider_spread(self, analyzer, sample_data):
         """Wider swing should generally produce wider spreads."""
-        r_small = analyzer.tornado_analysis(sample_data, variables=['revenue'], pct_swing=5.0)
-        r_large = analyzer.tornado_analysis(sample_data, variables=['revenue'], pct_swing=20.0)
+        r_small = analyzer.tornado_analysis(sample_data, variables=["revenue"], pct_swing=5.0)
+        r_large = analyzer.tornado_analysis(sample_data, variables=["revenue"], pct_swing=20.0)
         assert r_large.drivers[0].spread >= r_small.drivers[0].spread
 
     def test_empty_data_returns_empty(self, analyzer):
@@ -185,10 +187,11 @@ class TestTornadoAnalysis:
         assert isinstance(result, TornadoResult)
         # Should still find at least revenue and total_assets
         var_names = [d.variable for d in result.drivers]
-        assert 'revenue' in var_names
+        assert "revenue" in var_names
 
 
 # ===== BREAKEVEN ANALYSIS =====
+
 
 class TestBreakevenAnalysis:
     def test_returns_breakeven_result(self, analyzer, sample_data):
@@ -259,6 +262,7 @@ class TestBreakevenAnalysis:
 
 # ===== COVENANT MONITORING =====
 
+
 class TestCovenantMonitor:
     def test_returns_covenant_monitor_result(self, analyzer, sample_data):
         result = analyzer.covenant_monitor(sample_data)
@@ -271,106 +275,95 @@ class TestCovenantMonitor:
     def test_checks_sum_to_total(self, analyzer, sample_data):
         result = analyzer.covenant_monitor(sample_data)
         total_known = result.passes + result.warnings + result.breaches
-        unknown = sum(1 for c in result.checks if c.status == 'unknown')
+        unknown = sum(1 for c in result.checks if c.status == "unknown")
         assert total_known + unknown == len(result.checks)
 
     def test_custom_covenants(self, analyzer, sample_data):
         custom = [
-            {'name': 'Min CR', 'metric': 'current_ratio',
-             'threshold': 1.0, 'direction': 'above'},
+            {"name": "Min CR", "metric": "current_ratio", "threshold": 1.0, "direction": "above"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
         assert len(result.checks) == 1
         # current_ratio = 500k/200k = 2.5, threshold 1.0 => pass
-        assert result.checks[0].status == 'pass'
+        assert result.checks[0].status == "pass"
 
     def test_breach_detection(self, analyzer, sample_data):
         """Set a threshold that will definitely be breached."""
         custom = [
-            {'name': 'Impossible CR', 'metric': 'current_ratio',
-             'threshold': 100.0, 'direction': 'above'},
+            {"name": "Impossible CR", "metric": "current_ratio", "threshold": 100.0, "direction": "above"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
         assert result.breaches == 1
-        assert result.checks[0].status == 'breach'
+        assert result.checks[0].status == "breach"
 
     def test_below_direction(self, analyzer, sample_data):
         """Direction 'below' means passing if value <= threshold."""
         custom = [
-            {'name': 'Max D/E', 'metric': 'debt_to_equity',
-             'threshold': 2.0, 'direction': 'below'},
+            {"name": "Max D/E", "metric": "debt_to_equity", "threshold": 2.0, "direction": "below"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
         # D/E = 800k/1.2M = 0.667, well below 2.0 => pass
-        assert result.checks[0].status == 'pass'
+        assert result.checks[0].status == "pass"
 
     def test_below_breach(self, analyzer, sample_data):
         """When value exceeds threshold with 'below' direction, should breach."""
         custom = [
-            {'name': 'Max D/E', 'metric': 'debt_to_equity',
-             'threshold': 0.1, 'direction': 'below'},
+            {"name": "Max D/E", "metric": "debt_to_equity", "threshold": 0.1, "direction": "below"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
-        assert result.checks[0].status == 'breach'
+        assert result.checks[0].status == "breach"
 
     def test_headroom_positive_when_passing(self, analyzer, sample_data):
         custom = [
-            {'name': 'Min CR', 'metric': 'current_ratio',
-             'threshold': 1.0, 'direction': 'above'},
+            {"name": "Min CR", "metric": "current_ratio", "threshold": 1.0, "direction": "above"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
         assert result.checks[0].headroom > 0
 
     def test_headroom_negative_when_breaching(self, analyzer, sample_data):
         custom = [
-            {'name': 'Min CR', 'metric': 'current_ratio',
-             'threshold': 100.0, 'direction': 'above'},
+            {"name": "Min CR", "metric": "current_ratio", "threshold": 100.0, "direction": "above"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
         assert result.checks[0].headroom < 0
 
     def test_unknown_metric(self, analyzer, sample_data):
         custom = [
-            {'name': 'Bad Metric', 'metric': 'nonexistent_metric',
-             'threshold': 1.0, 'direction': 'above'},
+            {"name": "Bad Metric", "metric": "nonexistent_metric", "threshold": 1.0, "direction": "above"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
-        assert result.checks[0].status == 'unknown'
+        assert result.checks[0].status == "unknown"
         assert result.checks[0].current_value is None
 
     def test_summary_contains_breach_count(self, analyzer, sample_data):
         custom = [
-            {'name': 'Fail', 'metric': 'current_ratio',
-             'threshold': 100.0, 'direction': 'above'},
+            {"name": "Fail", "metric": "current_ratio", "threshold": 100.0, "direction": "above"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
-        assert 'BREACH' in result.summary
+        assert "BREACH" in result.summary
 
     def test_summary_passing_only(self, analyzer, sample_data):
         custom = [
-            {'name': 'Easy', 'metric': 'current_ratio',
-             'threshold': 0.1, 'direction': 'above'},
+            {"name": "Easy", "metric": "current_ratio", "threshold": 0.1, "direction": "above"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
-        assert 'passing' in result.summary
+        assert "passing" in result.summary
 
     def test_dscr_metric(self, analyzer, sample_data):
         """DSCR = EBITDA / interest_expense = 250k / 30k = 8.33."""
         custom = [
-            {'name': 'DSCR', 'metric': 'dscr',
-             'threshold': 1.25, 'direction': 'above'},
+            {"name": "DSCR", "metric": "dscr", "threshold": 1.25, "direction": "above"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
-        assert result.checks[0].status == 'pass'
+        assert result.checks[0].status == "pass"
         assert result.checks[0].current_value > 8.0
 
     def test_health_score_metric(self, analyzer, sample_data):
         custom = [
-            {'name': 'Health', 'metric': 'health_score',
-             'threshold': 20.0, 'direction': 'above'},
+            {"name": "Health", "metric": "health_score", "threshold": 20.0, "direction": "above"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
-        assert result.checks[0].status == 'pass'
+        assert result.checks[0].status == "pass"
         assert result.checks[0].current_value > 20.0
 
     def test_empty_data(self, analyzer):
@@ -385,21 +378,21 @@ class TestCovenantMonitor:
         Since 2.5 < 2.53, should be warning.
         """
         custom = [
-            {'name': 'Near CR', 'metric': 'current_ratio',
-             'threshold': 2.3, 'direction': 'above'},
+            {"name": "Near CR", "metric": "current_ratio", "threshold": 2.3, "direction": "above"},
         ]
         result = analyzer.covenant_monitor(sample_data, custom)
-        assert result.checks[0].status == 'warning'
+        assert result.checks[0].status == "warning"
         assert result.warnings == 1
 
 
 # ===== EDGE CASES =====
 
+
 class TestPhase7EdgeCases:
     def test_tornado_single_variable(self, analyzer, sample_data):
-        result = analyzer.tornado_analysis(sample_data, variables=['revenue'])
+        result = analyzer.tornado_analysis(sample_data, variables=["revenue"])
         assert len(result.drivers) == 1
-        assert result.top_driver == 'revenue'
+        assert result.top_driver == "revenue"
 
     def test_breakeven_no_opex(self, analyzer):
         """With no opex, fixed costs are just interest."""
@@ -416,9 +409,6 @@ class TestPhase7EdgeCases:
 
     def test_tornado_all_metrics_work(self, analyzer, sample_data):
         """Ensure no target metric crashes."""
-        for metric in ['health_score', 'z_score', 'f_score', 'net_margin',
-                       'current_ratio', 'roe', 'debt_to_equity']:
-            result = analyzer.tornado_analysis(
-                sample_data, target_metric=metric, variables=['revenue']
-            )
+        for metric in ["health_score", "z_score", "f_score", "net_margin", "current_ratio", "roe", "debt_to_equity"]:
+            result = analyzer.tornado_analysis(sample_data, target_metric=metric, variables=["revenue"])
             assert result.drivers[0].spread >= 0

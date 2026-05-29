@@ -8,7 +8,6 @@ from typing import Dict, List, Tuple
 
 from structured_types import RatioCategory
 
-
 # ---------------------------------------------------------------------------
 # Common scoring helpers
 # ---------------------------------------------------------------------------
@@ -37,18 +36,40 @@ def score_to_grade(score: int) -> str:
 # ---------------------------------------------------------------------------
 
 _PERCENT_KEYWORDS = (
-    "margin", "return", "yield", "roe", "roa", "roic",
-    "turnover", "coverage", "rate",
+    "margin",
+    "return",
+    "yield",
+    "roe",
+    "roa",
+    "roic",
+    "turnover",
+    "coverage",
+    "rate",
 )
 # Multiplier-style metrics rendered as "X.XXx" (e.g. current_ratio, debt_to_equity).
 # These are decimal multiples, NOT percentages -- 1.5 must render as "1.50x" not "150%".
 _RATIO_KEYWORDS = (
-    "ratio", "to_equity", "to_assets", "multiplier",
+    "ratio",
+    "to_equity",
+    "to_assets",
+    "multiplier",
 )
 _DOLLAR_KEYWORDS = (
-    "revenue", "income", "assets", "debt", "equity", "cash",
-    "expense", "liabilities", "ebit", "ebitda", "capex",
-    "profit", "payable", "receivable", "inventory",
+    "revenue",
+    "income",
+    "assets",
+    "debt",
+    "equity",
+    "cash",
+    "expense",
+    "liabilities",
+    "ebit",
+    "ebitda",
+    "capex",
+    "profit",
+    "payable",
+    "receivable",
+    "inventory",
 )
 
 

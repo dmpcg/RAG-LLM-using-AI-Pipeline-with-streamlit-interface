@@ -4,10 +4,11 @@ Tests for capex_to_revenue_analysis() and CapexToRevenueResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    CapexToRevenueResult,
     CharlieAnalyzer,
     FinancialData,
-    CapexToRevenueResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCapexToRevenueDataclass:
     def test_defaults(self):
         r = CapexToRevenueResult()
@@ -68,6 +70,7 @@ class TestCapexToRevenueDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCapexToRevenueAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestCapexToRevenueAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestCapexToRevenueScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -132,6 +136,7 @@ class TestCapexToRevenueScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase307EdgeCases:
     def test_empty_data(self, analyzer):

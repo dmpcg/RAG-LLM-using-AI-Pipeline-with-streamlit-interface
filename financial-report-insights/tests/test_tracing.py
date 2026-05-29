@@ -1,4 +1,5 @@
 """Tests for the observability tracing module."""
+
 import threading
 import time
 

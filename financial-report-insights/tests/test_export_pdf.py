@@ -4,9 +4,9 @@ import fitz  # PyMuPDF
 import pytest
 
 from financial_analyzer import (
+    CompositeHealthScore,
     FinancialData,
     FinancialReport,
-    CompositeHealthScore,
 )
 
 
@@ -54,33 +54,23 @@ class TestFinancialPDFExporter:
     # export_full_report
     # ------------------------------------------------------------------
 
-    def test_export_full_report_returns_bytes(
-        self, exporter, sample_data, sample_results
-    ):
+    def test_export_full_report_returns_bytes(self, exporter, sample_data, sample_results):
         result = exporter.export_full_report(sample_data, sample_results)
         assert isinstance(result, bytes)
         assert len(result) > 500  # A real PDF with content should be at least 500 bytes
         assert result[:5] == b"%PDF-"
 
-    def test_export_full_report_with_report(
-        self, exporter, sample_data, sample_results
-    ):
+    def test_export_full_report_with_report(self, exporter, sample_data, sample_results):
         report = FinancialReport(
             executive_summary="Strong quarter with solid revenue growth.",
             sections={"Overview": "Test"},
         )
-        result = exporter.export_full_report(
-            sample_data, sample_results, report=report
-        )
+        result = exporter.export_full_report(sample_data, sample_results, report=report)
         assert isinstance(result, bytes)
         assert result[:5] == b"%PDF-"
 
-    def test_export_full_report_without_report(
-        self, exporter, sample_data, sample_results
-    ):
-        result = exporter.export_full_report(
-            sample_data, sample_results, report=None
-        )
+    def test_export_full_report_without_report(self, exporter, sample_data, sample_results):
+        result = exporter.export_full_report(sample_data, sample_results, report=None)
         assert isinstance(result, bytes)
         assert result[:5] == b"%PDF-"
 
@@ -89,9 +79,7 @@ class TestFinancialPDFExporter:
         assert isinstance(result, bytes)
         assert result[:5] == b"%PDF-"
 
-    def test_export_full_report_with_health_score(
-        self, exporter, sample_data
-    ):
+    def test_export_full_report_with_health_score(self, exporter, sample_data):
         results = {
             "current_ratio": 2.0,
             "composite_health": CompositeHealthScore(
@@ -186,9 +174,7 @@ class TestFinancialPDFExporter:
     # Many ratios to trigger pagination
     # ------------------------------------------------------------------
 
-    def test_export_full_report_many_ratios(
-        self, exporter, sample_data
-    ):
+    def test_export_full_report_many_ratios(self, exporter, sample_data):
         """Ensure multi-page rendering works with many metrics."""
         results = {f"metric_{i}_ratio": float(i) * 0.01 for i in range(50)}
         result = exporter.export_full_report(sample_data, results)
@@ -196,16 +182,17 @@ class TestFinancialPDFExporter:
         assert result[:5] == b"%PDF-"
 
 
-
 # ---------------------------------------------------------------------------
 # WS-3 P0-8: current_ratio renders as multiplier (1.50x), not percent (150.00%)
 # ---------------------------------------------------------------------------
+
 
 class TestRatioFormatting_P0_8:
     """Regression: PDF must format ratios as 'X.XXx' not 'XXX.XX%'."""
 
     def _exporter(self):
         from export_pdf import FinancialPDFExporter
+
         return FinancialPDFExporter()
 
     def test_current_ratio_renders_as_multiplier(self):
@@ -243,41 +230,50 @@ class TestRatioFormatting_P0_8:
 # WS-3 P1-E3: PDF unicode safety -- _sanitize_text + rendered-PDF extraction
 # ---------------------------------------------------------------------------
 
+
 class TestUnicodeSanitization_P1_E3:
     """Regression: non-latin-1 chars must be ASCII-substituted, not crash/corrupt."""
 
     def _exporter(self):
         from export_pdf import FinancialPDFExporter
+
         return FinancialPDFExporter()
 
     # (1) Exact substitution-table assertions ------------------------------
 
     def test_sanitize_em_dash(self):
         from export_pdf import _sanitize_text
+
         assert _sanitize_text("Acme—Corp") == "Acme-Corp"
 
     def test_sanitize_en_dash(self):
         from export_pdf import _sanitize_text
+
         assert _sanitize_text("2024–2025") == "2024-2025"
 
     def test_sanitize_micro_sign(self):
         from export_pdf import _sanitize_text
+
         assert _sanitize_text("5µm") == "5um"
 
     def test_sanitize_smart_quotes(self):
         from export_pdf import _sanitize_text
+
         assert _sanitize_text("‘a’ “b”") == "'a' \"b\""
 
     def test_sanitize_comparison_operators(self):
         from export_pdf import _sanitize_text
+
         assert _sanitize_text("x ≥ 1 and y ≤ 2") == "x >= 1 and y <= 2"
 
     def test_sanitize_ellipsis(self):
         from export_pdf import _sanitize_text
+
         assert _sanitize_text("wait…") == "wait..."
 
     def test_sanitize_latin1_backstop(self):
         from export_pdf import _sanitize_text
+
         # An arbitrary non-latin-1 char (CJK) must be replaced, not survive.
         out = _sanitize_text("price中")
         assert out.encode("latin-1")  # must not raise -> all bytes <= 0xFF
@@ -285,6 +281,7 @@ class TestUnicodeSanitization_P1_E3:
 
     def test_sanitize_is_idempotent(self):
         from export_pdf import _sanitize_text
+
         once = _sanitize_text("a—bµc")
         assert _sanitize_text(once) == once == "a-buc"
 
@@ -314,7 +311,7 @@ class TestUnicodeSanitization_P1_E3:
         text = self._extract_text(pdf_bytes)
         # ASCII-substituted form must be present.
         assert "Acme-u" in text
-        assert "\"Q4\"" in text
+        assert '"Q4"' in text
         # No original non-latin-1 byte may survive anywhere in the document.
         for ch in ("—", "µ", "“", "”"):
             assert ch not in text

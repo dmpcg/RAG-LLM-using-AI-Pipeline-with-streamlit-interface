@@ -4,10 +4,11 @@ Tests for cash_burn_analysis() and CashBurnResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    CashBurnResult,
     CharlieAnalyzer,
     FinancialData,
-    CashBurnResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCashBurnDataclass:
     def test_defaults(self):
         r = CashBurnResult()
@@ -68,6 +70,7 @@ class TestCashBurnDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCashBurnAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -114,6 +117,7 @@ class TestCashBurnAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestCashBurnScoring:
     def test_very_high_fcf_margin(self, analyzer):
@@ -209,6 +213,7 @@ class TestCashBurnScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase79EdgeCases:
     def test_empty_data(self, analyzer):

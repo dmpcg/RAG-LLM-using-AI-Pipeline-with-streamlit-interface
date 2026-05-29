@@ -4,6 +4,7 @@ Tests for operating_income_quality_analysis() and OperatingIncomeQualityResult d
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestOperatingIncomeQualityDataclass:
     def test_defaults(self):
         r = OperatingIncomeQualityResult()
@@ -68,6 +70,7 @@ class TestOperatingIncomeQualityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestOperatingIncomeQualityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -105,6 +108,7 @@ class TestOperatingIncomeQualityAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestOperatingIncomeQualityScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """OI/Rev=0.20 in [0.20,0.30)=>base 8.5. OCF(220k)>OI(200k)(+0.5). OI>0&Rev>0(+0.5). Score=9.5."""
@@ -138,6 +142,7 @@ class TestOperatingIncomeQualityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase275EdgeCases:
     def test_empty_data(self, analyzer):

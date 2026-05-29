@@ -10,7 +10,7 @@ Integrates with SimpleRAG's document/embedding stores.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -187,10 +187,7 @@ def ingest_excel(
             sep = "\t" if suffix == ".tsv" else ","
             df = pd.read_csv(file_path, sep=sep, nrows=settings.max_workbook_rows)
             # Fix unnamed columns from headerless Excel exports
-            df.columns = [
-                c if not str(c).startswith("Unnamed") else f"Col_{i}"
-                for i, c in enumerate(df.columns)
-            ]
+            df.columns = [c if not str(c).startswith("Unnamed") else f"Col_{i}" for i, c in enumerate(df.columns)]
             sheets = [("Sheet1", df)]
         else:
             xls = pd.ExcelFile(file_path)
@@ -200,8 +197,7 @@ def ingest_excel(
                     df = pd.read_excel(xls, sheet_name=sheet_name, nrows=settings.max_workbook_rows)
                     # Fix unnamed columns
                     df.columns = [
-                        c if not str(c).startswith("Unnamed") else f"Col_{i}"
-                        for i, c in enumerate(df.columns)
+                        c if not str(c).startswith("Unnamed") else f"Col_{i}" for i, c in enumerate(df.columns)
                     ]
                     # Skip empty sheets
                     if df.empty or (df.shape[0] < 2 and df.shape[1] < 2):
@@ -237,7 +233,9 @@ def ingest_excel(
 
         logger.info(
             "Ingested Excel '%s': %d sheets -> %d chunks",
-            source, len(sheets), len(all_chunks),
+            source,
+            len(sheets),
+            len(all_chunks),
         )
 
     except Exception as e:
@@ -319,7 +317,9 @@ def ingest_pdf(
 
         logger.info(
             "Ingested PDF '%s': %d sections -> %d chunks",
-            source, len(parsed.sections), len(all_chunks),
+            source,
+            len(parsed.sections),
+            len(all_chunks),
         )
 
     except Exception as e:
@@ -356,13 +356,16 @@ def ingest_text(
     if file_size > _MAX_TEXT_BYTES:
         logger.warning(
             "Text file %s is %d bytes (limit %d). Skipping.",
-            source, file_size, _MAX_TEXT_BYTES,
+            source,
+            file_size,
+            _MAX_TEXT_BYTES,
         )
         return []
 
     try:
         if suffix == ".docx":
             from docx import Document as DocxDocument
+
             doc = DocxDocument(file_path)
             text = "\n".join(p.text for p in doc.paragraphs)
         else:

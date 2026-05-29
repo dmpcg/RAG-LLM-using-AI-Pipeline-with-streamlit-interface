@@ -4,6 +4,7 @@ Tests for funding_efficiency_analysis() and FundingEfficiencyResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestFundingEfficiencyDataclass:
     def test_defaults(self):
         r = FundingEfficiencyResult()
@@ -68,6 +70,7 @@ class TestFundingEfficiencyDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestFundingEfficiencyAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestFundingEfficiencyAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestFundingEfficiencyScoring:
     def test_strong_efficiency(self, analyzer, sample_data):
         """IC=8.333 => base 8.5. DC=0.25 <=0.30 => +0.5. FS=0.056 >=0.05 => +0.5. Score=9.5."""
@@ -154,6 +158,7 @@ class TestFundingEfficiencyScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase131EdgeCases:
     def test_empty_data(self, analyzer):

@@ -4,6 +4,7 @@ Tests for payout_resilience_analysis() and PayoutResilienceResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestPayoutResilienceDataclass:
     def test_defaults(self):
         r = PayoutResilienceResult()
@@ -68,6 +70,7 @@ class TestPayoutResilienceDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestPayoutResilienceAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestPayoutResilienceAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestPayoutResilienceScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -133,6 +137,7 @@ class TestPayoutResilienceScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase317EdgeCases:
     def test_empty_data(self, analyzer):

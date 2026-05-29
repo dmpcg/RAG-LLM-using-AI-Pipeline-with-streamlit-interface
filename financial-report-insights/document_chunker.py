@@ -36,6 +36,7 @@ class RAGChunk:
         metadata: Additional metadata dict.
         nl_description: Natural language description of numeric content.
     """
+
     chunk_id: str
     text: str
     parent_id: Optional[str] = None
@@ -205,7 +206,10 @@ def chunk_text_content(
         # Add NL description for numeric-heavy parent chunks
         if _is_mostly_numeric(parent_text):
             parent_chunk.nl_description = _generate_nl_description(
-                parent_text, section_type, section_title, source,
+                parent_text,
+                section_type,
+                section_title,
+                source,
             )
 
         chunks.append(parent_chunk)
@@ -235,7 +239,10 @@ def chunk_text_content(
 
                 if _is_mostly_numeric(child_text):
                     child_chunk.nl_description = _generate_nl_description(
-                        child_text, section_type, section_title, source,
+                        child_text,
+                        section_type,
+                        section_title,
+                        source,
                     )
 
                 chunks.append(child_chunk)
@@ -264,7 +271,10 @@ def chunk_text_content(
             )
             if _is_mostly_numeric(child_text):
                 child_chunk.nl_description = _generate_nl_description(
-                    child_text, section_type, section_title, source,
+                    child_text,
+                    section_type,
+                    section_title,
+                    source,
                 )
             chunks.append(child_chunk)
             chunk_idx += 1
@@ -345,13 +355,15 @@ def chunk_excel_sheet(
 
     # Small sheets -> atomic table chunk
     if tokens <= 1500:
-        return [chunk_table(
-            df_markdown,
-            source=source,
-            section_type=section_type,
-            section_title=sheet_name,
-            metadata=meta,
-        )]
+        return [
+            chunk_table(
+                df_markdown,
+                source=source,
+                section_type=section_type,
+                section_title=sheet_name,
+                metadata=meta,
+            )
+        ]
 
     # Large sheets -> split by rows while keeping header
     lines = df_markdown.split("\n")

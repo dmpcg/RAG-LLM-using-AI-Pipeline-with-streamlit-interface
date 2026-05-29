@@ -4,6 +4,7 @@ Tests for tax_efficiency_analysis() and TaxEfficiencyResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -49,6 +50,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestTaxEfficiencyDataclass:
     def test_defaults(self):
         r = TaxEfficiencyResult()
@@ -69,6 +71,7 @@ class TestTaxEfficiencyDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestTaxEfficiencyAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -110,6 +113,7 @@ class TestTaxEfficiencyAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestTaxEfficiencyScoring:
     def test_very_low_etr(self, analyzer):
@@ -179,6 +183,7 @@ class TestTaxEfficiencyScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase70EdgeCases:
     def test_empty_data(self, analyzer):

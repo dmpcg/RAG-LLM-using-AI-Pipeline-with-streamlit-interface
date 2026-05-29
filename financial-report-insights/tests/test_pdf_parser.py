@@ -1,17 +1,17 @@
 """Tests for pdf_parser module."""
 
-import pytest
-from unittest.mock import patch, MagicMock
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from pdf_parser import (
+    SECTION_PATTERNS,
+    ParsedDocument,
     _detect_section_type,
+    _detect_tables_in_section,
     _extract_metadata,
     _split_into_sections,
-    _detect_tables_in_section,
-    ParsedSection,
-    ParsedDocument,
-    SECTION_PATTERNS,
 )
 
 
@@ -141,11 +141,7 @@ class TestDetectTables:
         assert len(tables) == 0
 
     def test_multiple_tables(self):
-        content = (
-            "| A | B |\n|---|---|\n| 1 | 2 |\n\n"
-            "Some text between tables\n\n"
-            "| C | D |\n|---|---|\n| 3 | 4 |\n"
-        )
+        content = "| A | B |\n|---|---|\n| 1 | 2 |\n\nSome text between tables\n\n| C | D |\n|---|---|\n| 3 | 4 |\n"
         tables = _detect_tables_in_section(content)
         assert len(tables) == 2
 
@@ -166,6 +162,7 @@ class TestSectionPatterns:
 # WP-PDF P1-C3 tests
 # ---------------------------------------------------------------------------
 
+
 class TestParsePdfCorruptInput:
     """parse_pdf must return an empty ParsedDocument for corrupt/unreadable PDFs."""
 
@@ -183,8 +180,9 @@ class TestParsePdfCorruptInput:
 
     def test_corrupt_pdf_bytes_fitz_file_data_error(self, tmp_path):
         """Garbage bytes trigger fitz.FileDataError -> empty ParsedDocument, no raise."""
-        from pdf_parser import parse_pdf
         import fitz
+
+        from pdf_parser import parse_pdf
 
         corrupt = tmp_path / "corrupt.pdf"
         corrupt.write_bytes(b"not a real pdf garbage bytes 1234")
@@ -244,6 +242,7 @@ class TestParsePdfCorruptInput:
     def test_file_data_error_swallowed(self, tmp_path):
         """fitz.FileDataError is caught and returns empty ParsedDocument."""
         import fitz
+
         from pdf_parser import parse_pdf
 
         dummy = tmp_path / "file_data_err.pdf"
@@ -259,6 +258,7 @@ class TestParsePdfCorruptInput:
     def test_empty_parsed_document_source_path(self, tmp_path):
         """Empty ParsedDocument returned on error has source_path set to the input file."""
         import fitz
+
         from pdf_parser import parse_pdf
 
         dummy = tmp_path / "check_path.pdf"

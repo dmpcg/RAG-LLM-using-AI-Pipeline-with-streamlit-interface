@@ -10,6 +10,7 @@ Also exposes Prometheus HTTP instrumentation:
 - ``MetricsMiddleware``: Starlette BaseHTTPMiddleware that records both
 - ``render_latest()``: Returns (bytes, content_type) for the /metrics endpoint
 """
+
 import logging
 import threading
 import time
@@ -17,8 +18,7 @@ from collections import deque
 from typing import Any, Deque, Dict, List, Optional, Tuple
 
 import prometheus_client
-from prometheus_client import CollectorRegistry, Counter, Histogram, generate_latest
-from prometheus_client import CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -192,8 +192,7 @@ class MetricsCollector:
             }
         except Exception as exc:  # pragma: no cover
             logger.warning("MetricsCollector.get_query_stats failed: %s", exc)
-            return {"total_queries": 0, "avg_latency_ms": 0.0,
-                    "avg_prompt_tokens": 0.0, "avg_completion_tokens": 0.0}
+            return {"total_queries": 0, "avg_latency_ms": 0.0, "avg_prompt_tokens": 0.0, "avg_completion_tokens": 0.0}
 
     def get_retrieval_stats(self) -> Dict[str, Any]:
         """Return aggregated retrieval statistics.
@@ -405,6 +404,7 @@ def get_metrics_collector() -> MetricsCollector:
                 window_size = _DEFAULT_WINDOW_SIZE
                 try:
                     from config import settings
+
                     window_size = int(getattr(settings, "metrics_window_size", _DEFAULT_WINDOW_SIZE))
                 except Exception:
                     pass

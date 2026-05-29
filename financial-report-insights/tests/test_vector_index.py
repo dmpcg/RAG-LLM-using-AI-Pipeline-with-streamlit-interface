@@ -9,7 +9,6 @@ environment regardless of whether faiss or hnswlib are installed.
 from __future__ import annotations
 
 import sys
-import types
 from pathlib import Path
 from typing import List
 from unittest.mock import MagicMock, patch
@@ -277,6 +276,7 @@ class TestCreateIndex:
         ):
             # Reset cached availability flags so _check_* re-evaluates
             import vector_index as vi
+
             vi._FAISS_AVAILABLE = False
             vi._HNSW_AVAILABLE = False
             idx = create_index(DIM, backend="auto")
@@ -298,6 +298,7 @@ class TestCreateIndex:
 
     def test_faiss_backend_raises_when_unavailable(self):
         import vector_index as vi
+
         original = vi._FAISS_AVAILABLE
         vi._FAISS_AVAILABLE = False
         try:
@@ -308,6 +309,7 @@ class TestCreateIndex:
 
     def test_hnswlib_backend_raises_when_unavailable(self):
         import vector_index as vi
+
         original = vi._HNSW_AVAILABLE
         vi._HNSW_AVAILABLE = False
         try:
@@ -379,6 +381,7 @@ class TestFAISSIndexMocked:
 
     def _get_faiss_index(self, dim=DIM):
         from vector_index import FAISSIndex
+
         fake_faiss = _make_faiss_mock()
         idx = FAISSIndex.__new__(FAISSIndex)
         idx.dimension = dim
@@ -495,6 +498,7 @@ class TestHNSWIndexMocked:
 
     def _get_hnsw_index(self, dim=DIM):
         from vector_index import HNSWIndex
+
         fake_lib = _make_hnswlib_mock()
         idx = HNSWIndex.__new__(HNSWIndex)
         idx.dimension = dim
@@ -669,8 +673,7 @@ class TestFAISSIVFPowerOfTwoRetrain:
             # Only the very first add triggers _build_index (flat init);
             # the second batch goes through the incremental index.add() path
             assert len(build_calls) == 1, (
-                f"Expected exactly 1 _build_index call for sub-threshold adds "
-                f"(first init only), got {len(build_calls)}"
+                f"Expected exactly 1 _build_index call for sub-threshold adds (first init only), got {len(build_calls)}"
             )
 
     def test_first_ivf_transition_triggers_rebuild(self):
@@ -694,9 +697,7 @@ class TestFAISSIVFPowerOfTwoRetrain:
 
             # One more: push to threshold+1 -> IVF transition
             idx.add(_random_vecs(1, seed=31), [threshold])
-            assert len(build_calls) > flat_builds, (
-                "Expected _build_index called on first add past _IVF_THRESHOLD"
-            )
+            assert len(build_calls) > flat_builds, "Expected _build_index called on first add past _IVF_THRESHOLD"
 
     # ------------------------------------------------------------------
     # Test 2 (WP-G spec / D11): measured recall@10 >= 0.95

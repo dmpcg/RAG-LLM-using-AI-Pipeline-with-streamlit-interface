@@ -6,9 +6,9 @@ ratio tables, health scores, and scenario comparisons.
 
 import io
 import logging
-from dataclasses import asdict, fields
-from typing import Any, Dict, List, Optional
+from dataclasses import asdict
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import xlsxwriter
 
@@ -25,31 +25,27 @@ _MAX_EXPORT_ROWS = 10_000
 # written and the drop is logged (never a silent slice).
 _MAX_RATIO_ENTRIES = 500
 
+from export_utils import (
+    _categorize,
+    _is_dollar_key,
+    _is_percent_key,
+    _is_ratio_key,
+)
 from financial_analyzer import (
-    FinancialData,
-    FinancialReport,
-    CompositeHealthScore,
     AltmanZScore,
     AltmanZScoreResult,
+    CompositeHealthScore,
+    FinancialData,
+    FinancialReport,
     PiotroskiFScore,
     PiotroskiFScoreResult,
     ScenarioResult,
-    safe_divide,
 )
-from export_utils import (
-    _PERCENT_KEYWORDS,
-    _DOLLAR_KEYWORDS,
-    _is_percent_key,
-    _is_ratio_key,
-    _is_dollar_key,
-    _CATEGORY_MAP,
-    _categorize,
-)
-
 
 # ---------------------------------------------------------------------------
 # Column-width helper (xlsx-only)
 # ---------------------------------------------------------------------------
+
 
 def _auto_col_width(text: str, minimum: int = 12, maximum: int = 40) -> int:
     """Estimate column width from string length."""
@@ -60,15 +56,18 @@ def _auto_col_width(text: str, minimum: int = 12, maximum: int = 40) -> int:
 # Format dict builders (applied when workbook exists)
 # ---------------------------------------------------------------------------
 
+
 def _make_header_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
-    return wb.add_format({
-        "bold": True,
-        "bg_color": "#1F4E79",
-        "font_color": "#FFFFFF",
-        "border": 1,
-        "text_wrap": True,
-        "valign": "vcenter",
-    })
+    return wb.add_format(
+        {
+            "bold": True,
+            "bg_color": "#1F4E79",
+            "font_color": "#FFFFFF",
+            "border": 1,
+            "text_wrap": True,
+            "valign": "vcenter",
+        }
+    )
 
 
 def _make_pct_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
@@ -77,7 +76,7 @@ def _make_pct_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
 
 def _make_ratio_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
     """Multiplier format -- e.g. 1.5 renders as '1.50x'."""
-    return wb.add_format({"num_format": "0.00\"x\"", "border": 1})
+    return wb.add_format({"num_format": '0.00"x"', "border": 1})
 
 
 def _make_dollar_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
@@ -112,6 +111,7 @@ def _make_section_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
 # Workbook format container
 # ---------------------------------------------------------------------------
 
+
 class _Formats:
     """Lazily built format collection tied to a workbook."""
 
@@ -142,6 +142,7 @@ class _Formats:
 # ---------------------------------------------------------------------------
 # Main exporter
 # ---------------------------------------------------------------------------
+
 
 class FinancialExcelExporter:
     """Generates XLSX workbooks for financial analysis exports."""
@@ -207,8 +208,7 @@ class FinancialExcelExporter:
         if truncated:
             omitted = len(ratios) - _MAX_RATIO_ENTRIES
             logger.warning(
-                "Ratios export entry cap (%d) reached; truncating %d "
-                "ratio entry(ies) to avoid runaway sheet size.",
+                "Ratios export entry cap (%d) reached; truncating %d ratio entry(ies) to avoid runaway sheet size.",
                 _MAX_RATIO_ENTRIES,
                 omitted,
             )
@@ -229,8 +229,7 @@ class FinancialExcelExporter:
             ws.write(
                 row,
                 0,
-                f"... {omitted} ratio entries truncated "
-                f"(entry cap {_MAX_RATIO_ENTRIES} reached) ...",
+                f"... {omitted} ratio entries truncated (entry cap {_MAX_RATIO_ENTRIES} reached) ...",
                 fmt.text,
             )
             row += 1
@@ -261,12 +260,7 @@ class FinancialExcelExporter:
             # scenario's full row footprint up front and stop before writing
             # it if it would push the sheet past the cap. This guarantees no
             # scenario is ever truncated mid-block (no corrupt partial block).
-            all_keys = sorted(
-                set(
-                    list(scenario.base_ratios.keys())
-                    + list(scenario.scenario_ratios.keys())
-                )
-            )
+            all_keys = sorted(set(list(scenario.base_ratios.keys()) + list(scenario.scenario_ratios.keys())))
             # Worst-case projected rows for this scenario block:
             #   1 scenario header
             # + adjustments: 1 header + N rows + 1 gap (when present)
@@ -285,16 +279,14 @@ class FinancialExcelExporter:
             if row + projected_scenario_rows > _MAX_EXPORT_ROWS:
                 omitted = len(scenarios) - idx
                 logger.warning(
-                    "Scenario export row cap (%d) reached; omitting %d "
-                    "scenario(s) to avoid memory blow-up.",
+                    "Scenario export row cap (%d) reached; omitting %d scenario(s) to avoid memory blow-up.",
                     _MAX_EXPORT_ROWS,
                     omitted,
                 )
                 ws.write(
                     row,
                     0,
-                    f"... {omitted} scenarios omitted "
-                    f"(row cap {_MAX_EXPORT_ROWS} reached) ...",
+                    f"... {omitted} scenarios omitted (row cap {_MAX_EXPORT_ROWS} reached) ...",
                     fmt.text,
                 )
                 row += 1
@@ -423,8 +415,14 @@ class FinancialExcelExporter:
         ws.write(row, 0, "Key Metrics", fmt.section)
         row += 1
         highlight_keys = [
-            "current_ratio", "quick_ratio", "gross_margin", "net_margin",
-            "roe", "roa", "debt_to_equity", "interest_coverage",
+            "current_ratio",
+            "quick_ratio",
+            "gross_margin",
+            "net_margin",
+            "roe",
+            "roa",
+            "debt_to_equity",
+            "interest_coverage",
         ]
         for key in highlight_keys:
             if key in results:
@@ -450,16 +448,12 @@ class FinancialExcelExporter:
         ws = wb.add_worksheet("Ratios")
 
         # Filter to numeric values only
-        numeric = {
-            k: v for k, v in results.items()
-            if isinstance(v, (int, float)) or v is None
-        }
+        numeric = {k: v for k, v in results.items() if isinstance(v, (int, float)) or v is None}
         truncated = len(numeric) > _MAX_RATIO_ENTRIES
         if truncated:
             omitted = len(numeric) - _MAX_RATIO_ENTRIES
             logger.warning(
-                "Ratios sheet entry cap (%d) reached; truncating %d "
-                "ratio entry(ies) to avoid runaway sheet size.",
+                "Ratios sheet entry cap (%d) reached; truncating %d ratio entry(ies) to avoid runaway sheet size.",
                 _MAX_RATIO_ENTRIES,
                 omitted,
             )
@@ -504,8 +498,7 @@ class FinancialExcelExporter:
             ws.write(
                 row,
                 0,
-                f"... {omitted} ratio entries truncated "
-                f"(entry cap {_MAX_RATIO_ENTRIES} reached) ...",
+                f"... {omitted} ratio entries truncated (entry cap {_MAX_RATIO_ENTRIES} reached) ...",
                 fmt.text,
             )
             row += 1
@@ -639,16 +632,14 @@ class FinancialExcelExporter:
                         label = sub_key.replace("_", " ").title()
                         ws.write(row, 0, f"  {label}", fmt.text)
                         if isinstance(sub_val, bool):
-                            ws.write(row, 1, "Pass" if sub_val else "Fail",
-                                     fmt.green if sub_val else fmt.red)
+                            ws.write(row, 1, "Pass" if sub_val else "Fail", fmt.green if sub_val else fmt.red)
                         else:
                             ws.write(row, 1, str(sub_val), fmt.text)
                         row += 1
                 elif isinstance(value, bool):
                     label = key.replace("_", " ").title()
                     ws.write(row, 0, label, fmt.text)
-                    ws.write(row, 1, "Pass" if value else "Fail",
-                             fmt.green if value else fmt.red)
+                    ws.write(row, 1, "Pass" if value else "Fail", fmt.green if value else fmt.red)
                     row += 1
                 elif isinstance(value, (int, float)) and value is not None:
                     label = key.replace("_", " ").title()

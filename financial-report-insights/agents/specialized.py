@@ -65,137 +65,152 @@ class _StubLLM:
 def _build_ratio_registry() -> ToolRegistry:
     """Construct a ToolRegistry pre-loaded with ratio analysis tools."""
     registry = ToolRegistry()
-    registry.register(Tool(
-        name="calculate_ratio",
-        description=(
-            "Compute a named financial ratio from field values. "
-            "Supports current_ratio, quick_ratio, debt_to_equity, roe, roa, "
-            "gross_margin, net_margin, asset_turnover, and more."
-        ),
-        func=tool_calculate_ratio,
-        parameters={
-            "ratio_name": "Name of the ratio to compute (e.g. 'current_ratio').",
-            "**financial_fields": "Named financial statement fields as keyword arguments.",
-        },
-    ))
-    registry.register(Tool(
-        name="compare_ratios",
-        description=(
-            "Compare two ratio values across periods or entities "
-            "and produce a quantitative comparison analysis."
-        ),
-        func=tool_compare_ratios,
-        parameters={
-            "ratio_name": "Name of the ratio being compared.",
-            "value_a": "First ratio value (float).",
-            "value_b": "Second ratio value (float).",
-            "label_a": "Label for the first value (default 'Period A').",
-            "label_b": "Label for the second value (default 'Period B').",
-        },
-    ))
-    registry.register(Tool(
-        name="explain_ratio",
-        description=(
-            "Return a comprehensive explanation of a financial ratio, "
-            "including its formula, typical good range, and what high/low values indicate."
-        ),
-        func=tool_explain_ratio,
-        parameters={
-            "ratio_name": "Name of the ratio to explain (e.g. 'roe').",
-        },
-    ))
+    registry.register(
+        Tool(
+            name="calculate_ratio",
+            description=(
+                "Compute a named financial ratio from field values. "
+                "Supports current_ratio, quick_ratio, debt_to_equity, roe, roa, "
+                "gross_margin, net_margin, asset_turnover, and more."
+            ),
+            func=tool_calculate_ratio,
+            parameters={
+                "ratio_name": "Name of the ratio to compute (e.g. 'current_ratio').",
+                "**financial_fields": "Named financial statement fields as keyword arguments.",
+            },
+        )
+    )
+    registry.register(
+        Tool(
+            name="compare_ratios",
+            description=(
+                "Compare two ratio values across periods or entities and produce a quantitative comparison analysis."
+            ),
+            func=tool_compare_ratios,
+            parameters={
+                "ratio_name": "Name of the ratio being compared.",
+                "value_a": "First ratio value (float).",
+                "value_b": "Second ratio value (float).",
+                "label_a": "Label for the first value (default 'Period A').",
+                "label_b": "Label for the second value (default 'Period B').",
+            },
+        )
+    )
+    registry.register(
+        Tool(
+            name="explain_ratio",
+            description=(
+                "Return a comprehensive explanation of a financial ratio, "
+                "including its formula, typical good range, and what high/low values indicate."
+            ),
+            func=tool_explain_ratio,
+            parameters={
+                "ratio_name": "Name of the ratio to explain (e.g. 'roe').",
+            },
+        )
+    )
     return registry
 
 
 def _build_risk_registry() -> ToolRegistry:
     """Construct a ToolRegistry pre-loaded with risk assessment tools."""
     registry = ToolRegistry()
-    registry.register(Tool(
-        name="assess_distress",
-        description=(
-            "Compute the Altman Z-Score from financial statement fields "
-            "and classify the company into Safe, Grey, or Distress zone."
-        ),
-        func=tool_assess_distress,
-        parameters={
-            "total_assets": "Total assets (required, must be positive).",
-            "current_assets": "Current assets.",
-            "current_liabilities": "Current liabilities.",
-            "retained_earnings": "Retained earnings (or net_income as proxy).",
-            "ebit": "Earnings before interest and taxes (or operating_income).",
-            "total_equity": "Total shareholder equity.",
-            "total_liabilities": "Total liabilities.",
-            "revenue": "Total revenue.",
-        },
-    ))
-    registry.register(Tool(
-        name="check_anomalies",
-        description=(
-            "Identify statistical outliers in a list of metric values "
-            "using Z-score analysis (threshold |z| > 2.0)."
-        ),
-        func=tool_check_anomalies,
-        parameters={
-            "metric_values": "List of numeric observations.",
-            "metric_name": "Display name of the metric (optional).",
-        },
-    ))
-    registry.register(Tool(
-        name="evaluate_leverage",
-        description=(
-            "Evaluate a company's leverage position using debt-to-equity, "
-            "debt ratio, and interest coverage metrics."
-        ),
-        func=tool_evaluate_leverage,
-        parameters={
-            "total_debt": "Total debt obligations.",
-            "total_equity": "Total shareholder equity.",
-            "total_assets": "Total assets.",
-            "ebit": "Earnings before interest and taxes.",
-            "interest_expense": "Annual interest expense.",
-        },
-    ))
+    registry.register(
+        Tool(
+            name="assess_distress",
+            description=(
+                "Compute the Altman Z-Score from financial statement fields "
+                "and classify the company into Safe, Grey, or Distress zone."
+            ),
+            func=tool_assess_distress,
+            parameters={
+                "total_assets": "Total assets (required, must be positive).",
+                "current_assets": "Current assets.",
+                "current_liabilities": "Current liabilities.",
+                "retained_earnings": "Retained earnings (or net_income as proxy).",
+                "ebit": "Earnings before interest and taxes (or operating_income).",
+                "total_equity": "Total shareholder equity.",
+                "total_liabilities": "Total liabilities.",
+                "revenue": "Total revenue.",
+            },
+        )
+    )
+    registry.register(
+        Tool(
+            name="check_anomalies",
+            description=(
+                "Identify statistical outliers in a list of metric values using Z-score analysis (threshold |z| > 2.0)."
+            ),
+            func=tool_check_anomalies,
+            parameters={
+                "metric_values": "List of numeric observations.",
+                "metric_name": "Display name of the metric (optional).",
+            },
+        )
+    )
+    registry.register(
+        Tool(
+            name="evaluate_leverage",
+            description=(
+                "Evaluate a company's leverage position using debt-to-equity, "
+                "debt ratio, and interest coverage metrics."
+            ),
+            func=tool_evaluate_leverage,
+            parameters={
+                "total_debt": "Total debt obligations.",
+                "total_equity": "Total shareholder equity.",
+                "total_assets": "Total assets.",
+                "ebit": "Earnings before interest and taxes.",
+                "interest_expense": "Annual interest expense.",
+            },
+        )
+    )
     return registry
 
 
 def _build_forecaster_registry() -> ToolRegistry:
     """Construct a ToolRegistry pre-loaded with trend/forecast tools."""
     registry = ToolRegistry()
-    registry.register(Tool(
-        name="forecast_metric",
-        description=(
-            "Forecast future metric values using an AR(2) model. "
-            "Returns point forecasts and 95% prediction intervals."
-        ),
-        func=tool_forecast,
-        parameters={
-            "values": "List of historical float values (at least 3 required).",
-            "steps": "Number of future periods to forecast (default 4).",
-        },
-    ))
-    registry.register(Tool(
-        name="analyze_trend",
-        description=(
-            "Analyse trend direction (upward/downward/mixed), strength (R²), "
-            "CAGR, and inflection points in a time series."
-        ),
-        func=tool_analyze_trend,
-        parameters={
-            "values": "List of sequential numeric observations (at least 2).",
-        },
-    ))
-    registry.register(Tool(
-        name="detect_seasonality",
-        description=(
-            "Detect seasonal patterns in a time series by comparing "
-            "within-period deviations to the overall mean."
-        ),
-        func=tool_detect_seasonality,
-        parameters={
-            "values": "List of sequential numeric observations.",
-            "period": "Assumed seasonal period (default 4 for quarterly data).",
-        },
-    ))
+    registry.register(
+        Tool(
+            name="forecast_metric",
+            description=(
+                "Forecast future metric values using an AR(2) model. "
+                "Returns point forecasts and 95% prediction intervals."
+            ),
+            func=tool_forecast,
+            parameters={
+                "values": "List of historical float values (at least 3 required).",
+                "steps": "Number of future periods to forecast (default 4).",
+            },
+        )
+    )
+    registry.register(
+        Tool(
+            name="analyze_trend",
+            description=(
+                "Analyse trend direction (upward/downward/mixed), strength (R²), "
+                "CAGR, and inflection points in a time series."
+            ),
+            func=tool_analyze_trend,
+            parameters={
+                "values": "List of sequential numeric observations (at least 2).",
+            },
+        )
+    )
+    registry.register(
+        Tool(
+            name="detect_seasonality",
+            description=(
+                "Detect seasonal patterns in a time series by comparing within-period deviations to the overall mean."
+            ),
+            func=tool_detect_seasonality,
+            parameters={
+                "values": "List of sequential numeric observations.",
+                "period": "Assumed seasonal period (default 4 for quarterly data).",
+            },
+        )
+    )
     return registry
 
 
@@ -224,54 +239,50 @@ def _build_report_writer_registry(rag_instance: Any = None) -> ToolRegistry:
         if atype in ("trend",):
             return tool_analyze_trend(list(data.get("values", [])))
         if atype in ("forecast",):
-            return tool_forecast(
-                list(data.get("values", [])), steps=int(data.get("steps", 4))
-            )
+            return tool_forecast(list(data.get("values", [])), steps=int(data.get("steps", 4)))
         if atype in ("leverage",):
             return tool_evaluate_leverage(**data)
-        return (
-            f"Unknown analysis_type '{analysis_type}'. "
-            "Choose from: ratio, distress, trend, forecast, leverage."
-        )
+        return f"Unknown analysis_type '{analysis_type}'. Choose from: ratio, distress, trend, forecast, leverage."
 
-    registry.register(Tool(
-        name="search_documents",
-        description=(
-            "Retrieve relevant document chunks from the RAG store "
-            "using semantic + keyword search."
-        ),
-        func=_search,
-        parameters={
-            "query": "Natural-language search query.",
-        },
-    ))
-    registry.register(Tool(
-        name="analyze_data",
-        description=(
-            "Dispatch a financial computation (ratio, distress, trend, "
-            "forecast, or leverage) with the provided data fields."
-        ),
-        func=_analyze_data,
-        parameters={
-            "analysis_type": "Type of analysis: ratio | distress | trend | forecast | leverage.",
-            "**data": "Additional keyword arguments forwarded to the analysis function.",
-        },
-    ))
-    registry.register(Tool(
-        name="format_section",
-        description=(
-            "Format raw content into a structured, headed report section "
-            "suitable for executive presentation."
-        ),
-        func=tool_format_section,
-        parameters={
-            "content": "Raw text content to format.",
-            "section_type": (
-                "Section type: executive_summary | analysis | risk | "
-                "recommendation | data | trend | forecast."
+    registry.register(
+        Tool(
+            name="search_documents",
+            description=("Retrieve relevant document chunks from the RAG store using semantic + keyword search."),
+            func=_search,
+            parameters={
+                "query": "Natural-language search query.",
+            },
+        )
+    )
+    registry.register(
+        Tool(
+            name="analyze_data",
+            description=(
+                "Dispatch a financial computation (ratio, distress, trend, "
+                "forecast, or leverage) with the provided data fields."
             ),
-        },
-    ))
+            func=_analyze_data,
+            parameters={
+                "analysis_type": "Type of analysis: ratio | distress | trend | forecast | leverage.",
+                "**data": "Additional keyword arguments forwarded to the analysis function.",
+            },
+        )
+    )
+    registry.register(
+        Tool(
+            name="format_section",
+            description=(
+                "Format raw content into a structured, headed report section suitable for executive presentation."
+            ),
+            func=tool_format_section,
+            parameters={
+                "content": "Raw text content to format.",
+                "section_type": (
+                    "Section type: executive_summary | analysis | risk | recommendation | data | trend | forecast."
+                ),
+            },
+        )
+    )
     return registry
 
 
@@ -482,10 +493,7 @@ class ReportWriterAgent(BaseAgent):
         memory: Optional[AgentMemory] = None,
         max_steps: int = 10,
     ) -> None:
-        effective_tools = (
-            tools if tools is not None
-            else _build_report_writer_registry(rag_instance)
-        )
+        effective_tools = tools if tools is not None else _build_report_writer_registry(rag_instance)
         super().__init__(
             name="report_writer",
             llm=llm or _StubLLM(),  # type: ignore[arg-type]

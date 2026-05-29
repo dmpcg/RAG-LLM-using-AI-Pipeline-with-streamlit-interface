@@ -8,13 +8,14 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import streamlit as st
-import pandas as pd
 import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 
 from config import settings
 from excel_processor import ExcelProcessor, WorkbookData
-from financial_analyzer import CharlieAnalyzer, FinancialData, CustomKPIDefinition, PeerCompanyData
+from financial_analyzer import CharlieAnalyzer, CustomKPIDefinition, FinancialData, PeerCompanyData
 from viz_utils import FinancialVizUtils
 
 logger = logging.getLogger(__name__)
@@ -288,8 +289,8 @@ class FinancialInsightsPage:
 
                 if df is not None and not df.empty:
                     # Store in session state for cross-tab access
-                    st.session_state['current_df'] = df
-                    st.session_state['current_workbook'] = workbook
+                    st.session_state["current_df"] = df
+                    st.session_state["current_workbook"] = workbook
                     df_digest = int(pd.util.hash_pandas_object(df).sum())
                     cache_key = f"analysis_{df_digest}"
                     if cache_key not in st.session_state:
@@ -297,14 +298,11 @@ class FinancialInsightsPage:
                             # WP-B2: delegate to module-level @st.cache_data fn so
                             # repeated reruns with the same data skip re-computation.
                             st.session_state[cache_key] = _cached_analyze_df(df_digest, df)
-                    st.session_state['analysis_results'] = st.session_state[cache_key]
+                    st.session_state["analysis_results"] = st.session_state[cache_key]
 
                     # Category-based navigation (replaces 132 flat tabs)
                     categories = list(self.CATEGORY_TABS.keys())
-                    selected_cat = st.selectbox(
-                        "Analysis Category", categories, index=0,
-                        key="insights_category"
-                    )
+                    selected_cat = st.selectbox("Analysis Category", categories, index=0, key="insights_category")
 
                     # Sub-tabs for selected category
                     entries = self.CATEGORY_TABS[selected_cat]
@@ -363,10 +361,10 @@ class FinancialInsightsPage:
         st.header("Analysis Options")
 
         options = {
-            'show_insights': st.checkbox("Show AI Insights", value=True),
-            'show_benchmarks': st.checkbox("Show Benchmarks", value=True),
-            'currency': st.selectbox("Currency", ["$", "€", "£", "¥"], index=0),
-            'decimal_places': st.slider("Decimal Places", 0, 4, 2)
+            "show_insights": st.checkbox("Show AI Insights", value=True),
+            "show_benchmarks": st.checkbox("Show Benchmarks", value=True),
+            "currency": st.selectbox("Currency", ["$", "€", "£", "¥"], index=0),
+            "decimal_places": st.slider("Decimal Places", 0, 4, 2),
         }
 
         # Refresh button
@@ -376,7 +374,7 @@ class FinancialInsightsPage:
                 if key.startswith("analysis_") or key.startswith("_wb_"):
                     del st.session_state[key]
             # Also clear the fixed keys
-            for key in ['current_df', 'current_workbook', 'analysis_results']:
+            for key in ["current_df", "current_workbook", "analysis_results"]:
                 if key in st.session_state:
                     del st.session_state[key]
             # Bust st.cache_data layer so stale numbers are not served after refresh
@@ -397,7 +395,7 @@ class FinancialInsightsPage:
                 # Add source column
                 for i, (df, sheet) in enumerate(zip(dfs, workbook.sheets)):
                     dfs[i] = df.copy()
-                    dfs[i]['_source_sheet'] = sheet.name
+                    dfs[i]["_source_sheet"] = sheet.name
                 return pd.concat(dfs, ignore_index=True)
             return pd.DataFrame()
 
@@ -413,9 +411,7 @@ class FinancialInsightsPage:
         st.subheader("Upload Financial Data")
 
         uploaded_files = st.file_uploader(
-            "Upload Excel or CSV files",
-            type=['xlsx', 'xlsm', 'xls', 'csv'],
-            accept_multiple_files=True
+            "Upload Excel or CSV files", type=["xlsx", "xlsm", "xls", "csv"], accept_multiple_files=True
         )
 
         if uploaded_files:
@@ -447,7 +443,7 @@ class FinancialInsightsPage:
         st.subheader("Executive Summary")
 
         # Extract key metrics from analysis
-        analysis = st.session_state.get('analysis_results', {})
+        analysis = st.session_state.get("analysis_results", {})
 
         # KPI Cards row
         col1, col2, col3, col4 = st.columns(4)
@@ -456,21 +452,21 @@ class FinancialInsightsPage:
         metrics = self._extract_key_metrics(df)
 
         with col1:
-            if metrics.get('revenue'):
+            if metrics.get("revenue"):
                 st.metric(
                     label="Revenue",
-                    value=self.viz.format_currency(metrics['revenue']),
-                    delta=f"{metrics.get('revenue_growth', 0):.1%}" if metrics.get('revenue_growth') else None
+                    value=self.viz.format_currency(metrics["revenue"]),
+                    delta=f"{metrics.get('revenue_growth', 0):.1%}" if metrics.get("revenue_growth") else None,
                 )
             else:
                 st.metric(label="Total Records", value=f"{len(df):,}")
 
         with col2:
-            if metrics.get('net_income'):
+            if metrics.get("net_income"):
                 st.metric(
                     label="Net Income",
-                    value=self.viz.format_currency(metrics['net_income']),
-                    delta=f"{metrics.get('net_income_growth', 0):.1%}" if metrics.get('net_income_growth') else None
+                    value=self.viz.format_currency(metrics["net_income"]),
+                    delta=f"{metrics.get('net_income_growth', 0):.1%}" if metrics.get("net_income_growth") else None,
                 )
             else:
                 numeric_cols = df.select_dtypes(include=[np.number]).columns
@@ -478,43 +474,30 @@ class FinancialInsightsPage:
                     st.metric(label=f"Avg {numeric_cols[0]}", value=f"{df[numeric_cols[0]].mean():,.2f}")
 
         with col3:
-            prof_ratios = analysis.get('profitability_ratios', {})
-            if prof_ratios.get('operating_margin'):
-                st.metric(
-                    label="Operating Margin",
-                    value=f"{prof_ratios['operating_margin']:.1%}"
-                )
-            elif prof_ratios.get('net_margin'):
-                st.metric(
-                    label="Net Margin",
-                    value=f"{prof_ratios['net_margin']:.1%}"
-                )
+            prof_ratios = analysis.get("profitability_ratios", {})
+            if prof_ratios.get("operating_margin"):
+                st.metric(label="Operating Margin", value=f"{prof_ratios['operating_margin']:.1%}")
+            elif prof_ratios.get("net_margin"):
+                st.metric(label="Net Margin", value=f"{prof_ratios['net_margin']:.1%}")
             else:
                 st.metric(label="Columns", value=len(df.columns))
 
         with col4:
-            cf_analysis = analysis.get('cash_flow')
+            cf_analysis = analysis.get("cash_flow")
             if cf_analysis and cf_analysis.free_cash_flow:
-                st.metric(
-                    label="Free Cash Flow",
-                    value=self.viz.format_currency(cf_analysis.free_cash_flow)
-                )
+                st.metric(label="Free Cash Flow", value=self.viz.format_currency(cf_analysis.free_cash_flow))
             else:
                 st.metric(label="Sheets", value=len(workbook.sheets))
 
         st.divider()
 
         # AI-generated insights
-        insights = analysis.get('insights', [])
+        insights = analysis.get("insights", [])
         if insights:
             st.subheader("AI-Generated Insights")
 
             for insight in insights[:5]:
-                severity_color = {
-                    'info': 'blue',
-                    'warning': 'orange',
-                    'critical': 'red'
-                }.get(insight.severity, 'gray')
+                severity_color = {"info": "blue", "warning": "orange", "critical": "red"}.get(insight.severity, "gray")
 
                 with st.container():
                     st.markdown(f"**{insight.category.upper()}**: {insight.message}")
@@ -540,28 +523,27 @@ class FinancialInsightsPage:
         """Render financial ratios visualization."""
         st.subheader("Financial Ratios Analysis")
 
-        analysis = st.session_state.get('analysis_results', {})
+        analysis = st.session_state.get("analysis_results", {})
 
         col1, col2 = st.columns(2)
 
         with col1:
             # Liquidity ratios
             st.markdown("**Liquidity Ratios**")
-            liquidity = analysis.get('liquidity_ratios', {})
+            liquidity = analysis.get("liquidity_ratios", {})
 
             if any(v is not None for v in liquidity.values()):
-                fig = self.viz.create_ratio_dashboard(
-                    {k: v for k, v in liquidity.items() if v is not None},
-                    title=""
-                )
+                fig = self.viz.create_ratio_dashboard({k: v for k, v in liquidity.items() if v is not None}, title="")
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("Liquidity ratios require balance sheet data (Current Assets, Current Liabilities, Inventory, Cash)")
+                st.info(
+                    "Liquidity ratios require balance sheet data (Current Assets, Current Liabilities, Inventory, Cash)"
+                )
 
         with col2:
             # Profitability ratios
             st.markdown("**Profitability Ratios**")
-            profitability = analysis.get('profitability_ratios', {})
+            profitability = analysis.get("profitability_ratios", {})
 
             if any(v is not None for v in profitability.values()):
                 # Filter out None values and format for display
@@ -569,14 +551,16 @@ class FinancialInsightsPage:
                 fig = self.viz.create_ratio_dashboard(profit_display, title="")
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("Profitability ratios require income statement data (Revenue, COGS, Operating Income, Net Income)")
+                st.info(
+                    "Profitability ratios require income statement data (Revenue, COGS, Operating Income, Net Income)"
+                )
 
         # Leverage and Efficiency
         col3, col4 = st.columns(2)
 
         with col3:
             st.markdown("**Leverage Ratios**")
-            leverage = analysis.get('leverage_ratios', {})
+            leverage = analysis.get("leverage_ratios", {})
 
             if any(v is not None for v in leverage.values()):
                 lev_display = {k: v for k, v in leverage.items() if v is not None}
@@ -587,7 +571,7 @@ class FinancialInsightsPage:
 
         with col4:
             st.markdown("**Efficiency Ratios**")
-            efficiency = analysis.get('efficiency_ratios', {})
+            efficiency = analysis.get("efficiency_ratios", {})
 
             if any(v is not None for v in efficiency.values()):
                 eff_display = {k: v for k, v in efficiency.items() if v is not None}
@@ -600,7 +584,7 @@ class FinancialInsightsPage:
         with st.expander("Ratio Definitions"):
             for name, defn in self.analyzer.ratio_definitions.items():
                 st.markdown(f"**{defn['name']}**: {defn['formula']}")
-                st.caption(defn['interpretation'])
+                st.caption(defn["interpretation"])
 
     def _render_trends_dashboard(self, df: pd.DataFrame, workbook: WorkbookData):
         """Render trends and forecasts visualization."""
@@ -618,15 +602,14 @@ class FinancialInsightsPage:
         with col1:
             selected_metric = st.selectbox("Select Metric", numeric_cols)
             forecast_periods = st.slider("Forecast Periods", 1, 12, 3)
-            forecast_method = st.selectbox(
-                "Forecast Method",
-                ["linear", "moving_average", "growth_rate"]
-            )
+            forecast_method = st.selectbox("Forecast Method", ["linear", "moving_average", "growth_rate"])
 
         # Check if there's a time/period column
-        potential_time_cols = [col for col in df.columns if any(
-            pattern in col.lower() for pattern in ['date', 'period', 'month', 'year', 'quarter']
-        )]
+        potential_time_cols = [
+            col
+            for col in df.columns
+            if any(pattern in col.lower() for pattern in ["date", "period", "month", "year", "quarter"])
+        ]
 
         period_col = None
         if potential_time_cols:
@@ -643,7 +626,7 @@ class FinancialInsightsPage:
                 if period_col:
                     periods = df[period_col].astype(str).tolist()
                 else:
-                    periods = [f"Period {i+1}" for i in range(len(values))]
+                    periods = [f"Period {i + 1}" for i in range(len(values))]
 
                 # Generate forecast
                 forecast = self.analyzer.forecast_simple(values, forecast_periods, forecast_method)
@@ -654,15 +637,12 @@ class FinancialInsightsPage:
                     title=f"{selected_metric} Trend",
                     show_forecast=True,
                     forecast_periods=forecast.forecast_periods,
-                    forecast_values=forecast.forecasted_values
+                    forecast_values=forecast.forecasted_values,
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
                 # Trend statistics
-                trend = self.analyzer.analyze_trends(
-                    pd.DataFrame({selected_metric: values}),
-                    selected_metric
-                )
+                trend = self.analyzer.analyze_trends(pd.DataFrame({selected_metric: values}), selected_metric)
 
                 st.markdown("**Trend Statistics:**")
                 stats_col1, stats_col2, stats_col3, stats_col4 = st.columns(4)
@@ -687,20 +667,16 @@ class FinancialInsightsPage:
         selected_metrics = st.multiselect(
             "Select metrics to compare",
             numeric_cols,
-            default=numeric_cols[:3] if len(numeric_cols) >= 3 else numeric_cols
+            default=numeric_cols[:3] if len(numeric_cols) >= 3 else numeric_cols,
         )
 
         if selected_metrics and len(df) > 1:
             # Create comparison chart
             chart_df = df[selected_metrics].copy()
-            chart_df['Period'] = range(len(chart_df))
+            chart_df["Period"] = range(len(chart_df))
 
             fig = self.viz.create_time_series(
-                chart_df,
-                'Period',
-                selected_metrics,
-                title="Metric Comparison",
-                show_markers=True
+                chart_df, "Period", selected_metrics, title="Metric Comparison", show_markers=True
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -711,9 +687,11 @@ class FinancialInsightsPage:
         # Try to detect budget and actual columns
         cols = df.columns.tolist()
 
-        actual_cols = [c for c in cols if 'actual' in c.lower()]
-        budget_cols = [c for c in cols if 'budget' in c.lower() or 'plan' in c.lower() or 'target' in c.lower()]
-        item_cols = [c for c in cols if any(x in c.lower() for x in ['item', 'category', 'account', 'description', 'name'])]
+        actual_cols = [c for c in cols if "actual" in c.lower()]
+        budget_cols = [c for c in cols if "budget" in c.lower() or "plan" in c.lower() or "target" in c.lower()]
+        item_cols = [
+            c for c in cols if any(x in c.lower() for x in ["item", "category", "account", "description", "name"])
+        ]
 
         if not (actual_cols and budget_cols):
             st.info("""
@@ -739,11 +717,7 @@ class FinancialInsightsPage:
                     variance = df[actual_col].sum() - df[budget_col].sum()
                     variance_pct = variance / df[budget_col].sum() if df[budget_col].sum() != 0 else 0
 
-                    st.metric(
-                        "Total Variance",
-                        self.viz.format_currency(variance),
-                        f"{variance_pct:.1%}"
-                    )
+                    st.metric("Total Variance", self.viz.format_currency(variance), f"{variance_pct:.1%}")
             return
 
         # Auto-detected budget analysis
@@ -758,8 +732,8 @@ class FinancialInsightsPage:
 
         # Calculate variances
         df_analysis = df[[item_col, actual_col, budget_col]].dropna()
-        df_analysis['Variance'] = df_analysis[actual_col] - df_analysis[budget_col]
-        df_analysis['Variance_Pct'] = df_analysis['Variance'] / df_analysis[budget_col].abs() * 100
+        df_analysis["Variance"] = df_analysis[actual_col] - df_analysis[budget_col]
+        df_analysis["Variance_Pct"] = df_analysis["Variance"] / df_analysis[budget_col].abs() * 100
 
         # Summary metrics
         total_actual = df_analysis[actual_col].sum()
@@ -781,12 +755,12 @@ class FinancialInsightsPage:
         st.subheader("Variance Waterfall")
 
         # Get top variances for waterfall
-        top_variances = df_analysis.nlargest(10, 'Variance', keep='first')
+        top_variances = df_analysis.nlargest(10, "Variance", keep="first")
 
         fig = self.viz.create_waterfall(
             categories=top_variances[item_col].tolist(),
-            values=top_variances['Variance'].tolist(),
-            title="Top Variances by Category"
+            values=top_variances["Variance"].tolist(),
+            title="Top Variances by Category",
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -795,7 +769,7 @@ class FinancialInsightsPage:
 
         with col1:
             st.markdown("**Favorable Variances (Under Budget)**")
-            favorable = df_analysis[df_analysis['Variance'] < 0].sort_values('Variance')
+            favorable = df_analysis[df_analysis["Variance"] < 0].sort_values("Variance")
             if not favorable.empty:
                 st.dataframe(favorable.head(10), use_container_width=True)
             else:
@@ -803,7 +777,7 @@ class FinancialInsightsPage:
 
         with col2:
             st.markdown("**Unfavorable Variances (Over Budget)**")
-            unfavorable = df_analysis[df_analysis['Variance'] > 0].sort_values('Variance', ascending=False)
+            unfavorable = df_analysis[df_analysis["Variance"] > 0].sort_values("Variance", ascending=False)
             if not unfavorable.empty:
                 st.dataframe(unfavorable.head(10), use_container_width=True)
             else:
@@ -813,9 +787,9 @@ class FinancialInsightsPage:
         """Render cash flow and working capital analysis."""
         st.subheader("Cash Flow & Working Capital")
 
-        analysis = st.session_state.get('analysis_results', {})
-        cf_analysis = analysis.get('cash_flow')
-        wc_analysis = analysis.get('working_capital')
+        analysis = st.session_state.get("analysis_results", {})
+        cf_analysis = analysis.get("cash_flow")
+        wc_analysis = analysis.get("working_capital")
 
         # Cash Flow Metrics
         st.markdown("**Cash Flow Metrics**")
@@ -843,7 +817,7 @@ class FinancialInsightsPage:
                     title="Cash Conversion Cycle (Days)",
                     min_val=0,
                     max_val=120,
-                    thresholds={'warning': 60, 'good': 30}
+                    thresholds={"warning": 60, "good": 30},
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -870,7 +844,7 @@ class FinancialInsightsPage:
                         values2=[45] * len(values),  # Benchmark
                         name1="Actual",
                         name2="Benchmark",
-                        title="Working Capital Cycle Days"
+                        title="Working Capital Cycle Days",
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
@@ -905,11 +879,11 @@ class FinancialInsightsPage:
         """Render Scoring Models dashboard: DuPont, Z-Score, F-Score, Composite Health."""
         st.subheader("Scoring Models")
 
-        analysis = st.session_state.get('analysis_results', {})
-        dupont = analysis.get('dupont')
-        z_result = analysis.get('altman_z_score')
-        f_result = analysis.get('piotroski_f_score')
-        health = analysis.get('composite_health')
+        analysis = st.session_state.get("analysis_results", {})
+        dupont = analysis.get("dupont")
+        z_result = analysis.get("altman_z_score")
+        f_result = analysis.get("piotroski_f_score")
+        health = analysis.get("composite_health")
 
         # --- Row 1: Composite Health Score ---
         if health is not None:
@@ -919,8 +893,8 @@ class FinancialInsightsPage:
             with col1:
                 st.metric("Health Score", f"{health.score}/100")
             with col2:
-                grade_colors = {'A': 'green', 'B': 'blue', 'C': 'orange', 'D': 'red', 'F': 'red'}
-                color = grade_colors.get(health.grade, 'gray')
+                grade_colors = {"A": "green", "B": "blue", "C": "orange", "D": "red", "F": "red"}
+                color = grade_colors.get(health.grade, "gray")
                 st.markdown(f"**Grade:** :{color}[**{health.grade}**]")
             with col3:
                 if health.interpretation:
@@ -929,26 +903,39 @@ class FinancialInsightsPage:
             # Component breakdown bar chart
             if health.component_scores:
                 import plotly.graph_objects as go
+
                 components = list(health.component_scores.keys())
                 values = list(health.component_scores.values())
-                max_pts = {'z_score': 25, 'f_score': 25, 'profitability': 20,
-                           'liquidity': 15, 'leverage': 15}
+                max_pts = {"z_score": 25, "f_score": 25, "profitability": 20, "liquidity": 15, "leverage": 15}
                 maxes = [max_pts.get(c, 25) for c in components]
-                labels = [c.replace('_', ' ').title() for c in components]
+                labels = [c.replace("_", " ").title() for c in components]
 
                 fig = go.Figure()
-                fig.add_trace(go.Bar(
-                    x=labels, y=values, name='Score',
-                    marker_color='steelblue', text=values, textposition='auto',
-                ))
-                fig.add_trace(go.Bar(
-                    x=labels, y=[m - v for m, v in zip(maxes, values)],
-                    name='Remaining', marker_color='lightgray',
-                ))
+                fig.add_trace(
+                    go.Bar(
+                        x=labels,
+                        y=values,
+                        name="Score",
+                        marker_color="steelblue",
+                        text=values,
+                        textposition="auto",
+                    )
+                )
+                fig.add_trace(
+                    go.Bar(
+                        x=labels,
+                        y=[m - v for m, v in zip(maxes, values)],
+                        name="Remaining",
+                        marker_color="lightgray",
+                    )
+                )
                 fig.update_layout(
-                    barmode='stack', title='Health Score Components',
-                    yaxis_title='Points', height=300,
-                    showlegend=False, margin=dict(t=40, b=20),
+                    barmode="stack",
+                    title="Health Score Components",
+                    yaxis_title="Points",
+                    height=300,
+                    showlegend=False,
+                    margin=dict(t=40, b=20),
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -960,8 +947,8 @@ class FinancialInsightsPage:
         with col_left:
             st.markdown("**Altman Z-Score**")
             if z_result and z_result.z_score is not None:
-                zone_colors = {'safe': 'green', 'grey': 'orange', 'distress': 'red', 'partial': 'gray'}
-                zone_color = zone_colors.get(z_result.zone, 'gray')
+                zone_colors = {"safe": "green", "grey": "orange", "distress": "red", "partial": "gray"}
+                zone_color = zone_colors.get(z_result.zone, "gray")
                 st.metric("Z-Score", f"{z_result.z_score:.2f}")
                 st.markdown(f"Zone: :{zone_color}[**{z_result.zone.title()}**]")
 
@@ -969,8 +956,9 @@ class FinancialInsightsPage:
                 fig = self.viz.create_gauge_chart(
                     value=z_result.z_score,
                     title="Altman Z-Score",
-                    min_val=0, max_val=5,
-                    thresholds={'warning': 1.81, 'good': 2.99},
+                    min_val=0,
+                    max_val=5,
+                    thresholds={"warning": 1.81, "good": 2.99},
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -978,20 +966,22 @@ class FinancialInsightsPage:
                 if z_result.components:
                     st.markdown("**Components:**")
                     comp_labels = {
-                        'x1': 'Working Capital / Assets',
-                        'x2': 'Retained Earnings / Assets',
-                        'x3': 'EBIT / Assets',
-                        'x4': 'Equity / Liabilities',
-                        'x5': 'Sales / Assets',
+                        "x1": "Working Capital / Assets",
+                        "x2": "Retained Earnings / Assets",
+                        "x3": "EBIT / Assets",
+                        "x4": "Equity / Liabilities",
+                        "x5": "Sales / Assets",
                     }
                     for k, v in z_result.components.items():
                         if v is not None:
                             label = comp_labels.get(k, k)
                             st.caption(f"{k.upper()}: {label} = {v:.4f}")
             else:
-                st.info("Insufficient data for Z-Score calculation. Requires total assets, "
-                        "current assets/liabilities, retained earnings, EBIT, equity, "
-                        "liabilities, and revenue.")
+                st.info(
+                    "Insufficient data for Z-Score calculation. Requires total assets, "
+                    "current assets/liabilities, retained earnings, EBIT, equity, "
+                    "liabilities, and revenue."
+                )
 
         with col_right:
             st.markdown("**Piotroski F-Score**")
@@ -1014,7 +1004,7 @@ class FinancialInsightsPage:
                     st.markdown("**Criteria:**")
                     for criterion, passed in f_result.criteria.items():
                         icon = "+" if passed else "-"
-                        label = criterion.replace('_', ' ').title()
+                        label = criterion.replace("_", " ").title()
                         st.caption(f"{icon} {label}")
             else:
                 st.info("Insufficient data for F-Score calculation.")
@@ -1063,16 +1053,22 @@ class FinancialInsightsPage:
 
     # Industry benchmarks (general cross-industry averages)
     INDUSTRY_BENCHMARKS = {
-        'current_ratio': {'label': 'Current Ratio', 'benchmark': 1.5, 'good': 2.0, 'unit': 'x'},
-        'quick_ratio': {'label': 'Quick Ratio', 'benchmark': 1.0, 'good': 1.5, 'unit': 'x'},
-        'net_margin': {'label': 'Net Margin', 'benchmark': 0.08, 'good': 0.15, 'unit': '%'},
-        'roe': {'label': 'Return on Equity', 'benchmark': 0.12, 'good': 0.20, 'unit': '%'},
-        'roa': {'label': 'Return on Assets', 'benchmark': 0.06, 'good': 0.10, 'unit': '%'},
-        'debt_to_equity': {'label': 'Debt to Equity', 'benchmark': 1.0, 'good': 0.5, 'unit': 'x', 'lower_is_better': True},
-        'interest_coverage': {'label': 'Interest Coverage', 'benchmark': 3.0, 'good': 6.0, 'unit': 'x'},
-        'asset_turnover': {'label': 'Asset Turnover', 'benchmark': 0.8, 'good': 1.2, 'unit': 'x'},
-        'gross_margin': {'label': 'Gross Margin', 'benchmark': 0.35, 'good': 0.50, 'unit': '%'},
-        'operating_margin': {'label': 'Operating Margin', 'benchmark': 0.10, 'good': 0.20, 'unit': '%'},
+        "current_ratio": {"label": "Current Ratio", "benchmark": 1.5, "good": 2.0, "unit": "x"},
+        "quick_ratio": {"label": "Quick Ratio", "benchmark": 1.0, "good": 1.5, "unit": "x"},
+        "net_margin": {"label": "Net Margin", "benchmark": 0.08, "good": 0.15, "unit": "%"},
+        "roe": {"label": "Return on Equity", "benchmark": 0.12, "good": 0.20, "unit": "%"},
+        "roa": {"label": "Return on Assets", "benchmark": 0.06, "good": 0.10, "unit": "%"},
+        "debt_to_equity": {
+            "label": "Debt to Equity",
+            "benchmark": 1.0,
+            "good": 0.5,
+            "unit": "x",
+            "lower_is_better": True,
+        },
+        "interest_coverage": {"label": "Interest Coverage", "benchmark": 3.0, "good": 6.0, "unit": "x"},
+        "asset_turnover": {"label": "Asset Turnover", "benchmark": 0.8, "good": 1.2, "unit": "x"},
+        "gross_margin": {"label": "Gross Margin", "benchmark": 0.35, "good": 0.50, "unit": "%"},
+        "operating_margin": {"label": "Operating Margin", "benchmark": 0.10, "good": 0.20, "unit": "%"},
     }
 
     def _render_industry_benchmarks(self, analysis: Dict[str, Any]):
@@ -1081,7 +1077,7 @@ class FinancialInsightsPage:
 
         # Collect company ratios from analysis results
         company_ratios = {}
-        for category_key in ('liquidity_ratios', 'profitability_ratios', 'leverage_ratios', 'efficiency_ratios'):
+        for category_key in ("liquidity_ratios", "profitability_ratios", "leverage_ratios", "efficiency_ratios"):
             ratios = analysis.get(category_key, {})
             for key, value in ratios.items():
                 if value is not None:
@@ -1098,36 +1094,38 @@ class FinancialInsightsPage:
             if company_val is None:
                 continue
 
-            lower_is_better = bench.get('lower_is_better', False)
+            lower_is_better = bench.get("lower_is_better", False)
 
             if lower_is_better:
-                if company_val <= bench['good']:
+                if company_val <= bench["good"]:
                     status = "Above Average"
-                elif company_val <= bench['benchmark']:
+                elif company_val <= bench["benchmark"]:
                     status = "Average"
                 else:
                     status = "Below Average"
             else:
-                if company_val >= bench['good']:
+                if company_val >= bench["good"]:
                     status = "Above Average"
-                elif company_val >= bench['benchmark']:
+                elif company_val >= bench["benchmark"]:
                     status = "Average"
                 else:
                     status = "Below Average"
 
-            if bench['unit'] == '%':
+            if bench["unit"] == "%":
                 fmt_company = f"{company_val:.1%}"
                 fmt_bench = f"{bench['benchmark']:.1%}"
             else:
                 fmt_company = f"{company_val:.2f}x"
                 fmt_bench = f"{bench['benchmark']:.2f}x"
 
-            rows.append({
-                'Metric': bench['label'],
-                'Company': fmt_company,
-                'Industry Avg': fmt_bench,
-                'Status': status,
-            })
+            rows.append(
+                {
+                    "Metric": bench["label"],
+                    "Company": fmt_company,
+                    "Industry Avg": fmt_bench,
+                    "Status": status,
+                }
+            )
 
         if not rows:
             st.info("No matching benchmarks for available ratios.")
@@ -1143,43 +1141,50 @@ class FinancialInsightsPage:
                 return "color: red"
             return "color: orange"
 
-        styled = bench_df.style.map(color_status, subset=['Status'])
+        styled = bench_df.style.map(color_status, subset=["Status"])
         st.dataframe(styled, use_container_width=True, hide_index=True)
 
         # Plotly comparison chart
-        available_benchmarks = [r for r in rows if r['Status'] != '']
+        available_benchmarks = [r for r in rows if r["Status"] != ""]
         if available_benchmarks:
             import plotly.graph_objects as go
 
-            labels = [r['Metric'] for r in available_benchmarks]
+            labels = [r["Metric"] for r in available_benchmarks]
             # Re-extract raw values for charting
             company_vals = []
             bench_vals = []
             for r in available_benchmarks:
-                ratio_key = next(
-                    k for k, b in self.INDUSTRY_BENCHMARKS.items()
-                    if b['label'] == r['Metric']
-                )
+                ratio_key = next(k for k, b in self.INDUSTRY_BENCHMARKS.items() if b["label"] == r["Metric"])
                 cv = company_ratios[ratio_key]
-                bv = self.INDUSTRY_BENCHMARKS[ratio_key]['benchmark']
-                if self.INDUSTRY_BENCHMARKS[ratio_key]['unit'] == '%':
+                bv = self.INDUSTRY_BENCHMARKS[ratio_key]["benchmark"]
+                if self.INDUSTRY_BENCHMARKS[ratio_key]["unit"] == "%":
                     cv *= 100
                     bv *= 100
                 company_vals.append(round(cv, 2))
                 bench_vals.append(round(bv, 2))
 
             fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=labels, y=company_vals,
-                name='Company', marker_color='steelblue',
-            ))
-            fig.add_trace(go.Bar(
-                x=labels, y=bench_vals,
-                name='Industry Avg', marker_color='lightcoral',
-            ))
+            fig.add_trace(
+                go.Bar(
+                    x=labels,
+                    y=company_vals,
+                    name="Company",
+                    marker_color="steelblue",
+                )
+            )
+            fig.add_trace(
+                go.Bar(
+                    x=labels,
+                    y=bench_vals,
+                    name="Industry Avg",
+                    marker_color="lightcoral",
+                )
+            )
             fig.update_layout(
-                barmode='group', title='Company vs Industry Benchmarks',
-                yaxis_title='Value', height=350,
+                barmode="group",
+                title="Company vs Industry Benchmarks",
+                yaxis_title="Value",
+                height=350,
                 margin=dict(t=40, b=20),
             )
             st.plotly_chart(fig, use_container_width=True)
@@ -1210,19 +1215,21 @@ class FinancialInsightsPage:
                 ]
 
                 for section_key, section_title in [
-                    ('ratio_analysis', 'RATIO ANALYSIS'),
-                    ('scoring_models', 'SCORING MODELS'),
-                    ('risk_assessment', 'RISK ASSESSMENT'),
-                    ('recommendations', 'RECOMMENDATIONS'),
-                    ('period_comparison', 'PERIOD COMPARISON'),
+                    ("ratio_analysis", "RATIO ANALYSIS"),
+                    ("scoring_models", "SCORING MODELS"),
+                    ("risk_assessment", "RISK ASSESSMENT"),
+                    ("recommendations", "RECOMMENDATIONS"),
+                    ("period_comparison", "PERIOD COMPARISON"),
                 ]:
                     if section_key in report.sections:
-                        report_lines.extend([
-                            section_title,
-                            "-" * 40,
-                            report.sections[section_key],
-                            "",
-                        ])
+                        report_lines.extend(
+                            [
+                                section_title,
+                                "-" * 40,
+                                report.sections[section_key],
+                                "",
+                            ]
+                        )
 
                 report_lines.append("=" * 60)
                 report_text = "\n".join(report_lines)
@@ -1251,6 +1258,7 @@ class FinancialInsightsPage:
             with xlsx_col:
                 try:
                     from export_xlsx import FinancialExcelExporter
+
                     exporter = FinancialExcelExporter()
                     xlsx_bytes = exporter.export_full_report(financial_data, analysis, report=report)
                     st.download_button(
@@ -1265,6 +1273,7 @@ class FinancialInsightsPage:
             with pdf_col:
                 try:
                     from export_pdf import FinancialPDFExporter
+
                     exporter = FinancialPDFExporter()
                     pdf_bytes = exporter.export_full_report(financial_data, analysis, report=report)
                     st.download_button(
@@ -1292,8 +1301,10 @@ class FinancialInsightsPage:
 
         # Check if we have enough data
         if financial_data.revenue is None and financial_data.total_assets is None:
-            st.info("What-If analysis requires financial data with revenue, assets, or other key metrics. "
-                    "Upload a balance sheet or income statement for full functionality.")
+            st.info(
+                "What-If analysis requires financial data with revenue, assets, or other key metrics. "
+                "Upload a balance sheet or income statement for full functionality."
+            )
             return
 
         # --- Scenario Sliders ---
@@ -1301,21 +1312,21 @@ class FinancialInsightsPage:
 
         slider_fields = []
         if financial_data.revenue is not None:
-            slider_fields.append(('revenue', 'Revenue'))
+            slider_fields.append(("revenue", "Revenue"))
         if financial_data.cogs is not None:
-            slider_fields.append(('cogs', 'Cost of Goods Sold'))
+            slider_fields.append(("cogs", "Cost of Goods Sold"))
         if financial_data.total_assets is not None:
-            slider_fields.append(('total_assets', 'Total Assets'))
+            slider_fields.append(("total_assets", "Total Assets"))
         if financial_data.total_liabilities is not None:
-            slider_fields.append(('total_liabilities', 'Total Liabilities'))
+            slider_fields.append(("total_liabilities", "Total Liabilities"))
         if financial_data.current_assets is not None:
-            slider_fields.append(('current_assets', 'Current Assets'))
+            slider_fields.append(("current_assets", "Current Assets"))
         if financial_data.current_liabilities is not None:
-            slider_fields.append(('current_liabilities', 'Current Liabilities'))
+            slider_fields.append(("current_liabilities", "Current Liabilities"))
         if financial_data.net_income is not None:
-            slider_fields.append(('net_income', 'Net Income'))
+            slider_fields.append(("net_income", "Net Income"))
         if financial_data.total_equity is not None:
-            slider_fields.append(('total_equity', 'Total Equity'))
+            slider_fields.append(("total_equity", "Total Equity"))
 
         if not slider_fields:
             st.info("No adjustable financial fields detected in the data.")
@@ -1339,8 +1350,7 @@ class FinancialInsightsPage:
 
         # Run scenario if any adjustments made
         if adjustments:
-            adj_labels = [f"{k.replace('_', ' ').title()} {(v-1)*100:+.0f}%"
-                          for k, v in adjustments.items()]
+            adj_labels = [f"{k.replace('_', ' ').title()} {(v - 1) * 100:+.0f}%" for k, v in adjustments.items()]
             scenario_name = " + ".join(adj_labels)
 
             result = self.analyzer.scenario_analysis(financial_data, adjustments, scenario_name)
@@ -1353,25 +1363,23 @@ class FinancialInsightsPage:
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 delta = result.scenario_health.score - result.base_health.score
-                st.metric("Health Score",
-                          f"{result.scenario_health.score}/100",
-                          f"{delta:+d} pts")
+                st.metric("Health Score", f"{result.scenario_health.score}/100", f"{delta:+d} pts")
             with col2:
-                st.metric("Grade",
-                          result.scenario_health.grade,
-                          f"was {result.base_health.grade}" if result.base_health.grade != result.scenario_health.grade else "unchanged")
+                st.metric(
+                    "Grade",
+                    result.scenario_health.grade,
+                    f"was {result.base_health.grade}"
+                    if result.base_health.grade != result.scenario_health.grade
+                    else "unchanged",
+                )
             with col3:
                 if result.base_z_score and result.scenario_z_score:
                     z_delta = result.scenario_z_score - result.base_z_score
-                    st.metric("Z-Score",
-                              f"{result.scenario_z_score:.2f}",
-                              f"{z_delta:+.2f}")
+                    st.metric("Z-Score", f"{result.scenario_z_score:.2f}", f"{z_delta:+.2f}")
             with col4:
                 if result.base_f_score is not None and result.scenario_f_score is not None:
                     f_delta = result.scenario_f_score - result.base_f_score
-                    st.metric("F-Score",
-                              f"{result.scenario_f_score}/9",
-                              f"{f_delta:+d}")
+                    st.metric("F-Score", f"{result.scenario_f_score}/9", f"{f_delta:+d}")
 
             # Ratio comparison table
             st.markdown("**Ratio Impact**")
@@ -1381,24 +1389,29 @@ class FinancialInsightsPage:
                 scen_val = result.scenario_ratios.get(key)
                 if base_val is not None and scen_val is not None:
                     delta = scen_val - base_val
-                    is_pct = any(x in key for x in ('margin', 'roe', 'roa', 'roic'))
+                    is_pct = any(x in key for x in ("margin", "roe", "roa", "roic"))
                     if is_pct:
-                        comparison_rows.append({
-                            'Metric': key.replace('_', ' ').title(),
-                            'Base': f"{base_val:.1%}",
-                            'Scenario': f"{scen_val:.1%}",
-                            'Change': f"{delta:+.1%}",
-                        })
+                        comparison_rows.append(
+                            {
+                                "Metric": key.replace("_", " ").title(),
+                                "Base": f"{base_val:.1%}",
+                                "Scenario": f"{scen_val:.1%}",
+                                "Change": f"{delta:+.1%}",
+                            }
+                        )
                     else:
-                        comparison_rows.append({
-                            'Metric': key.replace('_', ' ').title(),
-                            'Base': f"{base_val:.2f}",
-                            'Scenario': f"{scen_val:.2f}",
-                            'Change': f"{delta:+.2f}",
-                        })
+                        comparison_rows.append(
+                            {
+                                "Metric": key.replace("_", " ").title(),
+                                "Base": f"{base_val:.2f}",
+                                "Scenario": f"{scen_val:.2f}",
+                                "Change": f"{delta:+.2f}",
+                            }
+                        )
 
             if comparison_rows:
                 import pandas as pd
+
                 st.dataframe(pd.DataFrame(comparison_rows), use_container_width=True, hide_index=True)
 
             st.info(result.impact_summary)
@@ -1428,56 +1441,59 @@ class FinancialInsightsPage:
             selected_label = sens_fields[selected_var_idx][1]
             pct_steps = list(range(-sens_range_max, sens_range_max + 1, 5))
 
-            sens_result = self.analyzer.sensitivity_analysis(
-                financial_data, selected_field, pct_steps
-            )
+            sens_result = self.analyzer.sensitivity_analysis(financial_data, selected_field, pct_steps)
 
             # Render sensitivity table
-            table_data = {'Change': sens_result.variable_labels}
+            table_data = {"Change": sens_result.variable_labels}
             for metric_name, values in sens_result.metric_results.items():
                 if any(v is not None for v in values):
-                    display_name = metric_name.replace('_', ' ').title()
+                    display_name = metric_name.replace("_", " ").title()
                     formatted = []
                     for v in values:
                         if v is None:
                             formatted.append("N/A")
-                        elif metric_name in ('net_margin', 'roe'):
+                        elif metric_name in ("net_margin", "roe"):
                             formatted.append(f"{v:.1%}")
-                        elif metric_name == 'f_score':
+                        elif metric_name == "f_score":
                             formatted.append(f"{int(v)}/9")
                         else:
                             formatted.append(f"{v:.2f}")
                     table_data[display_name] = formatted
 
             import pandas as pd
+
             sens_df = pd.DataFrame(table_data)
             st.dataframe(sens_df, use_container_width=True, hide_index=True)
 
             # Sensitivity chart - Health Score and Z-Score
-            health_vals = sens_result.metric_results.get('health_score', [])
-            z_vals = sens_result.metric_results.get('z_score', [])
+            health_vals = sens_result.metric_results.get("health_score", [])
+            z_vals = sens_result.metric_results.get("z_score", [])
 
             if any(v is not None for v in health_vals):
                 fig = go.Figure()
-                fig.add_trace(go.Scatter(
-                    x=sens_result.variable_labels,
-                    y=health_vals,
-                    name='Health Score',
-                    mode='lines+markers',
-                    line=dict(color='steelblue', width=2),
-                ))
-                if any(v is not None for v in z_vals):
-                    fig.add_trace(go.Scatter(
+                fig.add_trace(
+                    go.Scatter(
                         x=sens_result.variable_labels,
-                        y=[v * 20 if v else None for v in z_vals],  # Scale Z-Score for dual axis
-                        name='Z-Score (x20)',
-                        mode='lines+markers',
-                        line=dict(color='orange', width=2, dash='dash'),
-                    ))
+                        y=health_vals,
+                        name="Health Score",
+                        mode="lines+markers",
+                        line=dict(color="steelblue", width=2),
+                    )
+                )
+                if any(v is not None for v in z_vals):
+                    fig.add_trace(
+                        go.Scatter(
+                            x=sens_result.variable_labels,
+                            y=[v * 20 if v else None for v in z_vals],  # Scale Z-Score for dual axis
+                            name="Z-Score (x20)",
+                            mode="lines+markers",
+                            line=dict(color="orange", width=2, dash="dash"),
+                        )
+                    )
                 fig.update_layout(
-                    title=f'Sensitivity: {selected_label} Impact on Key Metrics',
-                    xaxis_title=f'{selected_label} Change',
-                    yaxis_title='Score',
+                    title=f"Sensitivity: {selected_label} Impact on Key Metrics",
+                    xaxis_title=f"{selected_label} Change",
+                    yaxis_title="Score",
                     height=350,
                     margin=dict(t=40, b=20),
                 )
@@ -1493,21 +1509,23 @@ class FinancialInsightsPage:
         st.caption("Compare financial metrics across two time periods from different sheets.")
 
         if not workbook.sheets or len(workbook.sheets) < 2:
-            st.info("Period comparison requires at least 2 sheets in your workbook "
-                    "(e.g., 'Q1' and 'Q2', or '2024' and '2025'). "
-                    "Each sheet should contain comparable financial data.")
+            st.info(
+                "Period comparison requires at least 2 sheets in your workbook "
+                "(e.g., 'Q1' and 'Q2', or '2024' and '2025'). "
+                "Each sheet should contain comparable financial data."
+            )
             return
 
         sheet_names = [s.name for s in workbook.sheets]
 
         col1, col2 = st.columns(2)
         with col1:
-            current_sheet = st.selectbox("Current Period", sheet_names, index=len(sheet_names) - 1,
-                                         key="period_current")
+            current_sheet = st.selectbox(
+                "Current Period", sheet_names, index=len(sheet_names) - 1, key="period_current"
+            )
         with col2:
             prior_idx = max(0, len(sheet_names) - 2)
-            prior_sheet = st.selectbox("Prior Period", sheet_names, index=prior_idx,
-                                       key="period_prior")
+            prior_sheet = st.selectbox("Prior Period", sheet_names, index=prior_idx, key="period_prior")
 
         if current_sheet == prior_sheet:
             st.warning("Please select two different sheets/periods to compare.")
@@ -1548,7 +1566,7 @@ class FinancialInsightsPage:
             if comparison.improvements:
                 for metric in comparison.improvements:
                     delta = comparison.deltas[metric]
-                    label = metric.replace('_', ' ').title()
+                    label = metric.replace("_", " ").title()
                     st.caption(f"+ {label}: {delta:+.4f}")
             else:
                 st.caption("No improvements detected.")
@@ -1558,7 +1576,7 @@ class FinancialInsightsPage:
             if comparison.deteriorations:
                 for metric in comparison.deteriorations:
                     delta = comparison.deltas[metric]
-                    label = metric.replace('_', ' ').title()
+                    label = metric.replace("_", " ").title()
                     st.caption(f"- {label}: {delta:+.4f}")
             else:
                 st.caption("No deteriorations detected.")
@@ -1568,6 +1586,7 @@ class FinancialInsightsPage:
         st.markdown("**Full Ratio Comparison**")
 
         import pandas as pd
+
         rows = []
         for key in sorted(comparison.current_ratios.keys()):
             cv = comparison.current_ratios.get(key)
@@ -1575,24 +1594,26 @@ class FinancialInsightsPage:
             delta = comparison.deltas.get(key)
 
             if cv is not None or pv is not None:
-                is_pct = any(x in key for x in ('margin', 'roe', 'roa', 'roic'))
+                is_pct = any(x in key for x in ("margin", "roe", "roa", "roic"))
                 fmt = lambda v: f"{v:.1%}" if is_pct and v is not None else (f"{v:.2f}" if v is not None else "N/A")
 
                 status = ""
                 if delta is not None:
-                    lower_better = key in ('leverage_debt_to_equity', 'leverage_debt_to_assets')
+                    lower_better = key in ("leverage_debt_to_equity", "leverage_debt_to_assets")
                     if lower_better:
                         status = "Improved" if delta < -1e-6 else ("Declined" if delta > 1e-6 else "Unchanged")
                     else:
                         status = "Improved" if delta > 1e-6 else ("Declined" if delta < -1e-6 else "Unchanged")
 
-                rows.append({
-                    'Metric': key.replace('_', ' ').title(),
-                    f'{current_sheet}': fmt(cv),
-                    f'{prior_sheet}': fmt(pv),
-                    'Delta': f"{delta:+.4f}" if delta is not None else "N/A",
-                    'Status': status,
-                })
+                rows.append(
+                    {
+                        "Metric": key.replace("_", " ").title(),
+                        f"{current_sheet}": fmt(cv),
+                        f"{prior_sheet}": fmt(pv),
+                        "Delta": f"{delta:+.4f}" if delta is not None else "N/A",
+                        "Status": status,
+                    }
+                )
 
         if rows:
             comp_df = pd.DataFrame(rows)
@@ -1602,20 +1623,23 @@ class FinancialInsightsPage:
         if comparison.deltas:
             sorted_deltas = sorted(comparison.deltas.items(), key=lambda x: abs(x[1]), reverse=True)[:12]
             if sorted_deltas:
-                labels = [k.replace('_', ' ').title() for k, _ in sorted_deltas]
+                labels = [k.replace("_", " ").title() for k, _ in sorted_deltas]
                 values = [v for _, v in sorted_deltas]
-                colors = ['green' if v > 0 else 'red' for v in values]
+                colors = ["green" if v > 0 else "red" for v in values]
 
                 fig = go.Figure()
-                fig.add_trace(go.Bar(
-                    x=labels, y=values,
-                    marker_color=colors,
-                    text=[f"{v:+.4f}" for v in values],
-                    textposition='auto',
-                ))
+                fig.add_trace(
+                    go.Bar(
+                        x=labels,
+                        y=values,
+                        marker_color=colors,
+                        text=[f"{v:+.4f}" for v in values],
+                        textposition="auto",
+                    )
+                )
                 fig.update_layout(
-                    title=f'Top Changes: {current_sheet} vs {prior_sheet}',
-                    yaxis_title='Delta',
+                    title=f"Top Changes: {current_sheet} vs {prior_sheet}",
+                    yaxis_title="Delta",
                     height=350,
                     margin=dict(t=40, b=20),
                 )
@@ -1630,8 +1654,15 @@ class FinancialInsightsPage:
 
         # Let user configure assumptions
         available_fields = []
-        for fld in ['revenue', 'cogs', 'operating_expenses', 'total_assets',
-                     'current_assets', 'current_liabilities', 'total_debt']:
+        for fld in [
+            "revenue",
+            "cogs",
+            "operating_expenses",
+            "total_assets",
+            "current_assets",
+            "current_liabilities",
+            "total_debt",
+        ]:
             if getattr(data, fld, None) is not None:
                 available_fields.append(fld)
 
@@ -1646,10 +1677,12 @@ class FinancialInsightsPage:
             with cols[i % len(cols)]:
                 std = st.slider(
                     f"{fld.replace('_', ' ').title()} Std Dev %",
-                    min_value=1, max_value=50, value=10,
+                    min_value=1,
+                    max_value=50,
+                    value=10,
                     key=f"mc_std_{fld}",
                 )
-                assumptions[fld] = {'mean_pct': 0.0, 'std_pct': float(std)}
+                assumptions[fld] = {"mean_pct": 0.0, "std_pct": float(std)}
 
         n_sims = st.select_slider(
             "Number of Simulations",
@@ -1669,42 +1702,40 @@ class FinancialInsightsPage:
         st.markdown("**Distribution Percentiles**")
         rows = []
         for metric, pcts in result.percentiles.items():
-            rows.append({
-                'Metric': metric.replace('_', ' ').title(),
-                'P10': f"{pcts['p10']:.2f}",
-                'P25': f"{pcts['p25']:.2f}",
-                'Median': f"{pcts['p50']:.2f}",
-                'P75': f"{pcts['p75']:.2f}",
-                'P90': f"{pcts['p90']:.2f}",
-                'Mean': f"{pcts['mean']:.2f}",
-                'Std Dev': f"{pcts['std']:.2f}",
-            })
+            rows.append(
+                {
+                    "Metric": metric.replace("_", " ").title(),
+                    "P10": f"{pcts['p10']:.2f}",
+                    "P25": f"{pcts['p25']:.2f}",
+                    "Median": f"{pcts['p50']:.2f}",
+                    "P75": f"{pcts['p75']:.2f}",
+                    "P90": f"{pcts['p90']:.2f}",
+                    "Mean": f"{pcts['mean']:.2f}",
+                    "Std Dev": f"{pcts['std']:.2f}",
+                }
+            )
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
         # Histogram for selected metric
         metric_choice = st.selectbox(
             "View Distribution",
             list(result.metric_distributions.keys()),
-            format_func=lambda x: x.replace('_', ' ').title(),
+            format_func=lambda x: x.replace("_", " ").title(),
         )
 
         if metric_choice and metric_choice in result.metric_distributions:
             import plotly.graph_objects as go
+
             values = result.metric_distributions[metric_choice]
-            fig = go.Figure(data=[go.Histogram(x=values, nbinsx=40,
-                                               marker_color='steelblue',
-                                               opacity=0.75)])
+            fig = go.Figure(data=[go.Histogram(x=values, nbinsx=40, marker_color="steelblue", opacity=0.75)])
             pcts = result.percentiles[metric_choice]
-            fig.add_vline(x=pcts['p50'], line_dash="dash", line_color="red",
-                          annotation_text="Median")
-            fig.add_vline(x=pcts['p10'], line_dash="dot", line_color="orange",
-                          annotation_text="P10")
-            fig.add_vline(x=pcts['p90'], line_dash="dot", line_color="orange",
-                          annotation_text="P90")
+            fig.add_vline(x=pcts["p50"], line_dash="dash", line_color="red", annotation_text="Median")
+            fig.add_vline(x=pcts["p10"], line_dash="dot", line_color="orange", annotation_text="P10")
+            fig.add_vline(x=pcts["p90"], line_dash="dot", line_color="orange", annotation_text="P90")
             fig.update_layout(
-                title=f'{metric_choice.replace("_", " ").title()} Distribution ({n_sims} sims)',
-                xaxis_title=metric_choice.replace('_', ' ').title(),
-                yaxis_title='Frequency',
+                title=f"{metric_choice.replace('_', ' ').title()} Distribution ({n_sims} sims)",
+                xaxis_title=metric_choice.replace("_", " ").title(),
+                yaxis_title="Frequency",
                 height=350,
                 margin=dict(t=40, b=20),
             )
@@ -1724,20 +1755,19 @@ class FinancialInsightsPage:
         col1, col2, col3 = st.columns(3)
         with col1:
             n_periods = st.slider("Forecast Periods", 3, 24, 12, key="cf_periods")
-            rev_growth = st.slider("Revenue Growth %", -10.0, 30.0, 5.0, 0.5,
-                                   key="cf_rev_growth") / 100.0
+            rev_growth = st.slider("Revenue Growth %", -10.0, 30.0, 5.0, 0.5, key="cf_rev_growth") / 100.0
         with col2:
-            capex_pct = st.slider("CapEx % of Revenue", 1.0, 20.0, 5.0, 0.5,
-                                  key="cf_capex") / 100.0
-            discount = st.slider("Discount Rate (WACC) %", 5.0, 20.0, 10.0, 0.5,
-                                 key="cf_discount") / 100.0
+            capex_pct = st.slider("CapEx % of Revenue", 1.0, 20.0, 5.0, 0.5, key="cf_capex") / 100.0
+            discount = st.slider("Discount Rate (WACC) %", 5.0, 20.0, 10.0, 0.5, key="cf_discount") / 100.0
         with col3:
-            terminal_g = st.slider("Terminal Growth %", 0.0, 5.0, 2.0, 0.25,
-                                   key="cf_terminal") / 100.0
+            terminal_g = st.slider("Terminal Growth %", 0.0, 5.0, 2.0, 0.25, key="cf_terminal") / 100.0
 
         result = self.analyzer.forecast_cashflow(
-            data, periods=n_periods, revenue_growth=rev_growth,
-            capex_ratio=capex_pct, discount_rate=discount,
+            data,
+            periods=n_periods,
+            revenue_growth=rev_growth,
+            capex_ratio=capex_pct,
+            discount_rate=discount,
             terminal_growth=terminal_g,
         )
 
@@ -1748,55 +1778,72 @@ class FinancialInsightsPage:
         # DCF headline
         col_a, col_b, col_c = st.columns(3)
         with col_a:
-            st.metric("DCF Enterprise Value",
-                       f"${result.dcf_value:,.0f}" if result.dcf_value else "N/A")
+            st.metric("DCF Enterprise Value", f"${result.dcf_value:,.0f}" if result.dcf_value else "N/A")
         with col_b:
-            st.metric("Terminal Value",
-                       f"${result.terminal_value:,.0f}" if result.terminal_value else "N/A")
+            st.metric("Terminal Value", f"${result.terminal_value:,.0f}" if result.terminal_value else "N/A")
         with col_c:
             total_fcf = sum(result.fcf_forecast)
             st.metric("Total Forecast FCF", f"${total_fcf:,.0f}")
 
         # Forecast table
         st.markdown("**Period-by-Period Projections**")
-        forecast_df = pd.DataFrame({
-            'Period': result.periods,
-            'Revenue': [f"${v:,.0f}" for v in result.revenue_forecast],
-            'Expenses': [f"${v:,.0f}" for v in result.expense_forecast],
-            'Net Cash Flow': [f"${v:,.0f}" for v in result.net_cash_flow],
-            'FCF': [f"${v:,.0f}" for v in result.fcf_forecast],
-            'Cumulative Cash': [f"${v:,.0f}" for v in result.cumulative_cash],
-        })
+        forecast_df = pd.DataFrame(
+            {
+                "Period": result.periods,
+                "Revenue": [f"${v:,.0f}" for v in result.revenue_forecast],
+                "Expenses": [f"${v:,.0f}" for v in result.expense_forecast],
+                "Net Cash Flow": [f"${v:,.0f}" for v in result.net_cash_flow],
+                "FCF": [f"${v:,.0f}" for v in result.fcf_forecast],
+                "Cumulative Cash": [f"${v:,.0f}" for v in result.cumulative_cash],
+            }
+        )
         st.dataframe(forecast_df, use_container_width=True, hide_index=True)
 
         # Chart
         import plotly.graph_objects as go
+
         fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=result.periods, y=result.revenue_forecast,
-            name='Revenue', marker_color='steelblue',
-        ))
-        fig.add_trace(go.Bar(
-            x=result.periods, y=result.expense_forecast,
-            name='Expenses', marker_color='salmon',
-        ))
-        fig.add_trace(go.Scatter(
-            x=result.periods, y=result.fcf_forecast,
-            name='Free Cash Flow', mode='lines+markers',
-            line=dict(color='green', width=2),
-        ))
-        fig.add_trace(go.Scatter(
-            x=result.periods, y=result.cumulative_cash,
-            name='Cumulative Cash', mode='lines+markers',
-            line=dict(color='purple', width=2, dash='dash'),
-        ))
+        fig.add_trace(
+            go.Bar(
+                x=result.periods,
+                y=result.revenue_forecast,
+                name="Revenue",
+                marker_color="steelblue",
+            )
+        )
+        fig.add_trace(
+            go.Bar(
+                x=result.periods,
+                y=result.expense_forecast,
+                name="Expenses",
+                marker_color="salmon",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=result.periods,
+                y=result.fcf_forecast,
+                name="Free Cash Flow",
+                mode="lines+markers",
+                line=dict(color="green", width=2),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=result.periods,
+                y=result.cumulative_cash,
+                name="Cumulative Cash",
+                mode="lines+markers",
+                line=dict(color="purple", width=2, dash="dash"),
+            )
+        )
         fig.update_layout(
-            title='Cash Flow Forecast',
-            yaxis_title='Amount ($)',
-            barmode='group',
+            title="Cash Flow Forecast",
+            yaxis_title="Amount ($)",
+            barmode="group",
             height=400,
             margin=dict(t=40, b=20),
-            legend=dict(orientation='h', y=-0.15),
+            legend=dict(orientation="h", y=-0.15),
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -1809,10 +1856,19 @@ class FinancialInsightsPage:
 
         # Detect available variables
         candidate_fields = [
-            'revenue', 'cogs', 'operating_expenses', 'net_income',
-            'total_assets', 'total_liabilities', 'total_equity',
-            'current_assets', 'current_liabilities', 'total_debt',
-            'ebit', 'ebitda', 'interest_expense',
+            "revenue",
+            "cogs",
+            "operating_expenses",
+            "net_income",
+            "total_assets",
+            "total_liabilities",
+            "total_equity",
+            "current_assets",
+            "current_liabilities",
+            "total_debt",
+            "ebit",
+            "ebitda",
+            "interest_expense",
         ]
         available = [f for f in candidate_fields if getattr(data, f, None) is not None]
 
@@ -1824,13 +1880,15 @@ class FinancialInsightsPage:
         with col1:
             target = st.selectbox(
                 "Target Metric",
-                ['health_score', 'z_score', 'f_score', 'net_margin',
-                 'current_ratio', 'roe', 'debt_to_equity'],
+                ["health_score", "z_score", "f_score", "net_margin", "current_ratio", "roe", "debt_to_equity"],
                 key="tornado_target",
             )
         with col2:
             swing = st.slider(
-                "Swing (%)", min_value=5, max_value=30, value=10,
+                "Swing (%)",
+                min_value=5,
+                max_value=30,
+                value=10,
                 key="tornado_swing",
             )
 
@@ -1841,32 +1899,44 @@ class FinancialInsightsPage:
             return
 
         # Show top driver highlight
-        st.success(f"**Top Driver:** {result.top_driver.replace('_', ' ').title()} "
-                   f"(spread: {result.drivers[0].spread:.4f})")
+        st.success(
+            f"**Top Driver:** {result.top_driver.replace('_', ' ').title()} (spread: {result.drivers[0].spread:.4f})"
+        )
 
         # Tornado chart (horizontal bar)
         import plotly.graph_objects as go
+
         top_n = min(10, len(result.drivers))
         drivers = result.drivers[:top_n]
         # Reverse for plotly horizontal bars (top = most impactful)
         drivers_rev = list(reversed(drivers))
-        var_names = [d.variable.replace('_', ' ').title() for d in drivers_rev]
+        var_names = [d.variable.replace("_", " ").title() for d in drivers_rev]
         low_deltas = [d.low_value - d.base_value for d in drivers_rev]
         high_deltas = [d.high_value - d.base_value for d in drivers_rev]
 
         fig = go.Figure()
-        fig.add_trace(go.Bar(
-            y=var_names, x=low_deltas, name=f'-{swing}%',
-            orientation='h', marker_color='salmon',
-        ))
-        fig.add_trace(go.Bar(
-            y=var_names, x=high_deltas, name=f'+{swing}%',
-            orientation='h', marker_color='steelblue',
-        ))
+        fig.add_trace(
+            go.Bar(
+                y=var_names,
+                x=low_deltas,
+                name=f"-{swing}%",
+                orientation="h",
+                marker_color="salmon",
+            )
+        )
+        fig.add_trace(
+            go.Bar(
+                y=var_names,
+                x=high_deltas,
+                name=f"+{swing}%",
+                orientation="h",
+                marker_color="steelblue",
+            )
+        )
         fig.update_layout(
-            title=f'Tornado Chart: Impact on {target.replace("_", " ").title()}',
-            xaxis_title=f'Change in {target.replace("_", " ").title()}',
-            barmode='overlay',
+            title=f"Tornado Chart: Impact on {target.replace('_', ' ').title()}",
+            xaxis_title=f"Change in {target.replace('_', ' ').title()}",
+            barmode="overlay",
             height=max(300, top_n * 35),
             margin=dict(t=40, b=20, l=150),
         )
@@ -1876,13 +1946,15 @@ class FinancialInsightsPage:
         st.markdown("**Driver Details**")
         driver_data = []
         for d in result.drivers:
-            driver_data.append({
-                'Variable': d.variable.replace('_', ' ').title(),
-                f'-{swing}% Value': f"{d.low_value:.4f}",
-                'Base Value': f"{d.base_value:.4f}",
-                f'+{swing}% Value': f"{d.high_value:.4f}",
-                'Spread': f"{d.spread:.4f}",
-            })
+            driver_data.append(
+                {
+                    "Variable": d.variable.replace("_", " ").title(),
+                    f"-{swing}% Value": f"{d.low_value:.4f}",
+                    "Base Value": f"{d.base_value:.4f}",
+                    f"+{swing}% Value": f"{d.high_value:.4f}",
+                    "Spread": f"{d.spread:.4f}",
+                }
+            )
         st.dataframe(pd.DataFrame(driver_data), use_container_width=True, hide_index=True)
 
         # ===== BREAKEVEN ANALYSIS =====
@@ -1899,12 +1971,13 @@ class FinancialInsightsPage:
                 st.metric("Current Revenue", f"${be.current_revenue:,.0f}")
             with col3:
                 mos_pct = (be.margin_of_safety or 0) * 100
-                st.metric("Margin of Safety", f"{mos_pct:.1f}%",
-                          delta=f"{'Above' if mos_pct > 0 else 'Below'} breakeven")
+                st.metric(
+                    "Margin of Safety", f"{mos_pct:.1f}%", delta=f"{'Above' if mos_pct > 0 else 'Below'} breakeven"
+                )
 
             st.markdown(f"- **Fixed Costs:** ${be.fixed_costs:,.0f}")
-            st.markdown(f"- **Variable Cost Ratio:** {(be.variable_cost_ratio or 0)*100:.1f}%")
-            st.markdown(f"- **Contribution Margin:** {(be.contribution_margin_ratio or 0)*100:.1f}%")
+            st.markdown(f"- **Variable Cost Ratio:** {(be.variable_cost_ratio or 0) * 100:.1f}%")
+            st.markdown(f"- **Contribution Margin:** {(be.contribution_margin_ratio or 0) * 100:.1f}%")
         else:
             st.info("Insufficient data for breakeven analysis (need revenue, COGS, and operating expenses).")
 
@@ -1921,29 +1994,36 @@ class FinancialInsightsPage:
         covenants = None
         if use_custom:
             st.markdown("**Define Covenants**")
-            n_covenants = st.number_input("Number of covenants", min_value=1, max_value=10,
-                                          value=3, key="cov_n")
+            n_covenants = st.number_input("Number of covenants", min_value=1, max_value=10, value=3, key="cov_n")
             covenants = []
-            metric_options = ['current_ratio', 'debt_to_equity', 'net_margin',
-                              'roe', 'roa', 'interest_coverage', 'health_score', 'dscr']
+            metric_options = [
+                "current_ratio",
+                "debt_to_equity",
+                "net_margin",
+                "roe",
+                "roa",
+                "interest_coverage",
+                "health_score",
+                "dscr",
+            ]
             for i in range(int(n_covenants)):
                 cols = st.columns(4)
                 with cols[0]:
-                    name = st.text_input(f"Name #{i+1}", value=f"Covenant {i+1}",
-                                         key=f"cov_name_{i}")
+                    name = st.text_input(f"Name #{i + 1}", value=f"Covenant {i + 1}", key=f"cov_name_{i}")
                 with cols[1]:
-                    metric = st.selectbox(f"Metric #{i+1}", metric_options,
-                                          key=f"cov_metric_{i}")
+                    metric = st.selectbox(f"Metric #{i + 1}", metric_options, key=f"cov_metric_{i}")
                 with cols[2]:
-                    threshold = st.number_input(f"Threshold #{i+1}", value=1.5,
-                                                step=0.1, key=f"cov_thresh_{i}")
+                    threshold = st.number_input(f"Threshold #{i + 1}", value=1.5, step=0.1, key=f"cov_thresh_{i}")
                 with cols[3]:
-                    direction = st.selectbox(f"Direction #{i+1}", ['above', 'below'],
-                                             key=f"cov_dir_{i}")
-                covenants.append({
-                    'name': name, 'metric': metric,
-                    'threshold': threshold, 'direction': direction,
-                })
+                    direction = st.selectbox(f"Direction #{i + 1}", ["above", "below"], key=f"cov_dir_{i}")
+                covenants.append(
+                    {
+                        "name": name,
+                        "metric": metric,
+                        "threshold": threshold,
+                        "direction": direction,
+                    }
+                )
 
         result = self.analyzer.covenant_monitor(data, covenants)
 
@@ -1969,29 +2049,32 @@ class FinancialInsightsPage:
         if result.checks:
             check_data = []
             for c in result.checks:
-                status_icon = {'pass': 'PASS', 'warning': 'WARN',
-                               'breach': 'BREACH', 'unknown': 'N/A'}.get(c.status, '?')
-                check_data.append({
-                    'Covenant': c.name,
-                    'Current': f"{c.current_value:.4f}" if c.current_value is not None else "N/A",
-                    'Threshold': f"{c.threshold:.4f}",
-                    'Direction': c.direction.title(),
-                    'Headroom': f"{c.headroom:+.4f}" if c.headroom is not None else "N/A",
-                    'Status': status_icon,
-                })
+                status_icon = {"pass": "PASS", "warning": "WARN", "breach": "BREACH", "unknown": "N/A"}.get(
+                    c.status, "?"
+                )
+                check_data.append(
+                    {
+                        "Covenant": c.name,
+                        "Current": f"{c.current_value:.4f}" if c.current_value is not None else "N/A",
+                        "Threshold": f"{c.threshold:.4f}",
+                        "Direction": c.direction.title(),
+                        "Headroom": f"{c.headroom:+.4f}" if c.headroom is not None else "N/A",
+                        "Status": status_icon,
+                    }
+                )
 
             cov_df = pd.DataFrame(check_data)
 
             def color_status(val):
-                if val == 'PASS':
-                    return 'background-color: #c6efce; color: #006100'
-                elif val == 'WARN':
-                    return 'background-color: #ffeb9c; color: #9c6500'
-                elif val == 'BREACH':
-                    return 'background-color: #ffc7ce; color: #9c0006'
-                return ''
+                if val == "PASS":
+                    return "background-color: #c6efce; color: #006100"
+                elif val == "WARN":
+                    return "background-color: #ffeb9c; color: #9c6500"
+                elif val == "BREACH":
+                    return "background-color: #ffc7ce; color: #9c0006"
+                return ""
 
-            styled = cov_df.style.map(color_status, subset=['Status'])
+            styled = cov_df.style.map(color_status, subset=["Status"])
             st.dataframe(styled, use_container_width=True, hide_index=True)
 
     def _render_working_capital(self, df: pd.DataFrame):
@@ -2016,8 +2099,11 @@ class FinancialInsightsPage:
         with col4:
             if result.ccc is not None:
                 color = "normal" if result.ccc > 0 else "inverse"
-                st.metric("Cash Conversion Cycle", f"{result.ccc:.0f} days",
-                          delta=f"{'Efficient' if result.ccc < 30 else 'Monitor'}")
+                st.metric(
+                    "Cash Conversion Cycle",
+                    f"{result.ccc:.0f} days",
+                    delta=f"{'Efficient' if result.ccc < 30 else 'Monitor'}",
+                )
             else:
                 st.metric("Cash Conversion Cycle", "N/A")
 
@@ -2034,17 +2120,20 @@ class FinancialInsightsPage:
         # CCC waterfall chart
         if result.dso is not None and result.dio is not None and result.dpo is not None:
             import plotly.graph_objects as go
-            fig = go.Figure(go.Waterfall(
-                name="Cash Conversion Cycle",
-                orientation="v",
-                measure=["relative", "relative", "relative", "total"],
-                x=["DSO", "DIO", "DPO", "CCC"],
-                y=[result.dso, result.dio, -result.dpo, 0],
-                connector={"line": {"color": "rgb(63, 63, 63)"}},
-                increasing={"marker": {"color": "salmon"}},
-                decreasing={"marker": {"color": "steelblue"}},
-                totals={"marker": {"color": "gold"}},
-            ))
+
+            fig = go.Figure(
+                go.Waterfall(
+                    name="Cash Conversion Cycle",
+                    orientation="v",
+                    measure=["relative", "relative", "relative", "total"],
+                    x=["DSO", "DIO", "DPO", "CCC"],
+                    y=[result.dso, result.dio, -result.dpo, 0],
+                    connector={"line": {"color": "rgb(63, 63, 63)"}},
+                    increasing={"marker": {"color": "salmon"}},
+                    decreasing={"marker": {"color": "steelblue"}},
+                    totals={"marker": {"color": "gold"}},
+                )
+            )
             fig.update_layout(
                 title="Cash Conversion Cycle Breakdown",
                 yaxis_title="Days",
@@ -2154,30 +2243,56 @@ class FinancialInsightsPage:
             historical.append(base_val)
 
             result = self.analyzer.regression_forecast(
-                values=historical, periods_ahead=periods,
-                method=method, metric_name=selected_metric,
+                values=historical,
+                periods_ahead=periods,
+                method=method,
+                metric_name=selected_metric,
             )
 
             if result.forecast_values:
                 import plotly.graph_objects as go
+
                 fig = go.Figure()
                 x_hist = list(range(len(historical)))
                 x_fore = list(range(len(historical), len(historical) + periods))
 
-                fig.add_trace(go.Scatter(x=x_hist, y=historical, mode='lines+markers',
-                                         name='Historical', line=dict(color='#2196F3')))
-                fig.add_trace(go.Scatter(x=x_fore, y=result.forecast_values,
-                                         mode='lines+markers', name='Forecast',
-                                         line=dict(color='#FF9800', dash='dash')))
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_hist, y=historical, mode="lines+markers", name="Historical", line=dict(color="#2196F3")
+                    )
+                )
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_fore,
+                        y=result.forecast_values,
+                        mode="lines+markers",
+                        name="Forecast",
+                        line=dict(color="#FF9800", dash="dash"),
+                    )
+                )
                 if result.confidence_upper:
-                    fig.add_trace(go.Scatter(x=x_fore, y=result.confidence_upper,
-                                             mode='lines', name='Upper Band',
-                                             line=dict(color='#FF9800', width=0.5)))
-                    fig.add_trace(go.Scatter(x=x_fore, y=result.confidence_lower,
-                                             mode='lines', name='Lower Band',
-                                             fill='tonexty', line=dict(color='#FF9800', width=0.5)))
-                fig.update_layout(title=f"{selected_metric} Forecast ({method})",
-                                  xaxis_title="Period", yaxis_title="Value")
+                    fig.add_trace(
+                        go.Scatter(
+                            x=x_fore,
+                            y=result.confidence_upper,
+                            mode="lines",
+                            name="Upper Band",
+                            line=dict(color="#FF9800", width=0.5),
+                        )
+                    )
+                    fig.add_trace(
+                        go.Scatter(
+                            x=x_fore,
+                            y=result.confidence_lower,
+                            mode="lines",
+                            name="Lower Band",
+                            fill="tonexty",
+                            line=dict(color="#FF9800", width=0.5),
+                        )
+                    )
+                fig.update_layout(
+                    title=f"{selected_metric} Forecast ({method})", xaxis_title="Period", yaxis_title="Value"
+                )
                 st.plotly_chart(fig, use_container_width=True)
 
                 # Stats
@@ -2200,8 +2315,9 @@ class FinancialInsightsPage:
 
         fd = self.analyzer._dataframe_to_financial_data(df)
 
-        industry = st.selectbox("Industry", ["general", "technology", "manufacturing", "retail", "healthcare"],
-                                key="ib_industry")
+        industry = st.selectbox(
+            "Industry", ["general", "technology", "manufacturing", "retail", "healthcare"], key="ib_industry"
+        )
 
         result = self.analyzer.industry_benchmark(fd, industry=industry)
 
@@ -2209,21 +2325,25 @@ class FinancialInsightsPage:
             st.markdown(f"**{result.summary}**")
 
             if result.overall_percentile is not None:
-                st.progress(min(result.overall_percentile / 100, 1.0),
-                            text=f"Overall Percentile: {result.overall_percentile:.0f}th")
+                st.progress(
+                    min(result.overall_percentile / 100, 1.0),
+                    text=f"Overall Percentile: {result.overall_percentile:.0f}th",
+                )
 
             # Build comparison table
             rows = []
             for c in result.comparisons:
-                rows.append({
-                    "Metric": c.metric_name.replace("_", " ").title(),
-                    "Company": f"{c.company_value:.2f}" if c.company_value is not None else "N/A",
-                    "Industry Median": f"{c.industry_median:.2f}" if c.industry_median is not None else "N/A",
-                    "P25": f"{c.industry_p25:.2f}" if c.industry_p25 is not None else "N/A",
-                    "P75": f"{c.industry_p75:.2f}" if c.industry_p75 is not None else "N/A",
-                    "Percentile": f"{c.percentile_rank:.0f}th" if c.percentile_rank is not None else "N/A",
-                    "Rating": c.rating,
-                })
+                rows.append(
+                    {
+                        "Metric": c.metric_name.replace("_", " ").title(),
+                        "Company": f"{c.company_value:.2f}" if c.company_value is not None else "N/A",
+                        "Industry Median": f"{c.industry_median:.2f}" if c.industry_median is not None else "N/A",
+                        "P25": f"{c.industry_p25:.2f}" if c.industry_p25 is not None else "N/A",
+                        "P75": f"{c.industry_p75:.2f}" if c.industry_p75 is not None else "N/A",
+                        "Percentile": f"{c.percentile_rank:.0f}th" if c.percentile_rank is not None else "N/A",
+                        "Rating": c.rating,
+                    }
+                )
             bench_df = pd.DataFrame(rows)
 
             def color_rating(val):
@@ -2238,16 +2358,26 @@ class FinancialInsightsPage:
 
             # Bar chart of percentile ranks
             import plotly.express as px
-            chart_data = pd.DataFrame({
-                "Metric": [c.metric_name.replace("_", " ").title() for c in result.comparisons],
-                "Percentile": [c.percentile_rank or 0 for c in result.comparisons],
-            })
-            fig = px.bar(chart_data, x="Percentile", y="Metric", orientation='h',
-                         color="Percentile", color_continuous_scale=["#FFC7CE", "#FFEB9C", "#C6EFCE"],
-                         range_color=[0, 100])
+
+            chart_data = pd.DataFrame(
+                {
+                    "Metric": [c.metric_name.replace("_", " ").title() for c in result.comparisons],
+                    "Percentile": [c.percentile_rank or 0 for c in result.comparisons],
+                }
+            )
+            fig = px.bar(
+                chart_data,
+                x="Percentile",
+                y="Metric",
+                orientation="h",
+                color="Percentile",
+                color_continuous_scale=["#FFC7CE", "#FFEB9C", "#C6EFCE"],
+                range_color=[0, 100],
+            )
             fig.add_vline(x=50, line_dash="dash", line_color="gray", annotation_text="Median")
-            fig.update_layout(title=f"Percentile Ranking vs {industry.title()} Peers",
-                              xaxis_title="Percentile", yaxis_title="")
+            fig.update_layout(
+                title=f"Percentile Ranking vs {industry.title()} Peers", xaxis_title="Percentile", yaxis_title=""
+            )
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Insufficient data for industry benchmarking.")
@@ -2259,10 +2389,12 @@ class FinancialInsightsPage:
 
         fd = self.analyzer._dataframe_to_financial_data(df)
 
-        st.markdown("**Available fields:** `revenue`, `cogs`, `gross_profit`, `ebit`, `ebitda`, "
-                     "`net_income`, `total_assets`, `total_equity`, `total_liabilities`, "
-                     "`current_assets`, `current_liabilities`, `total_debt`, `operating_cash_flow`, "
-                     "`capex`, `interest_expense`, `depreciation`, `inventory`, etc.")
+        st.markdown(
+            "**Available fields:** `revenue`, `cogs`, `gross_profit`, `ebit`, `ebitda`, "
+            "`net_income`, `total_assets`, `total_equity`, `total_liabilities`, "
+            "`current_assets`, `current_liabilities`, `total_debt`, `operating_cash_flow`, "
+            "`capex`, `interest_expense`, `depreciation`, `inventory`, etc."
+        )
 
         # Default KPI examples
         default_kpis = [
@@ -2287,12 +2419,14 @@ class FinancialInsightsPage:
                 tmax = st.text_input("Max Target", value=defaults[3], key=f"kpi_max_{i}")
 
             if name and formula:
-                kpi_defs.append(CustomKPIDefinition(
-                    name=name,
-                    formula=formula,
-                    target_min=float(tmin) if tmin else None,
-                    target_max=float(tmax) if tmax else None,
-                ))
+                kpi_defs.append(
+                    CustomKPIDefinition(
+                        name=name,
+                        formula=formula,
+                        target_min=float(tmin) if tmin else None,
+                        target_max=float(tmax) if tmax else None,
+                    )
+                )
 
         if kpi_defs and st.button("Evaluate KPIs", key="eval_kpis"):
             report = self.analyzer.evaluate_custom_kpis(fd, kpi_defs)
@@ -2310,12 +2444,14 @@ class FinancialInsightsPage:
                 else:
                     status = "No Target"
 
-                rows.append({
-                    "KPI": r.name,
-                    "Formula": r.formula,
-                    "Value": f"{r.value:.4f}" if r.value is not None else "N/A",
-                    "Status": status,
-                })
+                rows.append(
+                    {
+                        "KPI": r.name,
+                        "Formula": r.formula,
+                        "Value": f"{r.value:.4f}" if r.value is not None else "N/A",
+                        "Status": status,
+                    }
+                )
 
             kpi_df = pd.DataFrame(rows)
 
@@ -2349,7 +2485,10 @@ class FinancialInsightsPage:
             peer_labels.append(f"Peer {i}")
             adj = st.slider(
                 f"Peer {i} revenue multiplier",
-                0.5, 2.0, 0.8 + i * 0.2, 0.1,
+                0.5,
+                2.0,
+                0.8 + i * 0.2,
+                0.1,
                 key=f"peer_adj_{i}",
             )
             adjustments.append(adj)
@@ -2411,6 +2550,7 @@ class FinancialInsightsPage:
             # Radar chart
             try:
                 import plotly.graph_objects as go
+
                 categories = [c.metric_name for c in report.comparisons]
                 fig = go.Figure()
                 for name in report.peer_names:
@@ -2419,7 +2559,9 @@ class FinancialInsightsPage:
                         v = comp.values.get(name)
                         vals.append(v if v is not None else 0)
                     # Normalize to 0-1 range for radar
-                    max_vals = [max(abs(comp.values.get(n) or 0) for n in report.peer_names) for comp in report.comparisons]
+                    max_vals = [
+                        max(abs(comp.values.get(n) or 0) for n in report.peer_names) for comp in report.comparisons
+                    ]
                     norm = [v / m if m and m > 0 else 0 for v, m in zip(vals, max_vals)]
                     fig.add_trace(go.Scatterpolar(r=norm + [norm[0]], theta=categories + [categories[0]], name=name))
                 fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 1.2])), title="Peer Radar Chart")
@@ -2464,19 +2606,23 @@ class FinancialInsightsPage:
         rows = []
         if root.children:
             for child in root.children:
-                rows.append({
-                    "Component": child.name,
-                    "Value": f"{child.value:.4f}" if child.value is not None else "N/A",
-                    "Formula": child.formula,
-                    "Level": "DuPont Factor",
-                })
+                rows.append(
+                    {
+                        "Component": child.name,
+                        "Value": f"{child.value:.4f}" if child.value is not None else "N/A",
+                        "Formula": child.formula,
+                        "Level": "DuPont Factor",
+                    }
+                )
                 for sub in child.children:
-                    rows.append({
-                        "Component": f"  {sub.name}",
-                        "Value": f"{sub.value:.4f}" if sub.value is not None else "N/A",
-                        "Formula": sub.formula,
-                        "Level": "Sub-Driver",
-                    })
+                    rows.append(
+                        {
+                            "Component": f"  {sub.name}",
+                            "Value": f"{sub.value:.4f}" if sub.value is not None else "N/A",
+                            "Formula": sub.formula,
+                            "Level": "Sub-Driver",
+                        }
+                    )
 
         if rows:
             tree_df = pd.DataFrame(rows)
@@ -2492,6 +2638,7 @@ class FinancialInsightsPage:
         # Bar chart of DuPont factors
         try:
             import plotly.graph_objects as go
+
             if root.children:
                 names = [c.name for c in root.children]
                 vals = [c.value if c.value is not None else 0 for c in root.children]
@@ -2505,7 +2652,9 @@ class FinancialInsightsPage:
     def _render_credit_rating(self, df: pd.DataFrame):
         """Render Credit Rating tab."""
         st.subheader("Financial Credit Rating")
-        st.markdown("Composite letter-grade rating based on liquidity, profitability, leverage, efficiency, and cash flow.")
+        st.markdown(
+            "Composite letter-grade rating based on liquidity, profitability, leverage, efficiency, and cash flow."
+        )
 
         financial_data = self.analyzer._dataframe_to_financial_data(df)
         rating = self.analyzer.financial_rating(financial_data)
@@ -2514,17 +2663,24 @@ class FinancialInsightsPage:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             grade_color = {
-                "AAA": "#006100", "AA": "#006100", "A": "#4472C4",
-                "BBB": "#4472C4", "BB": "#ED7D31", "B": "#ED7D31",
-                "CCC": "#9C0006", "CC": "#9C0006", "C": "#9C0006",
+                "AAA": "#006100",
+                "AA": "#006100",
+                "A": "#4472C4",
+                "BBB": "#4472C4",
+                "BB": "#ED7D31",
+                "B": "#ED7D31",
+                "CCC": "#9C0006",
+                "CC": "#9C0006",
+                "C": "#9C0006",
             }
             color = grade_color.get(rating.overall_grade, "#000000")
             st.markdown(
-                f"<h1 style='text-align:center; color:{color}; font-size:64px'>"
-                f"{rating.overall_grade}</h1>",
+                f"<h1 style='text-align:center; color:{color}; font-size:64px'>{rating.overall_grade}</h1>",
                 unsafe_allow_html=True,
             )
-            st.markdown(f"<p style='text-align:center'>Score: {rating.overall_score:.1f} / 10</p>", unsafe_allow_html=True)
+            st.markdown(
+                f"<p style='text-align:center'>Score: {rating.overall_score:.1f} / 10</p>", unsafe_allow_html=True
+            )
 
         st.markdown(f"**{rating.summary}**")
 
@@ -2540,9 +2696,12 @@ class FinancialInsightsPage:
         # Bar chart
         try:
             import plotly.graph_objects as go
+
             names = [c.name for c in rating.categories]
             scores = [c.score for c in rating.categories]
-            colors = ["#006100" if s >= 7 else "#4472C4" if s >= 5 else "#ED7D31" if s >= 3 else "#9C0006" for s in scores]
+            colors = [
+                "#006100" if s >= 7 else "#4472C4" if s >= 5 else "#ED7D31" if s >= 3 else "#9C0006" for s in scores
+            ]
             fig = go.Figure(data=[go.Bar(x=names, y=scores, marker_color=colors)])
             fig.update_layout(title="Category Scores", yaxis_title="Score (0-10)", yaxis_range=[0, 10])
             st.plotly_chart(fig, use_container_width=True)
@@ -2555,7 +2714,7 @@ class FinancialInsightsPage:
         st.subheader("Net Income Variance Waterfall")
         st.markdown("Decompose what drove the change in net income between two periods.")
 
-        if not hasattr(workbook, 'sheets') or len(workbook.sheets) < 2:
+        if not hasattr(workbook, "sheets") or len(workbook.sheets) < 2:
             st.info("Upload a workbook with at least 2 sheets (periods) to compare.")
             # Use simulated prior period
             financial_data = self.analyzer._dataframe_to_financial_data(df)
@@ -2590,18 +2749,21 @@ class FinancialInsightsPage:
         # Table
         rows = []
         for item in waterfall.items:
-            rows.append({
-                "Component": item.label,
-                "Value": f"{item.value:+,.0f}" if item.item_type != "start" else f"{item.value:,.0f}",
-                "Cumulative": f"{item.cumulative:,.0f}",
-                "Type": item.item_type.title(),
-            })
+            rows.append(
+                {
+                    "Component": item.label,
+                    "Value": f"{item.value:+,.0f}" if item.item_type != "start" else f"{item.value:,.0f}",
+                    "Cumulative": f"{item.cumulative:,.0f}",
+                    "Type": item.item_type.title(),
+                }
+            )
         wf_df = pd.DataFrame(rows)
         st.dataframe(wf_df, use_container_width=True, hide_index=True)
 
         # Waterfall chart
         try:
             import plotly.graph_objects as go
+
             labels = [i.label for i in waterfall.items]
             measures = []
             values = []
@@ -2616,13 +2778,17 @@ class FinancialInsightsPage:
                     measures.append("relative")
                     values.append(item.value)
 
-            fig = go.Figure(go.Waterfall(
-                x=labels, y=values, measure=measures,
-                connector={"line": {"color": "rgb(63, 63, 63)"}},
-                increasing={"marker": {"color": "#006100"}},
-                decreasing={"marker": {"color": "#9C0006"}},
-                totals={"marker": {"color": "#4472C4"}},
-            ))
+            fig = go.Figure(
+                go.Waterfall(
+                    x=labels,
+                    y=values,
+                    measure=measures,
+                    connector={"line": {"color": "rgb(63, 63, 63)"}},
+                    increasing={"marker": {"color": "#006100"}},
+                    decreasing={"marker": {"color": "#9C0006"}},
+                    totals={"marker": {"color": "#4472C4"}},
+                )
+            )
             fig.update_layout(title="Net Income Bridge", yaxis_title="Amount")
             st.plotly_chart(fig, use_container_width=True)
         except Exception:
@@ -2671,14 +2837,17 @@ class FinancialInsightsPage:
         # Bar chart of score
         try:
             import plotly.graph_objects as go
-            fig = go.Figure(go.Bar(
-                x=[result.quality_score],
-                y=["Quality Score"],
-                orientation="h",
-                marker_color=color,
-                text=[f"{result.quality_score:.1f}"],
-                textposition="auto",
-            ))
+
+            fig = go.Figure(
+                go.Bar(
+                    x=[result.quality_score],
+                    y=["Quality Score"],
+                    orientation="h",
+                    marker_color=color,
+                    text=[f"{result.quality_score:.1f}"],
+                    textposition="auto",
+                )
+            )
             fig.update_layout(
                 xaxis=dict(range=[0, 10], title="Score"),
                 yaxis=dict(showticklabels=False),
@@ -2758,13 +2927,14 @@ class FinancialInsightsPage:
         # Chart: ROIC vs WACC bar
         try:
             import plotly.graph_objects as go
+
             if result.roic is not None:
-                fig = go.Figure(data=[
-                    go.Bar(name="ROIC", x=["Return vs Cost"], y=[result.roic * 100],
-                           marker_color="#006100"),
-                    go.Bar(name="WACC", x=["Return vs Cost"], y=[wacc * 100],
-                           marker_color="#9C0006"),
-                ])
+                fig = go.Figure(
+                    data=[
+                        go.Bar(name="ROIC", x=["Return vs Cost"], y=[result.roic * 100], marker_color="#006100"),
+                        go.Bar(name="WACC", x=["Return vs Cost"], y=[wacc * 100], marker_color="#9C0006"),
+                    ]
+                )
                 fig.update_layout(
                     title="ROIC vs WACC",
                     yaxis_title="Percentage (%)",
@@ -2812,26 +2982,36 @@ class FinancialInsightsPage:
         if result.stress_scenarios:
             rows = []
             for s in result.stress_scenarios:
-                rows.append({
-                    "Scenario": s["label"],
-                    "Monthly CF": f"${s['monthly_cash_flow']:,.0f}",
-                    "Survival (mo)": f"{s['survival_months']:.1f}" if s["survival_months"] is not None else "Indefinite",
-                    "Survives 12m": "Yes" if s["survives_12m"] else "No",
-                })
+                rows.append(
+                    {
+                        "Scenario": s["label"],
+                        "Monthly CF": f"${s['monthly_cash_flow']:,.0f}",
+                        "Survival (mo)": f"{s['survival_months']:.1f}"
+                        if s["survival_months"] is not None
+                        else "Indefinite",
+                        "Survives 12m": "Yes" if s["survives_12m"] else "No",
+                    }
+                )
             st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
         # Chart
         try:
             import plotly.graph_objects as go
+
             labels = [s["label"] for s in result.stress_scenarios]
-            survivals = [s["survival_months"] if s["survival_months"] is not None else 36 for s in result.stress_scenarios]
+            survivals = [
+                s["survival_months"] if s["survival_months"] is not None else 36 for s in result.stress_scenarios
+            ]
             colors = ["#006100" if s >= 12 else "#ED7D31" if s >= 6 else "#9C0006" for s in survivals]
-            fig = go.Figure(go.Bar(
-                x=labels, y=survivals,
-                marker_color=colors,
-                text=[f"{v:.1f}m" if v < 36 else "36+m" for v in survivals],
-                textposition="auto",
-            ))
+            fig = go.Figure(
+                go.Bar(
+                    x=labels,
+                    y=survivals,
+                    marker_color=colors,
+                    text=[f"{v:.1f}m" if v < 36 else "36+m" for v in survivals],
+                    textposition="auto",
+                )
+            )
             fig.add_hline(y=12, line_dash="dash", annotation_text="12-month threshold")
             fig.update_layout(title="Cash Survival Under Revenue Shocks", yaxis_title="Months")
             st.plotly_chart(fig, use_container_width=True)
@@ -2843,7 +3023,6 @@ class FinancialInsightsPage:
 
     def _render_health_score(self, df: pd.DataFrame):
         """Render the Comprehensive Health Score tab."""
-        from financial_analyzer import ComprehensiveHealthResult, HealthDimension
         import plotly.graph_objects as go
 
         st.subheader("Comprehensive Financial Health Score")
@@ -2852,14 +3031,18 @@ class FinancialInsightsPage:
 
         # --- Overall grade banner ---
         grade_colors = {
-            "A+": "#15803d", "A": "#16a34a", "B+": "#65a30d",
-            "B": "#ca8a04", "C+": "#d97706", "C": "#ea580c",
-            "D": "#dc2626", "F": "#991b1b",
+            "A+": "#15803d",
+            "A": "#16a34a",
+            "B+": "#65a30d",
+            "B": "#ca8a04",
+            "C+": "#d97706",
+            "C": "#ea580c",
+            "D": "#dc2626",
+            "F": "#991b1b",
         }
         color = grade_colors.get(result.grade, "#6b7280")
         st.markdown(
-            f"<h1 style='text-align:center;color:{color}'>"
-            f"{result.grade} &mdash; {result.overall_score:.0f}/100</h1>",
+            f"<h1 style='text-align:center;color:{color}'>{result.grade} &mdash; {result.overall_score:.0f}/100</h1>",
             unsafe_allow_html=True,
         )
 
@@ -2868,14 +3051,16 @@ class FinancialInsightsPage:
         rows = []
         for d in result.dimensions:
             status_icon = {"green": "🟢", "yellow": "🟡", "red": "🔴"}.get(d.status, "⚪")
-            rows.append({
-                "Dimension": d.name,
-                "Score": f"{d.score:.0f}/100",
-                "Weight": f"{d.weight:.0%}",
-                "Weighted": f"{d.score * d.weight:.1f}",
-                "Status": status_icon,
-                "Detail": d.detail,
-            })
+            rows.append(
+                {
+                    "Dimension": d.name,
+                    "Score": f"{d.score:.0f}/100",
+                    "Weight": f"{d.weight:.0%}",
+                    "Weighted": f"{d.score * d.weight:.1f}",
+                    "Status": status_icon,
+                    "Detail": d.detail,
+                }
+            )
         if rows:
             st.table(pd.DataFrame(rows))
 
@@ -2887,14 +3072,16 @@ class FinancialInsightsPage:
             categories_closed = categories + [categories[0]]
             values_closed = values + [values[0]]
 
-            fig = go.Figure(data=go.Scatterpolar(
-                r=values_closed,
-                theta=categories_closed,
-                fill="toself",
-                line=dict(color=color),
-                fillcolor=color,
-                opacity=0.3,
-            ))
+            fig = go.Figure(
+                data=go.Scatterpolar(
+                    r=values_closed,
+                    theta=categories_closed,
+                    fill="toself",
+                    line=dict(color=color),
+                    fillcolor=color,
+                    opacity=0.3,
+                )
+            )
             fig.update_layout(
                 polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
                 title="Health Dimension Radar",
@@ -2911,14 +3098,16 @@ class FinancialInsightsPage:
                 {"green": "#22c55e", "yellow": "#eab308", "red": "#ef4444"}.get(d.status, "#9ca3af")
                 for d in result.dimensions
             ]
-            fig = go.Figure(go.Bar(
-                x=[d.score for d in result.dimensions],
-                y=[d.name for d in result.dimensions],
-                orientation="h",
-                marker_color=bar_colors,
-                text=[f"{d.score:.0f}" for d in result.dimensions],
-                textposition="auto",
-            ))
+            fig = go.Figure(
+                go.Bar(
+                    x=[d.score for d in result.dimensions],
+                    y=[d.name for d in result.dimensions],
+                    orientation="h",
+                    marker_color=bar_colors,
+                    text=[f"{d.score:.0f}" for d in result.dimensions],
+                    textposition="auto",
+                )
+            )
             fig.update_layout(
                 title="Scores by Dimension",
                 xaxis=dict(title="Score", range=[0, 100]),
@@ -2933,7 +3122,6 @@ class FinancialInsightsPage:
 
     def _render_operating_leverage(self, df: pd.DataFrame):
         """Render the Operating Leverage & Break-Even tab."""
-        from financial_analyzer import OperatingLeverageResult
         import plotly.graph_objects as go
 
         st.subheader("Operating Leverage & Break-Even Analysis")
@@ -2956,7 +3144,11 @@ class FinancialInsightsPage:
         # --- Key metrics ---
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            val = f"{result.degree_of_operating_leverage:.2f}x" if result.degree_of_operating_leverage is not None else "N/A"
+            val = (
+                f"{result.degree_of_operating_leverage:.2f}x"
+                if result.degree_of_operating_leverage is not None
+                else "N/A"
+            )
             st.metric("DOL", val)
         with col2:
             val = f"{result.contribution_margin_ratio:.1%}" if result.contribution_margin_ratio is not None else "N/A"
@@ -2981,19 +3173,25 @@ class FinancialInsightsPage:
         if result.margin_of_safety is not None:
             rows.append({"Metric": "Margin of Safety ($)", "Value": f"${result.margin_of_safety:,.0f}"})
         if result.degree_of_operating_leverage is not None:
-            rows.append({"Metric": "Degree of Operating Leverage", "Value": f"{result.degree_of_operating_leverage:.2f}x"})
+            rows.append(
+                {"Metric": "Degree of Operating Leverage", "Value": f"{result.degree_of_operating_leverage:.2f}x"}
+            )
         if rows:
             st.table(pd.DataFrame(rows))
 
         # --- Cost structure pie chart ---
         try:
             if result.estimated_fixed_costs and result.estimated_variable_costs:
-                fig = go.Figure(data=[go.Pie(
-                    labels=["Fixed Costs", "Variable Costs"],
-                    values=[result.estimated_fixed_costs, result.estimated_variable_costs],
-                    marker_colors=["#3b82f6", "#f97316"],
-                    hole=0.4,
-                )])
+                fig = go.Figure(
+                    data=[
+                        go.Pie(
+                            labels=["Fixed Costs", "Variable Costs"],
+                            values=[result.estimated_fixed_costs, result.estimated_variable_costs],
+                            marker_colors=["#3b82f6", "#f97316"],
+                            hole=0.4,
+                        )
+                    ]
+                )
                 fig.update_layout(title="Cost Structure Split", height=350)
                 st.plotly_chart(fig, use_container_width=True)
         except Exception:
@@ -3012,24 +3210,34 @@ class FinancialInsightsPage:
                 total_cost_line = [fc + x * (1 - cm_ratio) for x in x_vals]
 
                 fig = go.Figure()
-                fig.add_trace(go.Scatter(
-                    x=x_vals, y=total_rev_line,
-                    name="Revenue", line=dict(color="#22c55e"),
-                ))
-                fig.add_trace(go.Scatter(
-                    x=x_vals, y=total_cost_line,
-                    name="Total Cost", line=dict(color="#ef4444"),
-                ))
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_vals,
+                        y=total_rev_line,
+                        name="Revenue",
+                        line=dict(color="#22c55e"),
+                    )
+                )
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_vals,
+                        y=total_cost_line,
+                        name="Total Cost",
+                        line=dict(color="#ef4444"),
+                    )
+                )
                 # Break-even point
                 fig.add_vline(
                     x=result.break_even_revenue,
-                    line_dash="dash", line_color="#6b7280",
+                    line_dash="dash",
+                    line_color="#6b7280",
                     annotation_text=f"Break-Even: ${result.break_even_revenue:,.0f}",
                 )
                 # Current revenue marker
                 fig.add_vline(
                     x=rev,
-                    line_dash="dot", line_color="#3b82f6",
+                    line_dash="dot",
+                    line_color="#3b82f6",
                     annotation_text=f"Current: ${rev:,.0f}",
                 )
                 fig.update_layout(
@@ -3047,7 +3255,6 @@ class FinancialInsightsPage:
 
     def _render_cash_flow_quality(self, df: pd.DataFrame):
         """Render the Cash Flow Quality tab."""
-        from financial_analyzer import CashFlowQualityResult
         import plotly.graph_objects as go
 
         st.subheader("Cash Flow Quality & Free Cash Flow Analysis")
@@ -3056,8 +3263,10 @@ class FinancialInsightsPage:
 
         # --- Grade banner ---
         grade_colors = {
-            "Strong": "#15803d", "Adequate": "#ca8a04",
-            "Weak": "#ea580c", "Poor": "#dc2626",
+            "Strong": "#15803d",
+            "Adequate": "#ca8a04",
+            "Weak": "#ea580c",
+            "Poor": "#dc2626",
         }
         color = grade_colors.get(result.quality_grade, "#6b7280")
         st.markdown(
@@ -3108,17 +3317,19 @@ class FinancialInsightsPage:
                 capex_val = data.capex or 0
                 fcf_val = result.fcf or 0
 
-                fig = go.Figure(go.Waterfall(
-                    x=["Operating CF", "CapEx", "Free CF"],
-                    y=[ocf, -capex_val, fcf_val],
-                    measure=["absolute", "relative", "total"],
-                    connector=dict(line=dict(color="#6b7280")),
-                    increasing=dict(marker_color="#22c55e"),
-                    decreasing=dict(marker_color="#ef4444"),
-                    totals=dict(marker_color="#3b82f6"),
-                    text=[f"${ocf:,.0f}", f"-${capex_val:,.0f}", f"${fcf_val:,.0f}"],
-                    textposition="outside",
-                ))
+                fig = go.Figure(
+                    go.Waterfall(
+                        x=["Operating CF", "CapEx", "Free CF"],
+                        y=[ocf, -capex_val, fcf_val],
+                        measure=["absolute", "relative", "total"],
+                        connector=dict(line=dict(color="#6b7280")),
+                        increasing=dict(marker_color="#22c55e"),
+                        decreasing=dict(marker_color="#ef4444"),
+                        totals=dict(marker_color="#3b82f6"),
+                        text=[f"${ocf:,.0f}", f"-${capex_val:,.0f}", f"${fcf_val:,.0f}"],
+                        textposition="outside",
+                    )
+                )
                 fig.update_layout(
                     title="Operating Cash Flow to Free Cash Flow",
                     yaxis_title="Amount ($)",
@@ -3133,7 +3344,6 @@ class FinancialInsightsPage:
 
     def _render_asset_efficiency(self, df: pd.DataFrame):
         """Render asset efficiency and turnover analysis tab."""
-        from financial_analyzer import AssetEfficiencyResult
 
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.asset_efficiency_analysis(data)
@@ -3205,13 +3415,18 @@ class FinancialInsightsPage:
             chart_data["Equity"] = result.equity_turnover
         if chart_data:
             import plotly.graph_objects as go
-            fig = go.Figure(data=[go.Bar(
-                x=list(chart_data.keys()),
-                y=list(chart_data.values()),
-                marker_color=["#2196F3", "#FF9800", "#4CAF50", "#F44336", "#9C27B0"][:len(chart_data)],
-                text=[f"{v:.1f}x" for v in chart_data.values()],
-                textposition="auto",
-            )])
+
+            fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=list(chart_data.keys()),
+                        y=list(chart_data.values()),
+                        marker_color=["#2196F3", "#FF9800", "#4CAF50", "#F44336", "#9C27B0"][: len(chart_data)],
+                        text=[f"{v:.1f}x" for v in chart_data.values()],
+                        textposition="auto",
+                    )
+                ]
+            )
             fig.update_layout(
                 title="Turnover Ratios Comparison",
                 yaxis_title="Times (x)",
@@ -3224,7 +3439,6 @@ class FinancialInsightsPage:
 
     def _render_profitability_decomp(self, df: pd.DataFrame):
         """Render profitability decomposition tab."""
-        from financial_analyzer import ProfitabilityDecompResult
 
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.profitability_decomposition(data)
@@ -3296,13 +3510,18 @@ class FinancialInsightsPage:
             returns_data["ROIC"] = result.roic * 100
         if returns_data:
             import plotly.graph_objects as go
-            fig = go.Figure(data=[go.Bar(
-                x=list(returns_data.keys()),
-                y=list(returns_data.values()),
-                marker_color=["#4CAF50", "#2196F3", "#FF9800"][:len(returns_data)],
-                text=[f"{v:.1f}%" for v in returns_data.values()],
-                textposition="auto",
-            )])
+
+            fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=list(returns_data.keys()),
+                        y=list(returns_data.values()),
+                        marker_color=["#4CAF50", "#2196F3", "#FF9800"][: len(returns_data)],
+                        text=[f"{v:.1f}%" for v in returns_data.values()],
+                        textposition="auto",
+                    )
+                ]
+            )
             fig.update_layout(
                 title="Return Metrics Comparison",
                 yaxis_title="Return (%)",
@@ -3315,7 +3534,6 @@ class FinancialInsightsPage:
 
     def _render_risk_adjusted(self, df: pd.DataFrame):
         """Render risk-adjusted performance tab."""
-        from financial_analyzer import RiskAdjustedResult
 
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.risk_adjusted_performance(data)
@@ -3386,13 +3604,18 @@ class FinancialInsightsPage:
             chart_data["Debt-Adj Return"] = result.debt_adjusted_return * 100
         if chart_data:
             import plotly.graph_objects as go
-            fig = go.Figure(data=[go.Bar(
-                x=list(chart_data.keys()),
-                y=list(chart_data.values()),
-                marker_color=["#4CAF50", "#2196F3", "#FF9800", "#9C27B0"][:len(chart_data)],
-                text=[f"{v:.1f}%" for v in chart_data.values()],
-                textposition="auto",
-            )])
+
+            fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=list(chart_data.keys()),
+                        y=list(chart_data.values()),
+                        marker_color=["#4CAF50", "#2196F3", "#FF9800", "#9C27B0"][: len(chart_data)],
+                        text=[f"{v:.1f}%" for v in chart_data.values()],
+                        textposition="auto",
+                    )
+                ]
+            )
             fig.update_layout(
                 title="Risk-Adjusted Return Metrics",
                 yaxis_title="Return (%)",
@@ -3406,13 +3629,16 @@ class FinancialInsightsPage:
     def _render_valuation_indicators(self, df: pd.DataFrame):
         """Render Valuation Indicators analysis tab."""
         from financial_analyzer import ValuationIndicatorsResult
+
         data = self.analyzer._dataframe_to_financial_data(df)
         result: ValuationIndicatorsResult = self.analyzer.valuation_indicators(data)
 
         # Grade badge
         grade_colors = {
-            "Undervalued": "green", "Fair Value": "blue",
-            "Fully Valued": "orange", "Overvalued": "red",
+            "Undervalued": "green",
+            "Fair Value": "blue",
+            "Fully Valued": "orange",
+            "Overvalued": "red",
         }
         color = grade_colors.get(result.valuation_grade, "gray")
         st.markdown(
@@ -3427,7 +3653,10 @@ class FinancialInsightsPage:
         c1.metric("EV/EBITDA", f"{result.ev_to_ebitda:.1f}x" if result.ev_to_ebitda is not None else "N/A")
         c2.metric("Earnings Yield", f"{result.earnings_yield:.1%}" if result.earnings_yield is not None else "N/A")
         c3.metric("EV/Revenue", f"{result.ev_to_revenue:.2f}x" if result.ev_to_revenue is not None else "N/A")
-        c4.metric("ROIC", f"{result.return_on_invested_capital:.1%}" if result.return_on_invested_capital is not None else "N/A")
+        c4.metric(
+            "ROIC",
+            f"{result.return_on_invested_capital:.1%}" if result.return_on_invested_capital is not None else "N/A",
+        )
 
         # Detail table
         details = {
@@ -3467,26 +3696,32 @@ class FinancialInsightsPage:
             multiples["P/B Proxy"] = result.price_to_book_proxy
 
         if multiples:
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=list(multiples.keys()),
-                values=list(multiples.values()),
-                colors=["#3498db", "#2ecc71", "#e67e22", "#9b59b6"][:len(multiples)],
-                title="Valuation Multiples",
-                y_title="Multiple",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=list(multiples.keys()),
+                    values=list(multiples.values()),
+                    colors=["#3498db", "#2ecc71", "#e67e22", "#9b59b6"][: len(multiples)],
+                    title="Valuation Multiples",
+                    y_title="Multiple",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
     def _render_sustainable_growth(self, df: pd.DataFrame):
         """Render Sustainable Growth analysis tab."""
         from financial_analyzer import SustainableGrowthResult
+
         data = self.analyzer._dataframe_to_financial_data(df)
         result: SustainableGrowthResult = self.analyzer.sustainable_growth_analysis(data)
 
         # Grade badge
         grade_colors = {
-            "High Growth": "green", "Sustainable": "blue",
-            "Moderate": "orange", "Constrained": "red",
+            "High Growth": "green",
+            "Sustainable": "blue",
+            "Moderate": "orange",
+            "Constrained": "red",
         }
         color = grade_colors.get(result.growth_grade, "gray")
         st.markdown(
@@ -3498,7 +3733,9 @@ class FinancialInsightsPage:
 
         # Key metrics
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("SGR", f"{result.sustainable_growth_rate:.1%}" if result.sustainable_growth_rate is not None else "N/A")
+        c1.metric(
+            "SGR", f"{result.sustainable_growth_rate:.1%}" if result.sustainable_growth_rate is not None else "N/A"
+        )
         c2.metric("IGR", f"{result.internal_growth_rate:.1%}" if result.internal_growth_rate is not None else "N/A")
         c3.metric("Retention Ratio", f"{result.retention_ratio:.0%}" if result.retention_ratio is not None else "N/A")
         c4.metric("ROE", f"{result.roe:.1%}" if result.roe is not None else "N/A")
@@ -3540,26 +3777,32 @@ class FinancialInsightsPage:
             rates["ROA"] = result.roa * 100
 
         if rates:
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=list(rates.keys()),
-                values=list(rates.values()),
-                colors=["#27ae60", "#2ecc71", "#3498db", "#5dade2"][:len(rates)],
-                title="Growth & Return Rates (%)",
-                y_title="%",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=list(rates.keys()),
+                    values=list(rates.values()),
+                    colors=["#27ae60", "#2ecc71", "#3498db", "#5dade2"][: len(rates)],
+                    title="Growth & Return Rates (%)",
+                    y_title="%",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
     def _render_concentration_risk(self, df: pd.DataFrame):
         """Render Concentration Risk analysis tab."""
         from financial_analyzer import ConcentrationRiskResult
+
         data = self.analyzer._dataframe_to_financial_data(df)
         result: ConcentrationRiskResult = self.analyzer.concentration_risk_analysis(data)
 
         # Grade badge
         grade_colors = {
-            "Well Diversified": "green", "Balanced": "blue",
-            "Concentrated": "orange", "Highly Concentrated": "red",
+            "Well Diversified": "green",
+            "Balanced": "blue",
+            "Concentrated": "orange",
+            "Highly Concentrated": "red",
         }
         color = grade_colors.get(result.concentration_grade, "gray")
         st.markdown(
@@ -3571,9 +3814,18 @@ class FinancialInsightsPage:
 
         # Key metrics
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Asset Turnover", f"{result.revenue_asset_intensity:.2f}x" if result.revenue_asset_intensity is not None else "N/A")
-        c2.metric("Operating Margin", f"{result.operating_dependency:.1%}" if result.operating_dependency is not None else "N/A")
-        c3.metric("Cash Conversion", f"{result.cash_conversion_efficiency:.2f}x" if result.cash_conversion_efficiency is not None else "N/A")
+        c1.metric(
+            "Asset Turnover",
+            f"{result.revenue_asset_intensity:.2f}x" if result.revenue_asset_intensity is not None else "N/A",
+        )
+        c2.metric(
+            "Operating Margin",
+            f"{result.operating_dependency:.1%}" if result.operating_dependency is not None else "N/A",
+        )
+        c3.metric(
+            "Cash Conversion",
+            f"{result.cash_conversion_efficiency:.2f}x" if result.cash_conversion_efficiency is not None else "N/A",
+        )
         c4.metric("Interest Burden", f"{result.interest_burden:.1%}" if result.interest_burden is not None else "N/A")
 
         # Detail table
@@ -3606,12 +3858,17 @@ class FinancialInsightsPage:
         # Asset composition pie chart
         if result.asset_composition_current is not None:
             import plotly.graph_objects as go
-            fig = go.Figure(data=[go.Pie(
-                labels=["Current Assets", "Fixed Assets"],
-                values=[result.asset_composition_current, result.asset_composition_fixed or 0],
-                marker_colors=["#3498db", "#e67e22"],
-                hole=0.4,
-            )])
+
+            fig = go.Figure(
+                data=[
+                    go.Pie(
+                        labels=["Current Assets", "Fixed Assets"],
+                        values=[result.asset_composition_current, result.asset_composition_fixed or 0],
+                        marker_colors=["#3498db", "#e67e22"],
+                        hole=0.4,
+                    )
+                ]
+            )
             fig.update_layout(title="Asset Composition", height=350)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -3620,12 +3877,15 @@ class FinancialInsightsPage:
     def _render_margin_of_safety(self, df: pd.DataFrame):
         """Render Margin of Safety analysis tab."""
         from financial_analyzer import MarginOfSafetyResult
+
         data = self.analyzer._dataframe_to_financial_data(df)
         result: MarginOfSafetyResult = self.analyzer.margin_of_safety_analysis(data)
 
         grade_colors = {"Wide Margin": "green", "Adequate": "blue", "Thin": "orange", "No Margin": "red"}
         color = grade_colors.get(result.safety_grade, "gray")
-        st.markdown(f"### Margin of Safety &nbsp; :{color}[{result.safety_grade}] &nbsp; ({result.safety_score:.1f}/10)")
+        st.markdown(
+            f"### Margin of Safety &nbsp; :{color}[{result.safety_grade}] &nbsp; ({result.safety_score:.1f}/10)"
+        )
 
         # Key metrics
         c1, c2, c3, c4 = st.columns(4)
@@ -3672,18 +3932,21 @@ class FinancialInsightsPage:
         # Chart: IV vs Market Cap waterfall
         if result.intrinsic_value_estimate is not None and result.market_cap is not None:
             import plotly.graph_objects as go
+
             iv = result.intrinsic_value_estimate
             mc = result.market_cap
             margin = iv - mc
-            fig = go.Figure(data=[
-                go.Bar(
-                    x=["Intrinsic Value", "Market Cap", "Margin of Safety"],
-                    y=[iv, mc, margin],
-                    marker_color=["#636EFA", "#EF553B", "#00CC96" if margin >= 0 else "#FFA15A"],
-                    text=[f"${iv:,.0f}", f"${mc:,.0f}", f"${margin:,.0f}"],
-                    textposition="outside",
-                )
-            ])
+            fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=["Intrinsic Value", "Market Cap", "Margin of Safety"],
+                        y=[iv, mc, margin],
+                        marker_color=["#636EFA", "#EF553B", "#00CC96" if margin >= 0 else "#FFA15A"],
+                        text=[f"${iv:,.0f}", f"${mc:,.0f}", f"${margin:,.0f}"],
+                        textposition="outside",
+                    )
+                ]
+            )
             fig.update_layout(title="Intrinsic Value vs Market Cap", yaxis_title="$", height=350)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -3692,12 +3955,15 @@ class FinancialInsightsPage:
     def _render_earnings_quality(self, df: pd.DataFrame):
         """Render Earnings Quality analysis tab."""
         from financial_analyzer import EarningsQualityResult
+
         data = self.analyzer._dataframe_to_financial_data(df)
         result: EarningsQualityResult = self.analyzer.earnings_quality_analysis(data)
 
         grade_colors = {"High": "green", "Adequate": "blue", "Questionable": "orange", "Poor": "red"}
         color = grade_colors.get(result.earnings_quality_grade, "gray")
-        st.markdown(f"### Earnings Quality &nbsp; :{color}[{result.earnings_quality_grade}] &nbsp; ({result.earnings_quality_score:.1f}/10)")
+        st.markdown(
+            f"### Earnings Quality &nbsp; :{color}[{result.earnings_quality_grade}] &nbsp; ({result.earnings_quality_score:.1f}/10)"
+        )
 
         # Key metrics
         c1, c2, c3, c4 = st.columns(4)
@@ -3741,18 +4007,21 @@ class FinancialInsightsPage:
         chart_data = {}
         if result.cash_to_income is not None and result.accruals_ratio is not None:
             import plotly.graph_objects as go
+
             ni = data.net_income or 0
             ocf_val = data.operating_cash_flow or 0
             accrual_portion = ni - ocf_val
-            fig = go.Figure(data=[
-                go.Bar(
-                    x=["Cash Earnings (OCF)", "Accrual Component", "Reported NI"],
-                    y=[ocf_val, accrual_portion, ni],
-                    marker_color=["#00CC96", "#FFA15A" if accrual_portion > 0 else "#636EFA", "#636EFA"],
-                    text=[f"${ocf_val:,.0f}", f"${accrual_portion:,.0f}", f"${ni:,.0f}"],
-                    textposition="outside",
-                )
-            ])
+            fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=["Cash Earnings (OCF)", "Accrual Component", "Reported NI"],
+                        y=[ocf_val, accrual_portion, ni],
+                        marker_color=["#00CC96", "#FFA15A" if accrual_portion > 0 else "#636EFA", "#636EFA"],
+                        text=[f"${ocf_val:,.0f}", f"${accrual_portion:,.0f}", f"${ni:,.0f}"],
+                        textposition="outside",
+                    )
+                ]
+            )
             fig.update_layout(title="Earnings Decomposition: Cash vs Accrual", yaxis_title="$", height=350)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -3761,12 +4030,15 @@ class FinancialInsightsPage:
     def _render_financial_flexibility(self, df: pd.DataFrame):
         """Render Financial Flexibility analysis tab."""
         from financial_analyzer import FinancialFlexibilityResult
+
         data = self.analyzer._dataframe_to_financial_data(df)
         result: FinancialFlexibilityResult = self.analyzer.financial_flexibility_analysis(data)
 
         grade_colors = {"Highly Flexible": "green", "Flexible": "blue", "Constrained": "orange", "Rigid": "red"}
         color = grade_colors.get(result.flexibility_grade, "gray")
-        st.markdown(f"### Financial Flexibility &nbsp; :{color}[{result.flexibility_grade}] &nbsp; ({result.flexibility_score:.1f}/10)")
+        st.markdown(
+            f"### Financial Flexibility &nbsp; :{color}[{result.flexibility_grade}] &nbsp; ({result.flexibility_score:.1f}/10)"
+        )
 
         # Key metrics
         c1, c2, c3, c4 = st.columns(4)
@@ -3818,13 +4090,16 @@ class FinancialInsightsPage:
             _labels = list(gauge_data.keys())
             _values = list(gauge_data.values())
             _colors = ["#00CC96" if v > 10 else "#FFA15A" if v > 0 else "#EF553B" for v in _values]
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=_labels,
-                values=_values,
-                colors=_colors,
-                title="Flexibility Components (%)",
-                y_title="%",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=_labels,
+                    values=_values,
+                    colors=_colors,
+                    title="Flexibility Components (%)",
+                    y_title="%",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
@@ -3861,7 +4136,9 @@ class FinancialInsightsPage:
         c1.metric("ROE", f"{result.roe:.1%}" if result.roe is not None else "N/A")
         c2.metric("Net Margin", f"{result.net_margin:.1%}" if result.net_margin is not None else "N/A")
         c3.metric("Asset Turnover", f"{result.asset_turnover:.2f}x" if result.asset_turnover is not None else "N/A")
-        c4.metric("Equity Multiplier", f"{result.equity_multiplier:.2f}x" if result.equity_multiplier is not None else "N/A")
+        c4.metric(
+            "Equity Multiplier", f"{result.equity_multiplier:.2f}x" if result.equity_multiplier is not None else "N/A"
+        )
 
         detail = {}
         if result.roe is not None:
@@ -3892,26 +4169,30 @@ class FinancialInsightsPage:
         if bar_data:
             _labels = list(bar_data.keys())
             _values = list(bar_data.values())
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=_labels,
-                values=_values,
-                colors=["#636EFA", "#00CC96", "#FFA15A"][:len(_values)],
-                title="3-Factor DuPont Components",
-                y_title="Value (%/100x)",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=_labels,
+                    values=_values,
+                    colors=["#636EFA", "#00CC96", "#FFA15A"][: len(_values)],
+                    title="3-Factor DuPont Components",
+                    y_title="Value (%/100x)",
+                ),
+                use_container_width=True,
+            )
 
         if result.interpretation:
             st.caption(result.interpretation)
 
     def _render_altman_z_score(self, df: pd.DataFrame):
         """Render Altman Z-Score bankruptcy prediction."""
-        from financial_analyzer import AltmanZScoreResult
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.altman_z_score_analysis(fd)
 
         grade_colors = {
-            "Strong": "#00CC96", "Adequate": "#636EFA",
-            "Watch": "#FFA15A", "Critical": "#EF553B",
+            "Strong": "#00CC96",
+            "Adequate": "#636EFA",
+            "Watch": "#FFA15A",
+            "Critical": "#EF553B",
         }
         color = grade_colors.get(result.altman_grade, "#888")
         st.markdown(
@@ -3924,7 +4205,10 @@ class FinancialInsightsPage:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Z-Score", f"{result.z_score:.2f}" if result.z_score is not None else "N/A")
         c2.metric("Zone", result.z_zone or "N/A")
-        c3.metric("WC/TA", f"{result.working_capital_to_assets:.1%}" if result.working_capital_to_assets is not None else "N/A")
+        c3.metric(
+            "WC/TA",
+            f"{result.working_capital_to_assets:.1%}" if result.working_capital_to_assets is not None else "N/A",
+        )
         c4.metric("EBIT/TA", f"{result.ebit_to_assets:.1%}" if result.ebit_to_assets is not None else "N/A")
 
         detail = {}
@@ -3959,25 +4243,29 @@ class FinancialInsightsPage:
         if bar_data:
             _labels = list(bar_data.keys())
             _values = list(bar_data.values())
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=_labels,
-                values=_values,
-                colors=["#00CC96" if v > 0 else "#EF553B" for v in _values],
-                title="Z-Score Weighted Components",
-                y_title="Contribution",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=_labels,
+                    values=_values,
+                    colors=["#00CC96" if v > 0 else "#EF553B" for v in _values],
+                    title="Z-Score Weighted Components",
+                    y_title="Contribution",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
     def _render_piotroski_f_score(self, df: pd.DataFrame):
         """Render Piotroski F-Score value screen."""
-        from financial_analyzer import PiotroskiFScoreResult
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.piotroski_f_score_analysis(fd)
 
         grade_colors = {
-            "Strong Value": "#00CC96", "Moderate Value": "#636EFA",
-            "Weak": "#FFA15A", "Avoid": "#EF553B",
+            "Strong Value": "#00CC96",
+            "Moderate Value": "#636EFA",
+            "Weak": "#FFA15A",
+            "Avoid": "#EF553B",
         }
         color = grade_colors.get(result.piotroski_grade, "#888")
         st.markdown(
@@ -4019,11 +4307,16 @@ class FinancialInsightsPage:
         na_count = sum(1 for _, v in signals if v is None)
         if pass_count + fail_count > 0:
             import plotly.graph_objects as go
-            fig = go.Figure(data=[go.Bar(
-                x=["Pass", "Fail", "N/A"],
-                y=[pass_count, fail_count, na_count],
-                marker_color=["#00CC96", "#EF553B", "#888"],
-            )])
+
+            fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=["Pass", "Fail", "N/A"],
+                        y=[pass_count, fail_count, na_count],
+                        marker_color=["#00CC96", "#EF553B", "#888"],
+                    )
+                ]
+            )
             fig.update_layout(title="F-Score Signal Results", yaxis_title="Count", height=300)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -4031,13 +4324,14 @@ class FinancialInsightsPage:
 
     def _render_interest_coverage(self, df: pd.DataFrame):
         """Render interest coverage and debt capacity analysis."""
-        from financial_analyzer import InterestCoverageResult
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.interest_coverage_analysis(fd)
 
         grade_colors = {
-            "Excellent": "#00CC96", "Adequate": "#636EFA",
-            "Strained": "#FFA15A", "Critical": "#EF553B",
+            "Excellent": "#00CC96",
+            "Adequate": "#636EFA",
+            "Strained": "#FFA15A",
+            "Critical": "#EF553B",
         }
         color = grade_colors.get(result.coverage_grade, "#888")
         st.markdown(
@@ -4051,7 +4345,9 @@ class FinancialInsightsPage:
         c1.metric("EBIT Coverage", f"{result.ebit_coverage:.1f}x" if result.ebit_coverage is not None else "N/A")
         c2.metric("EBITDA Coverage", f"{result.ebitda_coverage:.1f}x" if result.ebitda_coverage is not None else "N/A")
         c3.metric("Debt/EBITDA", f"{result.debt_to_ebitda:.1f}x" if result.debt_to_ebitda is not None else "N/A")
-        c4.metric("Spare Capacity", f"${result.spare_debt_capacity:,.0f}" if result.spare_debt_capacity is not None else "N/A")
+        c4.metric(
+            "Spare Capacity", f"${result.spare_debt_capacity:,.0f}" if result.spare_debt_capacity is not None else "N/A"
+        )
 
         detail = {}
         if result.ebit_coverage is not None:
@@ -4085,19 +4381,21 @@ class FinancialInsightsPage:
         if bar_data:
             _labels = list(bar_data.keys())
             _values = list(bar_data.values())
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=_labels,
-                values=_values,
-                colors=["#00CC96" if v > 3 else "#FFA15A" if v > 1 else "#EF553B" for v in _values],
-                title="Coverage Ratios",
-                y_title="Value",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=_labels,
+                    values=_values,
+                    colors=["#00CC96" if v > 3 else "#FFA15A" if v > 1 else "#EF553B" for v in _values],
+                    title="Coverage Ratios",
+                    y_title="Value",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
     def _render_wacc_analysis(self, df: pd.DataFrame):
         """Render WACC & Cost of Capital analysis tab."""
-        from financial_analyzer import WACCResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.wacc_analysis(data)
 
@@ -4108,7 +4406,10 @@ class FinancialInsightsPage:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("WACC", f"{result.wacc * 100:.1f}%" if result.wacc is not None else "N/A")
         c2.metric("Cost of Debt", f"{result.cost_of_debt * 100:.1f}%" if result.cost_of_debt is not None else "N/A")
-        c3.metric("Cost of Equity", f"{result.implied_cost_of_equity * 100:.1f}%" if result.implied_cost_of_equity is not None else "N/A")
+        c3.metric(
+            "Cost of Equity",
+            f"{result.implied_cost_of_equity * 100:.1f}%" if result.implied_cost_of_equity is not None else "N/A",
+        )
         c4.metric("Debt Weight", f"{result.debt_weight * 100:.0f}%" if result.debt_weight is not None else "N/A")
 
         rows = []
@@ -4134,12 +4435,16 @@ class FinancialInsightsPage:
 
         # Capital structure pie chart
         if result.debt_weight is not None and result.equity_weight is not None:
-            fig = go.Figure(data=[go.Pie(
-                labels=["Debt", "Equity"],
-                values=[result.debt_weight, result.equity_weight],
-                marker_colors=["#EF553B", "#636EFA"],
-                hole=0.4,
-            )])
+            fig = go.Figure(
+                data=[
+                    go.Pie(
+                        labels=["Debt", "Equity"],
+                        values=[result.debt_weight, result.equity_weight],
+                        marker_colors=["#EF553B", "#636EFA"],
+                        hole=0.4,
+                    )
+                ]
+            )
             fig.update_layout(title="Capital Structure", height=350)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -4147,7 +4452,6 @@ class FinancialInsightsPage:
 
     def _render_eva_analysis(self, df: pd.DataFrame):
         """Render EVA (Economic Value Added) analysis tab."""
-        from financial_analyzer import EVAResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.eva_analysis(data)
 
@@ -4159,7 +4463,10 @@ class FinancialInsightsPage:
         c1.metric("EVA", f"${result.eva:,.0f}" if result.eva is not None else "N/A")
         c2.metric("NOPAT", f"${result.nopat:,.0f}" if result.nopat is not None else "N/A")
         c3.metric("ROIC", f"{result.roic * 100:.1f}%" if result.roic is not None else "N/A")
-        c4.metric("ROIC-WACC Spread", f"{result.roic_wacc_spread * 100:.1f}%" if result.roic_wacc_spread is not None else "N/A")
+        c4.metric(
+            "ROIC-WACC Spread",
+            f"{result.roic_wacc_spread * 100:.1f}%" if result.roic_wacc_spread is not None else "N/A",
+        )
 
         rows = []
         if result.nopat is not None:
@@ -4184,17 +4491,19 @@ class FinancialInsightsPage:
 
         # EVA waterfall chart
         if result.nopat is not None and result.capital_charge is not None and result.eva is not None:
-            fig = go.Figure(go.Waterfall(
-                name="EVA",
-                orientation="v",
-                measure=["absolute", "relative", "total"],
-                x=["NOPAT", "Capital Charge", "EVA"],
-                y=[result.nopat, -result.capital_charge, result.eva],
-                connector={"line": {"color": "rgb(63, 63, 63)"}},
-                increasing={"marker": {"color": "#2CA02C"}},
-                decreasing={"marker": {"color": "#D62728"}},
-                totals={"marker": {"color": "#636EFA"}},
-            ))
+            fig = go.Figure(
+                go.Waterfall(
+                    name="EVA",
+                    orientation="v",
+                    measure=["absolute", "relative", "total"],
+                    x=["NOPAT", "Capital Charge", "EVA"],
+                    y=[result.nopat, -result.capital_charge, result.eva],
+                    connector={"line": {"color": "rgb(63, 63, 63)"}},
+                    increasing={"marker": {"color": "#2CA02C"}},
+                    decreasing={"marker": {"color": "#D62728"}},
+                    totals={"marker": {"color": "#636EFA"}},
+                )
+            )
             fig.update_layout(title="EVA Waterfall", yaxis_title="$", height=350)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -4202,7 +4511,6 @@ class FinancialInsightsPage:
 
     def _render_fcf_yield(self, df: pd.DataFrame):
         """Render Free Cash Flow Yield analysis tab."""
-        from financial_analyzer import FCFYieldResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.fcf_yield_analysis(data)
 
@@ -4213,8 +4521,13 @@ class FinancialInsightsPage:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Free Cash Flow", f"${result.fcf:,.0f}" if result.fcf is not None else "N/A")
         c2.metric("FCF Margin", f"{result.fcf_margin * 100:.1f}%" if result.fcf_margin is not None else "N/A")
-        c3.metric("FCF Conversion", f"{result.fcf_to_net_income:.2f}x" if result.fcf_to_net_income is not None else "N/A")
-        c4.metric("FCF Yield on Capital", f"{result.fcf_yield_on_capital * 100:.1f}%" if result.fcf_yield_on_capital is not None else "N/A")
+        c3.metric(
+            "FCF Conversion", f"{result.fcf_to_net_income:.2f}x" if result.fcf_to_net_income is not None else "N/A"
+        )
+        c4.metric(
+            "FCF Yield on Capital",
+            f"{result.fcf_yield_on_capital * 100:.1f}%" if result.fcf_yield_on_capital is not None else "N/A",
+        )
 
         rows = []
         if result.fcf is not None:
@@ -4241,11 +4554,15 @@ class FinancialInsightsPage:
         if result.fcf is not None:
             ocf_val = data.operating_cash_flow or 0
             capex_val = data.capex or 0
-            fig = go.Figure(data=[go.Bar(
-                x=["Operating CF", "CapEx", "Free CF"],
-                y=[ocf_val, -capex_val, result.fcf],
-                marker_color=["#636EFA", "#EF553B", "#2CA02C" if result.fcf >= 0 else "#D62728"],
-            )])
+            fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=["Operating CF", "CapEx", "Free CF"],
+                        y=[ocf_val, -capex_val, result.fcf],
+                        marker_color=["#636EFA", "#EF553B", "#2CA02C" if result.fcf >= 0 else "#D62728"],
+                    )
+                ]
+            )
             fig.update_layout(title="FCF Components", yaxis_title="$", height=350)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -4253,7 +4570,6 @@ class FinancialInsightsPage:
 
     def _render_operating_leverage(self, df: pd.DataFrame):
         """Render Operating Leverage Analysis tab (Phase 40)."""
-        from financial_analyzer import OperatingLeverageResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.operating_leverage_analysis(data)
 
@@ -4305,17 +4621,22 @@ class FinancialInsightsPage:
         # Cost structure pie chart
         if result.variable_cost_ratio is not None and result.fixed_cost_ratio is not None:
             import plotly.graph_objects as go
+
             vc = result.variable_cost_ratio
             fc = result.fixed_cost_ratio
             op_margin = 1.0 - vc - fc if (vc + fc) <= 1.0 else 0.0
             labels = ["Variable Costs", "Fixed Costs", "Operating Income"]
             values = [vc, fc, max(0, op_margin)]
-            fig = go.Figure(data=[go.Pie(
-                labels=labels,
-                values=values,
-                hole=0.4,
-                marker_colors=["#EF553B", "#636EFA", "#00CC96"],
-            )])
+            fig = go.Figure(
+                data=[
+                    go.Pie(
+                        labels=labels,
+                        values=values,
+                        hole=0.4,
+                        marker_colors=["#EF553B", "#636EFA", "#00CC96"],
+                    )
+                ]
+            )
             fig.update_layout(title="Cost Structure Breakdown", height=350)
             st.plotly_chart(fig, use_container_width=True)
 
@@ -4323,7 +4644,6 @@ class FinancialInsightsPage:
 
     def _render_cash_conversion(self, df: pd.DataFrame):
         """Render Cash Conversion Efficiency tab (Phase 41)."""
-        from financial_analyzer import CashConversionResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.cash_conversion_analysis(data)
 
@@ -4374,13 +4694,16 @@ class FinancialInsightsPage:
 
         # CCC components bar chart
         if dso is not None and result.dio is not None and result.dpo is not None:
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=["DSO", "DIO", "DPO", "CCC"],
-                values=[dso, result.dio, result.dpo, ccc if ccc else 0],
-                colors=["#636EFA", "#EF553B", "#00CC96", "#AB63FA"],
-                title="Cash Conversion Cycle Components (Days)",
-                y_title="Days",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=["DSO", "DIO", "DPO", "CCC"],
+                    values=[dso, result.dio, result.dpo, ccc if ccc else 0],
+                    colors=["#636EFA", "#EF553B", "#00CC96", "#AB63FA"],
+                    title="Cash Conversion Cycle Components (Days)",
+                    y_title="Days",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
@@ -4428,23 +4751,28 @@ class FinancialInsightsPage:
         ]
         detail_data = []
         for label, val, fmt in detail_rows:
-            detail_data.append({
-                "Metric": label,
-                "Value": f"{val:{fmt}}" if val is not None else "N/A",
-            })
+            detail_data.append(
+                {
+                    "Metric": label,
+                    "Value": f"{val:{fmt}}" if val is not None else "N/A",
+                }
+            )
         st.table(pd.DataFrame(detail_data).set_index("Metric"))
 
         if result.m_score is not None:
             import plotly.graph_objects as go
+
             threshold = -1.78
             fig = go.Figure()
             bar_color = "#00CC96" if result.m_score < threshold else "#EF553B"
-            fig.add_trace(go.Bar(
-                x=["M-Score"],
-                y=[result.m_score],
-                marker_color=bar_color,
-                name="M-Score",
-            ))
+            fig.add_trace(
+                go.Bar(
+                    x=["M-Score"],
+                    y=[result.m_score],
+                    marker_color=bar_color,
+                    name="M-Score",
+                )
+            )
             fig.add_hline(
                 y=threshold,
                 line_dash="dash",
@@ -4462,7 +4790,6 @@ class FinancialInsightsPage:
 
     def _render_defensive_posture(self, df: pd.DataFrame):
         """Render Phase 133: Defensive Posture Analysis."""
-        from financial_analyzer import DefensivePostureResult
         rows = df.to_dict("records")
         if not rows:
             st.warning("No data available for Defensive Posture analysis.")
@@ -4471,7 +4798,15 @@ class FinancialInsightsPage:
             period = row.get("Period", "N/A")
             fd = self._row_to_financial_data(row)
             result = self.analyzer.defensive_posture_analysis(fd)
-            color = "green" if result.dp_grade == "Excellent" else "blue" if result.dp_grade == "Good" else "orange" if result.dp_grade == "Adequate" else "red"
+            color = (
+                "green"
+                if result.dp_grade == "Excellent"
+                else "blue"
+                if result.dp_grade == "Good"
+                else "orange"
+                if result.dp_grade == "Adequate"
+                else "red"
+            )
             st.markdown(f"### {period} — Defensive Posture: :{color}[{result.dp_grade}] ({result.dp_score}/10)")
 
             c1, c2, c3, c4 = st.columns(4)
@@ -4498,7 +4833,6 @@ class FinancialInsightsPage:
 
     def _render_income_stability(self, df: pd.DataFrame):
         """Render Phase 134: Income Stability Analysis."""
-        from financial_analyzer import IncomeStabilityResult
         rows = df.to_dict("records")
         if not rows:
             st.warning("No data available for Income Stability analysis.")
@@ -4507,7 +4841,15 @@ class FinancialInsightsPage:
             period = row.get("Period", "N/A")
             fd = self._row_to_financial_data(row)
             result = self.analyzer.income_stability_analysis(fd)
-            color = "green" if result.is_grade == "Excellent" else "blue" if result.is_grade == "Good" else "orange" if result.is_grade == "Adequate" else "red"
+            color = (
+                "green"
+                if result.is_grade == "Excellent"
+                else "blue"
+                if result.is_grade == "Good"
+                else "orange"
+                if result.is_grade == "Adequate"
+                else "red"
+            )
             st.markdown(f"### {period} — Income Stability: :{color}[{result.is_grade}] ({result.is_score}/10)")
 
             c1, c2, c3, c4 = st.columns(4)
@@ -4533,7 +4875,6 @@ class FinancialInsightsPage:
 
     def _render_profit_retention_power(self, df: pd.DataFrame):
         """Phase 356: Profit Retention Power Analysis."""
-        from financial_analyzer import ProfitRetentionPowerResult
 
         fin = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.profit_retention_power_analysis(fin)
@@ -4573,7 +4914,6 @@ class FinancialInsightsPage:
 
     def _render_earnings_to_debt(self, df: pd.DataFrame):
         """Phase 353: Earnings To Debt Analysis."""
-        from financial_analyzer import EarningsToDebtResult
 
         fin = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.earnings_to_debt_analysis(fin)
@@ -4758,7 +5098,6 @@ class FinancialInsightsPage:
 
     def _render_net_worth_growth(self, df: pd.DataFrame):
         """Phase 346: Net Worth Growth Analysis."""
-        from financial_analyzer import NetWorthGrowthResult
 
         for _, row in df.iterrows():
             data = self._row_to_financial_data(row)
@@ -4793,7 +5132,6 @@ class FinancialInsightsPage:
 
     def _render_asset_lightness(self, df: pd.DataFrame):
         """Phase 341: Asset Lightness Analysis."""
-        from financial_analyzer import AssetLightnessResult
         for _, row in df.iterrows():
             fd = self._row_to_financial_data(row)
             result = self.analyzer.asset_lightness_analysis(fd)
@@ -4804,14 +5142,30 @@ class FinancialInsightsPage:
             with col1:
                 st.metric("CA/TA", f"{result.lightness_ratio:.4f}" if result.lightness_ratio is not None else "N/A")
             with col2:
-                st.metric("Revenue/TA", f"{result.revenue_to_assets:.4f}" if result.revenue_to_assets is not None else "N/A")
+                st.metric(
+                    "Revenue/TA", f"{result.revenue_to_assets:.4f}" if result.revenue_to_assets is not None else "N/A"
+                )
             with col3:
-                st.metric("Fixed Asset Ratio", f"{result.fixed_asset_ratio:.4f}" if result.fixed_asset_ratio is not None else "N/A")
+                st.metric(
+                    "Fixed Asset Ratio",
+                    f"{result.fixed_asset_ratio:.4f}" if result.fixed_asset_ratio is not None else "N/A",
+                )
             with col4:
-                st.metric("Lightness Spread", f"{result.lightness_spread:+.4f}" if result.lightness_spread is not None else "N/A")
+                st.metric(
+                    "Lightness Spread",
+                    f"{result.lightness_spread:+.4f}" if result.lightness_spread is not None else "N/A",
+                )
             with st.expander("Asset Lightness Details"):
                 detail_data = {
-                    "Metric": ["CA/TA", "Revenue/TA", "Fixed Asset Ratio", "Intangible Intensity", "Lightness Spread", "ALT Score", "ALT Grade"],
+                    "Metric": [
+                        "CA/TA",
+                        "Revenue/TA",
+                        "Fixed Asset Ratio",
+                        "Intangible Intensity",
+                        "Lightness Spread",
+                        "ALT Score",
+                        "ALT Grade",
+                    ],
                     "Value": [
                         f"{result.ca_to_ta:.4f}" if result.ca_to_ta is not None else "N/A",
                         f"{result.revenue_to_assets:.4f}" if result.revenue_to_assets is not None else "N/A",
@@ -4827,7 +5181,6 @@ class FinancialInsightsPage:
 
     def _render_internal_growth_rate(self, df: pd.DataFrame):
         """Phase 337: Internal Growth Rate Analysis."""
-        from financial_analyzer import InternalGrowthRateResult
         for _, row in df.iterrows():
             fd = self._row_to_financial_data(row)
             result = self.analyzer.internal_growth_rate_analysis(fd)
@@ -4840,12 +5193,26 @@ class FinancialInsightsPage:
             with col2:
                 st.metric("ROA", f"{result.roa:.4f}" if result.roa is not None else "N/A")
             with col3:
-                st.metric("Retention Ratio", f"{result.retention_ratio:.4f}" if result.retention_ratio is not None else "N/A")
+                st.metric(
+                    "Retention Ratio", f"{result.retention_ratio:.4f}" if result.retention_ratio is not None else "N/A"
+                )
             with col4:
-                st.metric("Sust. Growth", f"{result.sustainable_growth * 100:.2f}%" if result.sustainable_growth is not None else "N/A")
+                st.metric(
+                    "Sust. Growth",
+                    f"{result.sustainable_growth * 100:.2f}%" if result.sustainable_growth is not None else "N/A",
+                )
             with st.expander("Internal Growth Rate Details"):
                 detail_data = {
-                    "Metric": ["IGR", "ROA", "Retention Ratio", "ROA*b", "Sustainable Growth", "Growth Capacity", "IGR Score", "IGR Grade"],
+                    "Metric": [
+                        "IGR",
+                        "ROA",
+                        "Retention Ratio",
+                        "ROA*b",
+                        "Sustainable Growth",
+                        "Growth Capacity",
+                        "IGR Score",
+                        "IGR Grade",
+                    ],
                     "Value": [
                         f"{result.igr * 100:.2f}%" if result.igr is not None else "N/A",
                         f"{result.roa:.4f}" if result.roa is not None else "N/A",
@@ -4862,7 +5229,6 @@ class FinancialInsightsPage:
 
     def _render_operating_expense_ratio(self, df: pd.DataFrame):
         """Phase 330: Operating Expense Ratio Analysis."""
-        from financial_analyzer import OperatingExpenseRatioResult
         for _, row in df.iterrows():
             fd = self._row_to_financial_data(row)
             result = self.analyzer.operating_expense_ratio_analysis(fd)
@@ -4873,14 +5239,27 @@ class FinancialInsightsPage:
             with col1:
                 st.metric("OpEx/Revenue", f"{result.opex_ratio:.4f}" if result.opex_ratio is not None else "N/A")
             with col2:
-                st.metric("OpEx/GP", f"{result.opex_to_gross_profit:.4f}" if result.opex_to_gross_profit is not None else "N/A")
+                st.metric(
+                    "OpEx/GP",
+                    f"{result.opex_to_gross_profit:.4f}" if result.opex_to_gross_profit is not None else "N/A",
+                )
             with col3:
                 st.metric("OpEx/EBITDA", f"{result.opex_to_ebitda:.4f}" if result.opex_to_ebitda is not None else "N/A")
             with col4:
-                st.metric("OpEx Coverage", f"{result.opex_coverage:.2f}x" if result.opex_coverage is not None else "N/A")
+                st.metric(
+                    "OpEx Coverage", f"{result.opex_coverage:.2f}x" if result.opex_coverage is not None else "N/A"
+                )
             with st.expander("Operating Expense Ratio Details"):
                 detail_data = {
-                    "Metric": ["OpEx Ratio", "OpEx/GP", "OpEx/EBITDA", "OpEx Coverage", "Efficiency Gap", "OER Score", "OER Grade"],
+                    "Metric": [
+                        "OpEx Ratio",
+                        "OpEx/GP",
+                        "OpEx/EBITDA",
+                        "OpEx Coverage",
+                        "Efficiency Gap",
+                        "OER Score",
+                        "OER Grade",
+                    ],
                     "Value": [
                         f"{result.opex_ratio:.4f}" if result.opex_ratio is not None else "N/A",
                         f"{result.opex_to_gross_profit:.4f}" if result.opex_to_gross_profit is not None else "N/A",
@@ -4896,7 +5275,6 @@ class FinancialInsightsPage:
 
     def _render_noncurrent_asset_ratio(self, df: pd.DataFrame):
         """Phase 327: Noncurrent Asset Ratio Analysis."""
-        from financial_analyzer import NoncurrentAssetRatioResult
         for _, row in df.iterrows():
             fd = self._row_to_financial_data(row)
             result = self.analyzer.noncurrent_asset_ratio_analysis(fd)
@@ -4907,13 +5285,28 @@ class FinancialInsightsPage:
 
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("NCA Ratio", f"{result.nca_ratio:.4f}" if result.nca_ratio is not None else "N/A")
-            col2.metric("Current Asset Ratio", f"{result.current_asset_ratio:.4f}" if result.current_asset_ratio is not None else "N/A")
+            col2.metric(
+                "Current Asset Ratio",
+                f"{result.current_asset_ratio:.4f}" if result.current_asset_ratio is not None else "N/A",
+            )
             col3.metric("NCA/Equity", f"{result.nca_to_equity:.4f}" if result.nca_to_equity is not None else "N/A")
-            col4.metric("Structure Spread", f"{result.asset_structure_spread:.4f}" if result.asset_structure_spread is not None else "N/A")
+            col4.metric(
+                "Structure Spread",
+                f"{result.asset_structure_spread:.4f}" if result.asset_structure_spread is not None else "N/A",
+            )
 
             with st.expander("Noncurrent Asset Ratio Details"):
                 detail_data = {
-                    "Metric": ["NCA Ratio", "Current Asset Ratio", "NCA/Equity", "NCA/Debt", "Structure Spread", "Liquidity Complement", "Score", "Grade"],
+                    "Metric": [
+                        "NCA Ratio",
+                        "Current Asset Ratio",
+                        "NCA/Equity",
+                        "NCA/Debt",
+                        "Structure Spread",
+                        "Liquidity Complement",
+                        "Score",
+                        "Grade",
+                    ],
                     "Value": [
                         f"{result.nca_ratio:.4f}" if result.nca_ratio is not None else "N/A",
                         f"{result.current_asset_ratio:.4f}" if result.current_asset_ratio is not None else "N/A",
@@ -4935,14 +5328,19 @@ class FinancialInsightsPage:
             fd = self._row_to_financial_data(row)
             result = self.analyzer.payout_resilience_analysis(fd)
 
-            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.prs_grade, "gray")
+            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.prs_grade, "gray"
+            )
             st.markdown(f"**Payout Resilience**: :{grade_color}[{result.prs_grade}] (Score: {result.prs_score:.1f}/10)")
 
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Div/NI", f"{result.div_to_ni:.4f}" if result.div_to_ni is not None else "N/A")
             c2.metric("Div/OCF", f"{result.div_to_ocf:.4f}" if result.div_to_ocf is not None else "N/A")
             c3.metric("Payout Ratio", f"{result.payout_ratio:.4f}" if result.payout_ratio is not None else "N/A")
-            c4.metric("Resilience Buffer", f"{result.resilience_buffer:.4f}" if result.resilience_buffer is not None else "N/A")
+            c4.metric(
+                "Resilience Buffer",
+                f"{result.resilience_buffer:.4f}" if result.resilience_buffer is not None else "N/A",
+            )
 
             with st.expander("Payout Resilience Details"):
                 detail_data = {
@@ -4965,7 +5363,9 @@ class FinancialInsightsPage:
             fd = self._row_to_financial_data(row)
             result = self.analyzer.debt_burden_index_analysis(fd)
 
-            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.dbi_grade, "gray")
+            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.dbi_grade, "gray"
+            )
             st.markdown(f"**Debt Burden Index**: :{grade_color}[{result.dbi_grade}] (Score: {result.dbi_score:.1f}/10)")
 
             c1, c2, c3, c4 = st.columns(4)
@@ -4976,7 +5376,14 @@ class FinancialInsightsPage:
 
             with st.expander("Debt Burden Index Details"):
                 detail_data = {
-                    "Metric": ["Debt/EBITDA", "Debt/Assets", "Debt/Equity", "Debt/Revenue", "Debt Ratio", "Burden Intensity"],
+                    "Metric": [
+                        "Debt/EBITDA",
+                        "Debt/Assets",
+                        "Debt/Equity",
+                        "Debt/Revenue",
+                        "Debt Ratio",
+                        "Burden Intensity",
+                    ],
                     "Value": [
                         f"{result.debt_to_ebitda:.4f}" if result.debt_to_ebitda is not None else "N/A",
                         f"{result.debt_to_assets:.4f}" if result.debt_to_assets is not None else "N/A",
@@ -5000,9 +5407,13 @@ class FinancialInsightsPage:
 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Inv/COGS", f"{result.inventory_to_cogs:.2%}" if result.inventory_to_cogs is not None else "N/A")
-        col2.metric("Inv/Revenue", f"{result.inventory_to_revenue:.2%}" if result.inventory_to_revenue is not None else "N/A")
+        col2.metric(
+            "Inv/Revenue", f"{result.inventory_to_revenue:.2%}" if result.inventory_to_revenue is not None else "N/A"
+        )
         col3.metric("Inv Days", f"{result.inventory_days:.1f}" if result.inventory_days is not None else "N/A")
-        col4.metric("Inv/Assets", f"{result.inventory_to_assets:.2%}" if result.inventory_to_assets is not None else "N/A")
+        col4.metric(
+            "Inv/Assets", f"{result.inventory_to_assets:.2%}" if result.inventory_to_assets is not None else "N/A"
+        )
 
         with st.expander("Inventory Coverage Details"):
             details = {
@@ -5019,7 +5430,6 @@ class FinancialInsightsPage:
 
     def _render_capex_to_revenue(self, df: pd.DataFrame):
         """Render Phase 307: CapEx to Revenue Analysis."""
-        from financial_analyzer import CapexToRevenueResult
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.capex_to_revenue_analysis(fin_data)
 
@@ -5042,10 +5452,9 @@ class FinancialInsightsPage:
                 "Investment Intensity": result.investment_intensity,
                 "CapEx Yield": result.capex_yield,
             }
-            detail_df = pd.DataFrame([
-                {"Metric": k, "Value": f"{v:.4f}" if v is not None else "N/A"}
-                for k, v in details.items()
-            ])
+            detail_df = pd.DataFrame(
+                [{"Metric": k, "Value": f"{v:.4f}" if v is not None else "N/A"} for k, v in details.items()]
+            )
             st.dataframe(detail_df, use_container_width=True, hide_index=True)
 
         st.caption(result.summary)
@@ -5060,14 +5469,30 @@ class FinancialInsightsPage:
         st.markdown(f"**Inventory Holding Cost Grade:** :{color}[{result.ihc_grade}] ({result.ihc_score:.1f}/10)")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Inv/Revenue", f"{result.inventory_to_revenue:.2f}" if result.inventory_to_revenue is not None else "N/A")
-        c2.metric("Inv/Current Assets", f"{result.inventory_to_current_assets:.2f}" if result.inventory_to_current_assets is not None else "N/A")
+        c1.metric(
+            "Inv/Revenue", f"{result.inventory_to_revenue:.2f}" if result.inventory_to_revenue is not None else "N/A"
+        )
+        c2.metric(
+            "Inv/Current Assets",
+            f"{result.inventory_to_current_assets:.2f}" if result.inventory_to_current_assets is not None else "N/A",
+        )
         c3.metric("Inventory Days", f"{result.inventory_days:.1f}" if result.inventory_days is not None else "N/A")
-        c4.metric("Inv/Total Assets", f"{result.inventory_to_total_assets:.2f}" if result.inventory_to_total_assets is not None else "N/A")
+        c4.metric(
+            "Inv/Total Assets",
+            f"{result.inventory_to_total_assets:.2f}" if result.inventory_to_total_assets is not None else "N/A",
+        )
 
         with st.expander("Details"):
             details = {"Metric": [], "Value": []}
-            for field_name in ["inventory_to_revenue", "inventory_to_current_assets", "inventory_to_total_assets", "inventory_days", "inventory_intensity", "ihc_score", "ihc_grade"]:
+            for field_name in [
+                "inventory_to_revenue",
+                "inventory_to_current_assets",
+                "inventory_to_total_assets",
+                "inventory_days",
+                "inventory_intensity",
+                "ihc_score",
+                "ihc_grade",
+            ]:
                 val = getattr(result, field_name)
                 details["Metric"].append(field_name)
                 if isinstance(val, float):
@@ -5088,14 +5513,31 @@ class FinancialInsightsPage:
         st.markdown(f"**Funding Mix Balance Grade:** :{color}[{result.fmb_grade}] ({result.fmb_score:.1f}/10)")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Equity/Total Capital", f"{result.equity_to_total_capital:.2f}" if result.equity_to_total_capital is not None else "N/A")
+        c1.metric(
+            "Equity/Total Capital",
+            f"{result.equity_to_total_capital:.2f}" if result.equity_to_total_capital is not None else "N/A",
+        )
         c2.metric("Debt/Equity", f"{result.debt_to_equity:.2f}" if result.debt_to_equity is not None else "N/A")
-        c3.metric("Debt/Total Capital", f"{result.debt_to_total_capital:.2f}" if result.debt_to_total_capital is not None else "N/A")
-        c4.metric("Leverage Headroom", f"{result.leverage_headroom:.2f}" if result.leverage_headroom is not None else "N/A")
+        c3.metric(
+            "Debt/Total Capital",
+            f"{result.debt_to_total_capital:.2f}" if result.debt_to_total_capital is not None else "N/A",
+        )
+        c4.metric(
+            "Leverage Headroom", f"{result.leverage_headroom:.2f}" if result.leverage_headroom is not None else "N/A"
+        )
 
         with st.expander("Details"):
             details = {"Metric": [], "Value": []}
-            for field_name in ["equity_to_total_capital", "debt_to_equity", "debt_to_total_capital", "equity_multiplier", "leverage_headroom", "funding_stability", "fmb_score", "fmb_grade"]:
+            for field_name in [
+                "equity_to_total_capital",
+                "debt_to_equity",
+                "debt_to_total_capital",
+                "equity_multiplier",
+                "leverage_headroom",
+                "funding_stability",
+                "fmb_score",
+                "fmb_grade",
+            ]:
                 val = getattr(result, field_name)
                 details["Metric"].append(field_name)
                 if isinstance(val, float):
@@ -5118,12 +5560,25 @@ class FinancialInsightsPage:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("OpEx/Revenue", f"{result.opex_to_revenue:.2f}" if result.opex_to_revenue is not None else "N/A")
         c2.metric("COGS/Revenue", f"{result.cogs_to_revenue:.2f}" if result.cogs_to_revenue is not None else "N/A")
-        c3.metric("Total Expense Ratio", f"{result.total_expense_ratio:.2f}" if result.total_expense_ratio is not None else "N/A")
-        c4.metric("Operating Margin", f"{result.operating_margin:.2f}" if result.operating_margin is not None else "N/A")
+        c3.metric(
+            "Total Expense Ratio",
+            f"{result.total_expense_ratio:.2f}" if result.total_expense_ratio is not None else "N/A",
+        )
+        c4.metric(
+            "Operating Margin", f"{result.operating_margin:.2f}" if result.operating_margin is not None else "N/A"
+        )
 
         with st.expander("Details"):
             details = {"Metric": [], "Value": []}
-            for field_name in ["opex_to_revenue", "cogs_to_revenue", "total_expense_ratio", "operating_margin", "expense_efficiency", "erd_score", "erd_grade"]:
+            for field_name in [
+                "opex_to_revenue",
+                "cogs_to_revenue",
+                "total_expense_ratio",
+                "operating_margin",
+                "expense_efficiency",
+                "erd_score",
+                "erd_grade",
+            ]:
                 val = getattr(result, field_name)
                 details["Metric"].append(field_name)
                 if isinstance(val, float):
@@ -5147,11 +5602,15 @@ class FinancialInsightsPage:
         with col1:
             st.metric("OCF/Revenue", f"{result.ocf_to_revenue:.1%}" if result.ocf_to_revenue is not None else "N/A")
         with col2:
-            st.metric("Collection Rate", f"{result.collection_rate:.1%}" if result.collection_rate is not None else "N/A")
+            st.metric(
+                "Collection Rate", f"{result.collection_rate:.1%}" if result.collection_rate is not None else "N/A"
+            )
         with col3:
             st.metric("Cash/Revenue", f"{result.cash_to_revenue:.1%}" if result.cash_to_revenue is not None else "N/A")
         with col4:
-            st.metric("Rev-Cash Gap", f"${result.revenue_cash_gap:,.0f}" if result.revenue_cash_gap is not None else "N/A")
+            st.metric(
+                "Rev-Cash Gap", f"${result.revenue_cash_gap:,.0f}" if result.revenue_cash_gap is not None else "N/A"
+            )
 
         with st.expander("Revenue Cash Realization Details"):
             details = {"Metric": [], "Value": []}
@@ -5178,7 +5637,6 @@ class FinancialInsightsPage:
 
     def _render_net_debt_position(self, df: pd.DataFrame):
         """Phase 286: Net Debt Position tab."""
-        from financial_analyzer import NetDebtPositionResult
         fin = self._extract_financial_data(df)
         result = self.analyzer.net_debt_position_analysis(fin)
 
@@ -5188,16 +5646,26 @@ class FinancialInsightsPage:
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Net Debt", f"${result.net_debt:,.0f}" if result.net_debt is not None else "N/A")
-        c2.metric("Net Debt/EBITDA", f"{result.net_debt_to_ebitda:.2f}x" if result.net_debt_to_ebitda is not None else "N/A")
+        c2.metric(
+            "Net Debt/EBITDA", f"{result.net_debt_to_ebitda:.2f}x" if result.net_debt_to_ebitda is not None else "N/A"
+        )
         c3.metric("Cash/Debt", f"{result.cash_to_debt:.2%}" if result.cash_to_debt is not None else "N/A")
-        c4.metric("Net Debt/Equity", f"{result.net_debt_to_equity:.2f}x" if result.net_debt_to_equity is not None else "N/A")
+        c4.metric(
+            "Net Debt/Equity", f"{result.net_debt_to_equity:.2f}x" if result.net_debt_to_equity is not None else "N/A"
+        )
 
         with st.expander("Net Debt Position Details"):
             detail = {
                 "Net Debt (Debt - Cash)": f"${result.net_debt:,.0f}" if result.net_debt is not None else "N/A",
-                "Net Debt / EBITDA": f"{result.net_debt_to_ebitda:.4f}" if result.net_debt_to_ebitda is not None else "N/A",
-                "Net Debt / Equity": f"{result.net_debt_to_equity:.4f}" if result.net_debt_to_equity is not None else "N/A",
-                "Net Debt / Total Assets": f"{result.net_debt_to_assets:.4f}" if result.net_debt_to_assets is not None else "N/A",
+                "Net Debt / EBITDA": f"{result.net_debt_to_ebitda:.4f}"
+                if result.net_debt_to_ebitda is not None
+                else "N/A",
+                "Net Debt / Equity": f"{result.net_debt_to_equity:.4f}"
+                if result.net_debt_to_equity is not None
+                else "N/A",
+                "Net Debt / Total Assets": f"{result.net_debt_to_assets:.4f}"
+                if result.net_debt_to_assets is not None
+                else "N/A",
                 "Cash / Debt": f"{result.cash_to_debt:.4f}" if result.cash_to_debt is not None else "N/A",
                 "Net Debt / OCF": f"{result.net_debt_to_ocf:.4f}" if result.net_debt_to_ocf is not None else "N/A",
             }
@@ -5221,14 +5689,29 @@ class FinancialInsightsPage:
             if not isinstance(result, LiabilityCoverageStrengthResult):
                 continue
 
-            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.lcs_grade, "gray")
-            st.markdown(f"**Liability Coverage Strength** &mdash; :{grade_color}[{result.lcs_grade}] (Score: {result.lcs_score:.1f}/10)")
+            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.lcs_grade, "gray"
+            )
+            st.markdown(
+                f"**Liability Coverage Strength** &mdash; :{grade_color}[{result.lcs_grade}] (Score: {result.lcs_score:.1f}/10)"
+            )
 
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("OCF/Liabilities", f"{result.ocf_to_liabilities:.2%}" if result.ocf_to_liabilities is not None else "N/A")
-            c2.metric("Assets/Liabilities", f"{result.assets_to_liabilities:.2f}x" if result.assets_to_liabilities is not None else "N/A")
-            c3.metric("Equity/Liabilities", f"{result.equity_to_liabilities:.2f}x" if result.equity_to_liabilities is not None else "N/A")
-            c4.metric("Liability Burden", f"{result.liability_burden:.2%}" if result.liability_burden is not None else "N/A")
+            c1.metric(
+                "OCF/Liabilities",
+                f"{result.ocf_to_liabilities:.2%}" if result.ocf_to_liabilities is not None else "N/A",
+            )
+            c2.metric(
+                "Assets/Liabilities",
+                f"{result.assets_to_liabilities:.2f}x" if result.assets_to_liabilities is not None else "N/A",
+            )
+            c3.metric(
+                "Equity/Liabilities",
+                f"{result.equity_to_liabilities:.2f}x" if result.equity_to_liabilities is not None else "N/A",
+            )
+            c4.metric(
+                "Liability Burden", f"{result.liability_burden:.2%}" if result.liability_burden is not None else "N/A"
+            )
 
             with st.expander("Liability Coverage Strength Details"):
                 details = {"Metric": [], "Value": []}
@@ -5265,13 +5748,19 @@ class FinancialInsightsPage:
             if not isinstance(result, CapitalAdequacyResult):
                 continue
 
-            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.caq_grade, "gray")
-            st.markdown(f"**Capital Adequacy** &mdash; :{grade_color}[{result.caq_grade}] (Score: {result.caq_score:.1f}/10)")
+            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.caq_grade, "gray"
+            )
+            st.markdown(
+                f"**Capital Adequacy** &mdash; :{grade_color}[{result.caq_grade}] (Score: {result.caq_score:.1f}/10)"
+            )
 
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Equity Ratio", f"{result.equity_ratio:.2%}" if result.equity_ratio is not None else "N/A")
             c2.metric("Equity/Debt", f"{result.equity_to_debt:.2f}x" if result.equity_to_debt is not None else "N/A")
-            c3.metric("RE/Equity", f"{result.retained_to_equity:.2%}" if result.retained_to_equity is not None else "N/A")
+            c3.metric(
+                "RE/Equity", f"{result.retained_to_equity:.2%}" if result.retained_to_equity is not None else "N/A"
+            )
             c4.metric("Capital Buffer", f"{result.capital_buffer:.2%}" if result.capital_buffer is not None else "N/A")
 
             with st.expander("Capital Adequacy Details"):
@@ -5296,7 +5785,6 @@ class FinancialInsightsPage:
 
     def _render_operating_income_quality(self, df: pd.DataFrame):
         """Phase 275: Operating Income Quality tab."""
-        from financial_analyzer import OperatingIncomeQualityResult
 
         for _, row in df.iterrows():
             data = self._row_to_financial_data(row)
@@ -5306,14 +5794,20 @@ class FinancialInsightsPage:
                 st.info("Insufficient data for Operating Income Quality analysis.")
                 return
 
-            badge_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.oiq_grade, "gray")
-            st.markdown(f"**Operating Income Quality Grade:** :{badge_color}[{result.oiq_grade}] ({result.oiq_score:.1f}/10)")
+            badge_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.oiq_grade, "gray"
+            )
+            st.markdown(
+                f"**Operating Income Quality Grade:** :{badge_color}[{result.oiq_grade}] ({result.oiq_score:.1f}/10)"
+            )
 
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("OI Margin", f"{result.oi_to_revenue:.2%}" if result.oi_to_revenue is not None else "N/A")
             c2.metric("OI/EBITDA", f"{result.oi_to_ebitda:.2f}" if result.oi_to_ebitda is not None else "N/A")
             c3.metric("OI/OCF", f"{result.oi_to_ocf:.2f}" if result.oi_to_ocf is not None else "N/A")
-            c4.metric("OI/Assets", f"{result.oi_to_total_assets:.2f}" if result.oi_to_total_assets is not None else "N/A")
+            c4.metric(
+                "OI/Assets", f"{result.oi_to_total_assets:.2f}" if result.oi_to_total_assets is not None else "N/A"
+            )
 
             with st.expander("Operating Income Quality Details"):
                 details = {"Metric": [], "Value": []}
@@ -5338,6 +5832,7 @@ class FinancialInsightsPage:
     def _render_debt_quality(self, df: pd.DataFrame):
         """Phase 267: Debt Quality tab."""
         from financial_analyzer import DebtQualityResult
+
         analyzer = self.analyzer
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.debt_quality_analysis(data)
@@ -5371,27 +5866,33 @@ class FinancialInsightsPage:
 
     def _render_depreciation_burden(self, df: pd.DataFrame):
         """Phase 259: Depreciation Burden tab."""
-        from financial_analyzer import DepreciationBurdenResult
         st.subheader("Depreciation Burden Analysis")
         for _, row in df.iterrows():
             data = self._row_to_financial_data(row)
             result = self.analyzer.depreciation_burden_analysis(data)
 
-            color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.db_grade, "gray")
+            color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.db_grade, "gray"
+            )
             st.markdown(f"**Grade:** :{color}[{result.db_grade}] | **Score:** {result.db_score:.1f}/10")
 
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("D&A/Revenue", f"{result.dep_to_revenue:.1%}" if result.dep_to_revenue is not None else "N/A")
             c2.metric("D&A/EBITDA", f"{result.dep_to_ebitda:.2f}" if result.dep_to_ebitda is not None else "N/A")
             c3.metric("D&A/Assets", f"{result.dep_to_assets:.2%}" if result.dep_to_assets is not None else "N/A")
-            c4.metric("D&A/Gross Profit", f"{result.dep_to_gross_profit:.2f}" if result.dep_to_gross_profit is not None else "N/A")
+            c4.metric(
+                "D&A/Gross Profit",
+                f"{result.dep_to_gross_profit:.2f}" if result.dep_to_gross_profit is not None else "N/A",
+            )
 
             with st.expander("Details"):
                 details = {
                     "D&A/Revenue": f"{result.dep_to_revenue:.2%}" if result.dep_to_revenue is not None else "N/A",
                     "D&A/EBITDA": f"{result.dep_to_ebitda:.2f}" if result.dep_to_ebitda is not None else "N/A",
                     "D&A/Assets": f"{result.dep_to_assets:.2%}" if result.dep_to_assets is not None else "N/A",
-                    "EBITDA/EBIT Spread": f"{result.ebitda_to_ebit_spread:.2f}" if result.ebitda_to_ebit_spread is not None else "N/A",
+                    "EBITDA/EBIT Spread": f"{result.ebitda_to_ebit_spread:.2f}"
+                    if result.ebitda_to_ebit_spread is not None
+                    else "N/A",
                     "Asset Age Proxy": f"{result.asset_age_proxy:.4f}" if result.asset_age_proxy is not None else "N/A",
                 }
                 st.table(details)
@@ -5400,28 +5901,36 @@ class FinancialInsightsPage:
 
     def _render_debt_to_capital(self, df: pd.DataFrame):
         """Phase 258: Debt-to-Capital tab."""
-        from financial_analyzer import DebtToCapitalResult
         st.subheader("Debt-to-Capital Analysis")
         for _, row in df.iterrows():
             data = self._row_to_financial_data(row)
             result = self.analyzer.debt_to_capital_analysis(data)
 
-            color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.dtc_grade, "gray")
+            color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.dtc_grade, "gray"
+            )
             st.markdown(f"**Grade:** :{color}[{result.dtc_grade}] | **Score:** {result.dtc_score:.1f}/10")
 
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Debt/Capital", f"{result.debt_to_capital:.1%}" if result.debt_to_capital is not None else "N/A")
             c2.metric("Debt/Equity", f"{result.debt_to_equity:.2f}" if result.debt_to_equity is not None else "N/A")
             c3.metric("Equity Ratio", f"{result.equity_ratio:.1%}" if result.equity_ratio is not None else "N/A")
-            c4.metric("Net D/Capital", f"{result.net_debt_to_capital:.1%}" if result.net_debt_to_capital is not None else "N/A")
+            c4.metric(
+                "Net D/Capital",
+                f"{result.net_debt_to_capital:.1%}" if result.net_debt_to_capital is not None else "N/A",
+            )
 
             with st.expander("Details"):
                 details = {
                     "Debt/Capital": f"{result.debt_to_capital:.2%}" if result.debt_to_capital is not None else "N/A",
                     "Debt/Equity": f"{result.debt_to_equity:.2f}" if result.debt_to_equity is not None else "N/A",
                     "Equity Ratio": f"{result.equity_ratio:.2%}" if result.equity_ratio is not None else "N/A",
-                    "Net Debt/Capital": f"{result.net_debt_to_capital:.2%}" if result.net_debt_to_capital is not None else "N/A",
-                    "Financial Risk Index": f"{result.financial_risk_index:.4f}" if result.financial_risk_index is not None else "N/A",
+                    "Net Debt/Capital": f"{result.net_debt_to_capital:.2%}"
+                    if result.net_debt_to_capital is not None
+                    else "N/A",
+                    "Financial Risk Index": f"{result.financial_risk_index:.4f}"
+                    if result.financial_risk_index is not None
+                    else "N/A",
                 }
                 st.table(details)
 
@@ -5429,32 +5938,48 @@ class FinancialInsightsPage:
 
     def _render_operating_leverage(self, df: pd.DataFrame):
         """Phase 253: Operating Leverage tab."""
-        from financial_analyzer import OperatingLeverageResult
         for _, row in df.iterrows():
             fd = self._row_to_financial_data(row)
             result = self.analyzer.operating_leverage_analysis(fd)
-            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.ol_grade, "gray")
+            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.ol_grade, "gray"
+            )
             st.markdown(f"**Operating Leverage:** :{grade_color}[{result.ol_grade}] ({result.ol_score:.1f}/10)")
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("DOL", f"{result.dol:.2f}" if result.dol is not None else "N/A")
-            c2.metric("Margin of Safety", f"{result.margin_of_safety:.1%}" if result.margin_of_safety is not None else "N/A")
-            c3.metric("Fixed Cost Ratio", f"{result.fixed_cost_ratio:.1%}" if result.fixed_cost_ratio is not None else "N/A")
-            c4.metric("Breakeven Rev", f"${result.breakeven_revenue:,.0f}" if result.breakeven_revenue is not None else "N/A")
+            c2.metric(
+                "Margin of Safety", f"{result.margin_of_safety:.1%}" if result.margin_of_safety is not None else "N/A"
+            )
+            c3.metric(
+                "Fixed Cost Ratio", f"{result.fixed_cost_ratio:.1%}" if result.fixed_cost_ratio is not None else "N/A"
+            )
+            c4.metric(
+                "Breakeven Rev", f"${result.breakeven_revenue:,.0f}" if result.breakeven_revenue is not None else "N/A"
+            )
             with st.expander("Operating Leverage Details"):
                 detail = {
                     "DOL": f"{result.dol:.4f}" if result.dol is not None else "N/A",
-                    "Variable Cost Ratio": f"{result.variable_cost_ratio:.4f}" if result.variable_cost_ratio is not None else "N/A",
-                    "Contribution Margin": f"{result.contribution_margin_ratio:.4f}" if result.contribution_margin_ratio is not None else "N/A",
-                    "Fixed Cost Ratio": f"{result.fixed_cost_ratio:.4f}" if result.fixed_cost_ratio is not None else "N/A",
-                    "Breakeven Revenue": f"${result.breakeven_revenue:,.0f}" if result.breakeven_revenue is not None else "N/A",
-                    "Margin of Safety": f"{result.margin_of_safety:.4f}" if result.margin_of_safety is not None else "N/A",
+                    "Variable Cost Ratio": f"{result.variable_cost_ratio:.4f}"
+                    if result.variable_cost_ratio is not None
+                    else "N/A",
+                    "Contribution Margin": f"{result.contribution_margin_ratio:.4f}"
+                    if result.contribution_margin_ratio is not None
+                    else "N/A",
+                    "Fixed Cost Ratio": f"{result.fixed_cost_ratio:.4f}"
+                    if result.fixed_cost_ratio is not None
+                    else "N/A",
+                    "Breakeven Revenue": f"${result.breakeven_revenue:,.0f}"
+                    if result.breakeven_revenue is not None
+                    else "N/A",
+                    "Margin of Safety": f"{result.margin_of_safety:.4f}"
+                    if result.margin_of_safety is not None
+                    else "N/A",
                 }
                 st.table(detail)
             st.caption(result.summary)
 
     def _render_dividend_payout(self, df: pd.DataFrame):
         """Phase 251: Dividend Payout tab."""
-        from financial_analyzer import DividendPayoutResult
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.dividend_payout_analysis(fin_data)
 
@@ -5483,7 +6008,6 @@ class FinancialInsightsPage:
 
     def _render_operating_cash_flow_ratio(self, df: pd.DataFrame):
         """Phase 249: Operating Cash Flow Ratio tab."""
-        from financial_analyzer import OperatingCashFlowRatioResult
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.operating_cash_flow_ratio_analysis(fin_data)
 
@@ -5512,7 +6036,6 @@ class FinancialInsightsPage:
 
     def _render_cash_conversion_cycle(self, df: pd.DataFrame):
         """Phase 248: Cash Conversion Cycle tab."""
-        from financial_analyzer import CashConversionCycleResult
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.cash_conversion_cycle_analysis(fin_data)
 
@@ -5541,7 +6064,6 @@ class FinancialInsightsPage:
 
     def _render_inventory_turnover(self, df: pd.DataFrame):
         """Phase 247: Inventory Turnover tab."""
-        from financial_analyzer import InventoryTurnoverResult
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.inventory_turnover_analysis(fin_data)
 
@@ -5573,7 +6095,6 @@ class FinancialInsightsPage:
 
     def _render_payables_turnover(self, df: pd.DataFrame):
         """Phase 246: Payables Turnover tab."""
-        from financial_analyzer import PayablesTurnoverResult
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.payables_turnover_analysis(fin_data)
 
@@ -5605,7 +6126,6 @@ class FinancialInsightsPage:
 
     def _render_receivables_turnover(self, df: pd.DataFrame):
         """Phase 245: Receivables Turnover tab."""
-        from financial_analyzer import ReceivablesTurnoverResult
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.receivables_turnover_analysis(fin_data)
 
@@ -5617,7 +6137,9 @@ class FinancialInsightsPage:
         col1.metric("Rev/AR", f"{result.rev_to_ar:.2f}x" if result.rev_to_ar is not None else "N/A")
         col2.metric("DSO", f"{result.dso:.0f} days" if result.dso is not None else "N/A")
         col3.metric("AR/Revenue", f"{result.ar_to_revenue:.2%}" if result.ar_to_revenue is not None else "N/A")
-        col4.metric("Collect Eff", f"{result.collection_efficiency:.2%}" if result.collection_efficiency is not None else "N/A")
+        col4.metric(
+            "Collect Eff", f"{result.collection_efficiency:.2%}" if result.collection_efficiency is not None else "N/A"
+        )
 
         with st.expander("Receivables Turnover Details"):
             detail_data = {
@@ -5637,13 +6159,14 @@ class FinancialInsightsPage:
 
     def _render_cash_conversion_efficiency(self, df: pd.DataFrame):
         """Phase 237: Cash Conversion Efficiency tab."""
-        from financial_analyzer import CashConversionEfficiencyResult
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.cash_conversion_efficiency_analysis(fin_data)
 
         grade_colors = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}
         color = grade_colors.get(result.cce_grade, "gray")
-        st.markdown(f"**Cash Conversion Efficiency Grade:** :{color}[{result.cce_grade}] (Score: {result.cce_score:.1f}/10)")
+        st.markdown(
+            f"**Cash Conversion Efficiency Grade:** :{color}[{result.cce_grade}] (Score: {result.cce_score:.1f}/10)"
+        )
 
         _pct = lambda v: f"{v:.4f}" if v is not None else "N/A"
 
@@ -5677,13 +6200,14 @@ class FinancialInsightsPage:
 
     def _render_fixed_cost_leverage_ratio(self, df: pd.DataFrame):
         """Phase 236: Fixed Cost Leverage Ratio tab."""
-        from financial_analyzer import FixedCostLeverageRatioResult
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.fixed_cost_leverage_ratio_analysis(fin_data)
 
         grade_colors = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}
         color = grade_colors.get(result.fclr_grade, "gray")
-        st.markdown(f"**Fixed Cost Leverage Ratio Grade:** :{color}[{result.fclr_grade}] (Score: {result.fclr_score:.1f}/10)")
+        st.markdown(
+            f"**Fixed Cost Leverage Ratio Grade:** :{color}[{result.fclr_grade}] (Score: {result.fclr_score:.1f}/10)"
+        )
 
         _pct = lambda v: f"{v:.4f}" if v is not None else "N/A"
 
@@ -5717,7 +6241,6 @@ class FinancialInsightsPage:
 
     def _render_revenue_quality_index(self, df: pd.DataFrame):
         """Phase 232: Revenue Quality Index tab."""
-        from financial_analyzer import RevenueQualityIndexResult
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.revenue_quality_index_analysis(fin_data)
 
@@ -5772,8 +6295,14 @@ class FinancialInsightsPage:
 
         with st.expander("Cost Control Details"):
             detail_data = {
-                "Metric": ["OpEx/Revenue", "COGS/Revenue", "SGA/Revenue",
-                           "Operating Margin (OI/Rev)", "OpEx/Gross Profit", "EBITDA Margin"],
+                "Metric": [
+                    "OpEx/Revenue",
+                    "COGS/Revenue",
+                    "SGA/Revenue",
+                    "Operating Margin (OI/Rev)",
+                    "OpEx/Gross Profit",
+                    "EBITDA Margin",
+                ],
                 "Value": [
                     f"{result.opex_to_revenue:.4f}" if result.opex_to_revenue is not None else "N/A",
                     f"{result.cogs_to_revenue:.4f}" if result.cogs_to_revenue is not None else "N/A",
@@ -5795,7 +6324,9 @@ class FinancialInsightsPage:
             result = self.analyzer.valuation_signal_analysis(fd)
             source = row.get("source", "Unknown")
 
-            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.vsg_grade, "gray")
+            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.vsg_grade, "gray"
+            )
             st.markdown(f"**{source}** — :{grade_color}[{result.vsg_grade}] ({result.vsg_score:.1f}/10)")
 
             col1, col2, col3, col4 = st.columns(4)
@@ -5832,11 +6363,15 @@ class FinancialInsightsPage:
             result = self.analyzer.capital_discipline_analysis(fd)
             source = row.get("source", "Unknown")
 
-            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.cd_grade, "gray")
+            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.cd_grade, "gray"
+            )
             st.markdown(f"**{source}** — :{grade_color}[{result.cd_grade}] ({result.cd_score:.1f}/10)")
 
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("RE/Equity", f"{result.retained_to_equity:.4f}" if result.retained_to_equity is not None else "N/A")
+            col1.metric(
+                "RE/Equity", f"{result.retained_to_equity:.4f}" if result.retained_to_equity is not None else "N/A"
+            )
             col2.metric("OCF/Debt", f"{result.ocf_to_debt:.4f}" if result.ocf_to_debt is not None else "N/A")
             col3.metric("CapEx/OCF", f"{result.capex_to_ocf:.4f}" if result.capex_to_ocf is not None else "N/A")
             col4.metric("D/E", f"{result.debt_to_equity:.4f}" if result.debt_to_equity is not None else "N/A")
@@ -5869,7 +6404,9 @@ class FinancialInsightsPage:
             result = self.analyzer.resource_optimization_analysis(fd)
             source = row.get("source", "Unknown")
 
-            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.ro_grade, "gray")
+            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.ro_grade, "gray"
+            )
             st.markdown(f"**{source}** — :{grade_color}[{result.ro_grade}] ({result.ro_score:.1f}/10)")
 
             col1, col2, col3, col4 = st.columns(4)
@@ -5906,14 +6443,25 @@ class FinancialInsightsPage:
             result = self.analyzer.financial_productivity_analysis(fd)
             source = row.get("source", "Unknown")
 
-            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.fp_grade, "gray")
+            grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.fp_grade, "gray"
+            )
             st.markdown(f"**{source}** — :{grade_color}[{result.fp_grade}] ({result.fp_score:.1f}/10)")
 
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Rev/Assets", f"{result.revenue_per_asset:.2f}" if result.revenue_per_asset is not None else "N/A")
-            col2.metric("Rev/Equity", f"{result.revenue_per_equity:.2f}" if result.revenue_per_equity is not None else "N/A")
-            col3.metric("EBITDA/OpEx", f"{result.ebitda_per_employee_proxy:.2f}" if result.ebitda_per_employee_proxy is not None else "N/A")
-            col4.metric("OCF/Assets", f"{result.cash_flow_per_asset:.2f}" if result.cash_flow_per_asset is not None else "N/A")
+            col1.metric(
+                "Rev/Assets", f"{result.revenue_per_asset:.2f}" if result.revenue_per_asset is not None else "N/A"
+            )
+            col2.metric(
+                "Rev/Equity", f"{result.revenue_per_equity:.2f}" if result.revenue_per_equity is not None else "N/A"
+            )
+            col3.metric(
+                "EBITDA/OpEx",
+                f"{result.ebitda_per_employee_proxy:.2f}" if result.ebitda_per_employee_proxy is not None else "N/A",
+            )
+            col4.metric(
+                "OCF/Assets", f"{result.cash_flow_per_asset:.2f}" if result.cash_flow_per_asset is not None else "N/A"
+            )
 
             with st.expander(f"Details — {source}"):
                 details = {"Metric": [], "Value": []}
@@ -5947,18 +6495,38 @@ class FinancialInsightsPage:
 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Equity/Assets", f"{result.equity_to_assets:.2%}" if result.equity_to_assets is not None else "N/A")
-        col2.metric("Retained/Equity", f"{result.retained_to_equity:.2%}" if result.retained_to_equity is not None else "N/A")
-        col3.metric("Equity Growth Cap", f"{result.equity_growth_capacity:.2%}" if result.equity_growth_capacity is not None else "N/A")
-        col4.metric("Equity/Liabilities", f"{result.equity_to_liabilities:.2f}" if result.equity_to_liabilities is not None else "N/A")
+        col2.metric(
+            "Retained/Equity", f"{result.retained_to_equity:.2%}" if result.retained_to_equity is not None else "N/A"
+        )
+        col3.metric(
+            "Equity Growth Cap",
+            f"{result.equity_growth_capacity:.2%}" if result.equity_growth_capacity is not None else "N/A",
+        )
+        col4.metric(
+            "Equity/Liabilities",
+            f"{result.equity_to_liabilities:.2f}" if result.equity_to_liabilities is not None else "N/A",
+        )
 
         with st.expander("Details"):
             details = {
-                "Equity-to-Assets (TE/TA)": f"{result.equity_to_assets:.4f}" if result.equity_to_assets is not None else "N/A",
-                "Retained-to-Equity (RE/TE)": f"{result.retained_to_equity:.4f}" if result.retained_to_equity is not None else "N/A",
-                "Equity Growth Capacity (NI/TE)": f"{result.equity_growth_capacity:.4f}" if result.equity_growth_capacity is not None else "N/A",
-                "Equity-to-Liabilities (TE/TL)": f"{result.equity_to_liabilities:.4f}" if result.equity_to_liabilities is not None else "N/A",
-                "Tangible Equity Ratio (TE/TA)": f"{result.tangible_equity_ratio:.4f}" if result.tangible_equity_ratio is not None else "N/A",
-                "Equity per Revenue (TE/Rev)": f"{result.equity_per_revenue:.4f}" if result.equity_per_revenue is not None else "N/A",
+                "Equity-to-Assets (TE/TA)": f"{result.equity_to_assets:.4f}"
+                if result.equity_to_assets is not None
+                else "N/A",
+                "Retained-to-Equity (RE/TE)": f"{result.retained_to_equity:.4f}"
+                if result.retained_to_equity is not None
+                else "N/A",
+                "Equity Growth Capacity (NI/TE)": f"{result.equity_growth_capacity:.4f}"
+                if result.equity_growth_capacity is not None
+                else "N/A",
+                "Equity-to-Liabilities (TE/TL)": f"{result.equity_to_liabilities:.4f}"
+                if result.equity_to_liabilities is not None
+                else "N/A",
+                "Tangible Equity Ratio (TE/TA)": f"{result.tangible_equity_ratio:.4f}"
+                if result.tangible_equity_ratio is not None
+                else "N/A",
+                "Equity per Revenue (TE/Rev)": f"{result.equity_per_revenue:.4f}"
+                if result.equity_per_revenue is not None
+                else "N/A",
             }
             st.table(details)
 
@@ -5975,19 +6543,36 @@ class FinancialInsightsPage:
         st.markdown(f"**Grade:** :{color}[{result.dm_grade}] &emsp; **Score:** {result.dm_score:.1f}/10")
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Debt/OI", f"{result.debt_to_operating_income:.2f}" if result.debt_to_operating_income is not None else "N/A")
-        col2.metric("Interest/Rev", f"{result.interest_to_revenue:.2%}" if result.interest_to_revenue is not None else "N/A")
-        col3.metric("Debt Coverage", f"{result.debt_coverage_ratio:.2f}" if result.debt_coverage_ratio is not None else "N/A")
+        col1.metric(
+            "Debt/OI",
+            f"{result.debt_to_operating_income:.2f}" if result.debt_to_operating_income is not None else "N/A",
+        )
+        col2.metric(
+            "Interest/Rev", f"{result.interest_to_revenue:.2%}" if result.interest_to_revenue is not None else "N/A"
+        )
+        col3.metric(
+            "Debt Coverage", f"{result.debt_coverage_ratio:.2f}" if result.debt_coverage_ratio is not None else "N/A"
+        )
         col4.metric("Net Debt Ratio", f"{result.net_debt_ratio:.2%}" if result.net_debt_ratio is not None else "N/A")
 
         with st.expander("Details"):
             details = {
-                "Debt-to-OI (TD/OI)": f"{result.debt_to_operating_income:.4f}" if result.debt_to_operating_income is not None else "N/A",
+                "Debt-to-OI (TD/OI)": f"{result.debt_to_operating_income:.4f}"
+                if result.debt_to_operating_income is not None
+                else "N/A",
                 "Debt-to-OCF (TD/OCF)": f"{result.debt_to_ocf:.4f}" if result.debt_to_ocf is not None else "N/A",
-                "Interest-to-Revenue (IE/Rev)": f"{result.interest_to_revenue:.4f}" if result.interest_to_revenue is not None else "N/A",
-                "Debt-to-Gross Profit (TD/GP)": f"{result.debt_to_gross_profit:.4f}" if result.debt_to_gross_profit is not None else "N/A",
-                "Net Debt Ratio ((TD-Cash)/TA)": f"{result.net_debt_ratio:.4f}" if result.net_debt_ratio is not None else "N/A",
-                "Debt Coverage (EBITDA/(IE+TD*0.1))": f"{result.debt_coverage_ratio:.4f}" if result.debt_coverage_ratio is not None else "N/A",
+                "Interest-to-Revenue (IE/Rev)": f"{result.interest_to_revenue:.4f}"
+                if result.interest_to_revenue is not None
+                else "N/A",
+                "Debt-to-Gross Profit (TD/GP)": f"{result.debt_to_gross_profit:.4f}"
+                if result.debt_to_gross_profit is not None
+                else "N/A",
+                "Net Debt Ratio ((TD-Cash)/TA)": f"{result.net_debt_ratio:.4f}"
+                if result.net_debt_ratio is not None
+                else "N/A",
+                "Debt Coverage (EBITDA/(IE+TD*0.1))": f"{result.debt_coverage_ratio:.4f}"
+                if result.debt_coverage_ratio is not None
+                else "N/A",
             }
             st.table(details)
 
@@ -6004,19 +6589,40 @@ class FinancialInsightsPage:
         st.markdown(f"**Grade:** :{color}[{result.ir_grade}] &emsp; **Score:** {result.ir_score:.1f}/10")
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Net/Gross Ratio", f"{result.net_to_gross_ratio:.2f}" if result.net_to_gross_ratio is not None else "N/A")
-        col2.metric("Net/Operating", f"{result.net_to_operating_ratio:.2f}" if result.net_to_operating_ratio is not None else "N/A")
-        col3.metric("After-Tax Margin", f"{result.after_tax_margin:.2%}" if result.after_tax_margin is not None else "N/A")
-        col4.metric("NI/EBITDA", f"{result.net_to_ebitda_ratio:.2f}" if result.net_to_ebitda_ratio is not None else "N/A")
+        col1.metric(
+            "Net/Gross Ratio", f"{result.net_to_gross_ratio:.2f}" if result.net_to_gross_ratio is not None else "N/A"
+        )
+        col2.metric(
+            "Net/Operating",
+            f"{result.net_to_operating_ratio:.2f}" if result.net_to_operating_ratio is not None else "N/A",
+        )
+        col3.metric(
+            "After-Tax Margin", f"{result.after_tax_margin:.2%}" if result.after_tax_margin is not None else "N/A"
+        )
+        col4.metric(
+            "NI/EBITDA", f"{result.net_to_ebitda_ratio:.2f}" if result.net_to_ebitda_ratio is not None else "N/A"
+        )
 
         with st.expander("Details"):
             details = {
-                "Net-to-Gross Ratio (NI/GP)": f"{result.net_to_gross_ratio:.4f}" if result.net_to_gross_ratio is not None else "N/A",
-                "Net-to-Operating Ratio (NI/OI)": f"{result.net_to_operating_ratio:.4f}" if result.net_to_operating_ratio is not None else "N/A",
-                "Net-to-EBITDA Ratio (NI/EBITDA)": f"{result.net_to_ebitda_ratio:.4f}" if result.net_to_ebitda_ratio is not None else "N/A",
-                "Retention Rate (RE/NI)": f"{result.retention_rate:.4f}" if result.retention_rate is not None else "N/A",
-                "Income-to-Asset Gen (NI/TA)": f"{result.income_to_asset_generation:.4f}" if result.income_to_asset_generation is not None else "N/A",
-                "After-Tax Margin (NI/Rev)": f"{result.after_tax_margin:.4f}" if result.after_tax_margin is not None else "N/A",
+                "Net-to-Gross Ratio (NI/GP)": f"{result.net_to_gross_ratio:.4f}"
+                if result.net_to_gross_ratio is not None
+                else "N/A",
+                "Net-to-Operating Ratio (NI/OI)": f"{result.net_to_operating_ratio:.4f}"
+                if result.net_to_operating_ratio is not None
+                else "N/A",
+                "Net-to-EBITDA Ratio (NI/EBITDA)": f"{result.net_to_ebitda_ratio:.4f}"
+                if result.net_to_ebitda_ratio is not None
+                else "N/A",
+                "Retention Rate (RE/NI)": f"{result.retention_rate:.4f}"
+                if result.retention_rate is not None
+                else "N/A",
+                "Income-to-Asset Gen (NI/TA)": f"{result.income_to_asset_generation:.4f}"
+                if result.income_to_asset_generation is not None
+                else "N/A",
+                "After-Tax Margin (NI/Rev)": f"{result.after_tax_margin:.4f}"
+                if result.after_tax_margin is not None
+                else "N/A",
             }
             st.table(details)
 
@@ -6035,18 +6641,33 @@ class FinancialInsightsPage:
 
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("OI Margin", f"{result.oi_margin:.2f}" if result.oi_margin is not None else "N/A")
-            col2.metric("Rev/Assets", f"{result.revenue_to_assets:.2f}" if result.revenue_to_assets is not None else "N/A")
+            col2.metric(
+                "Rev/Assets", f"{result.revenue_to_assets:.2f}" if result.revenue_to_assets is not None else "N/A"
+            )
             col3.metric("OpEx Effic", f"{result.opex_efficiency:.2f}" if result.opex_efficiency is not None else "N/A")
-            col4.metric("OI/Liabilities", f"{result.income_per_liability:.2f}" if result.income_per_liability is not None else "N/A")
+            col4.metric(
+                "OI/Liabilities",
+                f"{result.income_per_liability:.2f}" if result.income_per_liability is not None else "N/A",
+            )
 
             with st.expander("Operational Efficiency Details"):
                 details = {
                     "OI Margin (OI/Rev)": f"{result.oi_margin:.4f}" if result.oi_margin is not None else "N/A",
-                    "Revenue/Assets": f"{result.revenue_to_assets:.4f}" if result.revenue_to_assets is not None else "N/A",
-                    "GP/Assets": f"{result.gross_profit_per_asset:.4f}" if result.gross_profit_per_asset is not None else "N/A",
-                    "OpEx Efficiency (Rev/OpEx)": f"{result.opex_efficiency:.4f}" if result.opex_efficiency is not None else "N/A",
-                    "Asset Utilization (Rev/CA)": f"{result.asset_utilization:.4f}" if result.asset_utilization is not None else "N/A",
-                    "OI/Liabilities": f"{result.income_per_liability:.4f}" if result.income_per_liability is not None else "N/A",
+                    "Revenue/Assets": f"{result.revenue_to_assets:.4f}"
+                    if result.revenue_to_assets is not None
+                    else "N/A",
+                    "GP/Assets": f"{result.gross_profit_per_asset:.4f}"
+                    if result.gross_profit_per_asset is not None
+                    else "N/A",
+                    "OpEx Efficiency (Rev/OpEx)": f"{result.opex_efficiency:.4f}"
+                    if result.opex_efficiency is not None
+                    else "N/A",
+                    "Asset Utilization (Rev/CA)": f"{result.asset_utilization:.4f}"
+                    if result.asset_utilization is not None
+                    else "N/A",
+                    "OI/Liabilities": f"{result.income_per_liability:.4f}"
+                    if result.income_per_liability is not None
+                    else "N/A",
                 }
                 st.table(details)
 
@@ -6069,16 +6690,29 @@ class FinancialInsightsPage:
             col1.metric("EBITDA Margin", f"{result.ebitda_margin:.2f}" if result.ebitda_margin is not None else "N/A")
             col2.metric("EBIT Margin", f"{result.ebit_margin:.2f}" if result.ebit_margin is not None else "N/A")
             col3.metric("OCF Margin", f"{result.ocf_margin:.2f}" if result.ocf_margin is not None else "N/A")
-            col4.metric("GP→OI Conv", f"{result.gross_to_operating_conversion:.2f}" if result.gross_to_operating_conversion is not None else "N/A")
+            col4.metric(
+                "GP→OI Conv",
+                f"{result.gross_to_operating_conversion:.2f}"
+                if result.gross_to_operating_conversion is not None
+                else "N/A",
+            )
 
             with st.expander("Operating Momentum Details"):
                 details = {
-                    "EBITDA Margin (EBITDA/Rev)": f"{result.ebitda_margin:.4f}" if result.ebitda_margin is not None else "N/A",
+                    "EBITDA Margin (EBITDA/Rev)": f"{result.ebitda_margin:.4f}"
+                    if result.ebitda_margin is not None
+                    else "N/A",
                     "EBIT Margin (EBIT/Rev)": f"{result.ebit_margin:.4f}" if result.ebit_margin is not None else "N/A",
                     "OCF Margin (OCF/Rev)": f"{result.ocf_margin:.4f}" if result.ocf_margin is not None else "N/A",
-                    "GP→OI Conversion (OI/GP)": f"{result.gross_to_operating_conversion:.4f}" if result.gross_to_operating_conversion is not None else "N/A",
-                    "Operating Cash Conversion (OCF/OI)": f"{result.operating_cash_conversion:.4f}" if result.operating_cash_conversion is not None else "N/A",
-                    "Overhead Absorption (OI/OpEx)": f"{result.overhead_absorption:.4f}" if result.overhead_absorption is not None else "N/A",
+                    "GP→OI Conversion (OI/GP)": f"{result.gross_to_operating_conversion:.4f}"
+                    if result.gross_to_operating_conversion is not None
+                    else "N/A",
+                    "Operating Cash Conversion (OCF/OI)": f"{result.operating_cash_conversion:.4f}"
+                    if result.operating_cash_conversion is not None
+                    else "N/A",
+                    "Overhead Absorption (OI/OpEx)": f"{result.overhead_absorption:.4f}"
+                    if result.overhead_absorption is not None
+                    else "N/A",
                 }
                 st.table(details)
 
@@ -6105,25 +6739,38 @@ class FinancialInsightsPage:
             st.markdown(f"**Payout Discipline Grade:** :{color}[{grade}] ({result.pd_score:.1f}/10)")
 
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Cash Div Coverage", f"{result.cash_dividend_coverage:.2f}x" if result.cash_dividend_coverage is not None else "N/A")
+            col1.metric(
+                "Cash Div Coverage",
+                f"{result.cash_dividend_coverage:.2f}x" if result.cash_dividend_coverage is not None else "N/A",
+            )
             col2.metric("Payout Ratio", f"{result.payout_ratio:.2f}" if result.payout_ratio is not None else "N/A")
-            col3.metric("CapEx Priority", f"{result.capex_priority:.2f}" if result.capex_priority is not None else "N/A")
+            col3.metric(
+                "CapEx Priority", f"{result.capex_priority:.2f}" if result.capex_priority is not None else "N/A"
+            )
             col4.metric("Retention", f"{result.retention_ratio:.2f}" if result.retention_ratio is not None else "N/A")
 
             with st.expander("Payout Discipline Details"):
                 details = {"Metric": [], "Value": []}
                 details["Metric"].append("Cash Div Coverage (OCF/Div)")
-                details["Value"].append(f"{result.cash_dividend_coverage:.4f}" if result.cash_dividend_coverage is not None else "N/A")
+                details["Value"].append(
+                    f"{result.cash_dividend_coverage:.4f}" if result.cash_dividend_coverage is not None else "N/A"
+                )
                 details["Metric"].append("Payout Ratio (Div/NI)")
                 details["Value"].append(f"{result.payout_ratio:.4f}" if result.payout_ratio is not None else "N/A")
                 details["Metric"].append("Retention Ratio ((NI-Div)/NI)")
-                details["Value"].append(f"{result.retention_ratio:.4f}" if result.retention_ratio is not None else "N/A")
+                details["Value"].append(
+                    f"{result.retention_ratio:.4f}" if result.retention_ratio is not None else "N/A"
+                )
                 details["Metric"].append("Dividend-to-OCF (Div/OCF)")
-                details["Value"].append(f"{result.dividend_to_ocf:.4f}" if result.dividend_to_ocf is not None else "N/A")
+                details["Value"].append(
+                    f"{result.dividend_to_ocf:.4f}" if result.dividend_to_ocf is not None else "N/A"
+                )
                 details["Metric"].append("CapEx Priority (CapEx/(CapEx+Div))")
                 details["Value"].append(f"{result.capex_priority:.4f}" if result.capex_priority is not None else "N/A")
                 details["Metric"].append("Free Cash After Div ((OCF-CapEx-Div)/Rev)")
-                details["Value"].append(f"{result.free_cash_after_dividends:.4f}" if result.free_cash_after_dividends is not None else "N/A")
+                details["Value"].append(
+                    f"{result.free_cash_after_dividends:.4f}" if result.free_cash_after_dividends is not None else "N/A"
+                )
                 details["Metric"].append("Score")
                 details["Value"].append(f"{result.pd_score:.1f}/10")
                 details["Metric"].append("Grade")
@@ -6151,23 +6798,41 @@ class FinancialInsightsPage:
             st.markdown(f"**Income Resilience Grade:** :{color}[{grade}] ({result.ir_score:.1f}/10)")
 
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("OI Stability", f"{result.operating_income_stability:.2f}" if result.operating_income_stability is not None else "N/A")
+            col1.metric(
+                "OI Stability",
+                f"{result.operating_income_stability:.2f}" if result.operating_income_stability is not None else "N/A",
+            )
             col2.metric("EBIT Coverage", f"{result.ebit_coverage:.2f}x" if result.ebit_coverage is not None else "N/A")
-            col3.metric("NM Resilience", f"{result.net_margin_resilience:.2f}" if result.net_margin_resilience is not None else "N/A")
-            col4.metric("EBITDA Cushion", f"{result.ebitda_cushion:.2f}x" if result.ebitda_cushion is not None else "N/A")
+            col3.metric(
+                "NM Resilience",
+                f"{result.net_margin_resilience:.2f}" if result.net_margin_resilience is not None else "N/A",
+            )
+            col4.metric(
+                "EBITDA Cushion", f"{result.ebitda_cushion:.2f}x" if result.ebitda_cushion is not None else "N/A"
+            )
 
             with st.expander("Income Resilience Details"):
                 details = {"Metric": [], "Value": []}
                 details["Metric"].append("OI Stability (OI/Rev)")
-                details["Value"].append(f"{result.operating_income_stability:.4f}" if result.operating_income_stability is not None else "N/A")
+                details["Value"].append(
+                    f"{result.operating_income_stability:.4f}"
+                    if result.operating_income_stability is not None
+                    else "N/A"
+                )
                 details["Metric"].append("EBIT Coverage (EBIT/IE)")
                 details["Value"].append(f"{result.ebit_coverage:.4f}" if result.ebit_coverage is not None else "N/A")
                 details["Metric"].append("NM Resilience (NI/OI)")
-                details["Value"].append(f"{result.net_margin_resilience:.4f}" if result.net_margin_resilience is not None else "N/A")
+                details["Value"].append(
+                    f"{result.net_margin_resilience:.4f}" if result.net_margin_resilience is not None else "N/A"
+                )
                 details["Metric"].append("Depreciation Buffer (D&A/OI)")
-                details["Value"].append(f"{result.depreciation_buffer:.4f}" if result.depreciation_buffer is not None else "N/A")
+                details["Value"].append(
+                    f"{result.depreciation_buffer:.4f}" if result.depreciation_buffer is not None else "N/A"
+                )
                 details["Metric"].append("Tax & Interest Drag ((OI-NI)/OI)")
-                details["Value"].append(f"{result.tax_interest_drag:.4f}" if result.tax_interest_drag is not None else "N/A")
+                details["Value"].append(
+                    f"{result.tax_interest_drag:.4f}" if result.tax_interest_drag is not None else "N/A"
+                )
                 details["Metric"].append("EBITDA Cushion (EBITDA/IE)")
                 details["Value"].append(f"{result.ebitda_cushion:.4f}" if result.ebitda_cushion is not None else "N/A")
                 details["Metric"].append("Score")
@@ -6197,25 +6862,43 @@ class FinancialInsightsPage:
             st.markdown(f"**Structural Strength Grade:** :{color}[{grade}] ({result.ss_score:.1f}/10)")
 
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Equity Multiplier", f"{result.equity_multiplier:.2f}x" if result.equity_multiplier is not None else "N/A")
-            col2.metric("Debt-to-Equity", f"{result.debt_to_equity:.2f}x" if result.debt_to_equity is not None else "N/A")
-            col3.metric("Equity Cushion", f"{result.equity_cushion:.2f}" if result.equity_cushion is not None else "N/A")
-            col4.metric("Fin Leverage", f"{result.financial_leverage_ratio:.2f}x" if result.financial_leverage_ratio is not None else "N/A")
+            col1.metric(
+                "Equity Multiplier",
+                f"{result.equity_multiplier:.2f}x" if result.equity_multiplier is not None else "N/A",
+            )
+            col2.metric(
+                "Debt-to-Equity", f"{result.debt_to_equity:.2f}x" if result.debt_to_equity is not None else "N/A"
+            )
+            col3.metric(
+                "Equity Cushion", f"{result.equity_cushion:.2f}" if result.equity_cushion is not None else "N/A"
+            )
+            col4.metric(
+                "Fin Leverage",
+                f"{result.financial_leverage_ratio:.2f}x" if result.financial_leverage_ratio is not None else "N/A",
+            )
 
             with st.expander("Structural Strength Details"):
                 details = {"Metric": [], "Value": []}
                 details["Metric"].append("Equity Multiplier (TA/TE)")
-                details["Value"].append(f"{result.equity_multiplier:.4f}" if result.equity_multiplier is not None else "N/A")
+                details["Value"].append(
+                    f"{result.equity_multiplier:.4f}" if result.equity_multiplier is not None else "N/A"
+                )
                 details["Metric"].append("Debt-to-Equity (TD/TE)")
                 details["Value"].append(f"{result.debt_to_equity:.4f}" if result.debt_to_equity is not None else "N/A")
                 details["Metric"].append("Liability Composition (CL/TL)")
-                details["Value"].append(f"{result.liability_composition:.4f}" if result.liability_composition is not None else "N/A")
+                details["Value"].append(
+                    f"{result.liability_composition:.4f}" if result.liability_composition is not None else "N/A"
+                )
                 details["Metric"].append("Equity Cushion ((TE-TD)/TA)")
                 details["Value"].append(f"{result.equity_cushion:.4f}" if result.equity_cushion is not None else "N/A")
                 details["Metric"].append("Fixed Asset Coverage (TE/(TA-CA))")
-                details["Value"].append(f"{result.fixed_asset_coverage:.4f}" if result.fixed_asset_coverage is not None else "N/A")
+                details["Value"].append(
+                    f"{result.fixed_asset_coverage:.4f}" if result.fixed_asset_coverage is not None else "N/A"
+                )
                 details["Metric"].append("Financial Leverage (TL/TE)")
-                details["Value"].append(f"{result.financial_leverage_ratio:.4f}" if result.financial_leverage_ratio is not None else "N/A")
+                details["Value"].append(
+                    f"{result.financial_leverage_ratio:.4f}" if result.financial_leverage_ratio is not None else "N/A"
+                )
                 details["Metric"].append("Score")
                 details["Value"].append(f"{result.ss_score:.1f}/10")
                 details["Metric"].append("Grade")
@@ -6237,13 +6920,23 @@ class FinancialInsightsPage:
 
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Gross Conv", f"{result.gross_conversion:.2%}" if result.gross_conversion is not None else "N/A")
-            c2.metric("Operating Conv", f"{result.operating_conversion:.2%}" if result.operating_conversion is not None else "N/A")
+            c2.metric(
+                "Operating Conv",
+                f"{result.operating_conversion:.2%}" if result.operating_conversion is not None else "N/A",
+            )
             c3.metric("Net Conv", f"{result.net_conversion:.2%}" if result.net_conversion is not None else "N/A")
             c4.metric("Cash Conv", f"{result.cash_conversion:.2%}" if result.cash_conversion is not None else "N/A")
 
             with st.expander(f"Profit Conversion Details — {period}"):
                 detail_data = {
-                    "Metric": ["Gross Conversion", "Operating Conversion", "Net Conversion", "EBITDA Conversion", "Cash Conversion", "Profit-to-Cash Ratio"],
+                    "Metric": [
+                        "Gross Conversion",
+                        "Operating Conversion",
+                        "Net Conversion",
+                        "EBITDA Conversion",
+                        "Cash Conversion",
+                        "Profit-to-Cash Ratio",
+                    ],
                     "Value": [
                         f"{result.gross_conversion:.4f}" if result.gross_conversion is not None else "N/A",
                         f"{result.operating_conversion:.4f}" if result.operating_conversion is not None else "N/A",
@@ -6260,6 +6953,7 @@ class FinancialInsightsPage:
     def _render_asset_deployment_efficiency(self, df: pd.DataFrame):
         """Phase 172: Asset Deployment Efficiency tab."""
         from financial_analyzer import AssetDeploymentEfficiencyResult
+
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result: AssetDeploymentEfficiencyResult = self.analyzer.asset_deployment_efficiency_analysis(fin_data)
 
@@ -6269,12 +6963,24 @@ class FinancialInsightsPage:
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Asset Turnover", f"{result.asset_turnover:.2f}" if result.asset_turnover is not None else "N/A")
-        c2.metric("Fixed Asset Lev", f"{result.fixed_asset_leverage:.2f}" if result.fixed_asset_leverage is not None else "N/A")
-        c3.metric("Income Yield", f"{result.asset_income_yield:.1%}" if result.asset_income_yield is not None else "N/A")
+        c2.metric(
+            "Fixed Asset Lev",
+            f"{result.fixed_asset_leverage:.2f}" if result.fixed_asset_leverage is not None else "N/A",
+        )
+        c3.metric(
+            "Income Yield", f"{result.asset_income_yield:.1%}" if result.asset_income_yield is not None else "N/A"
+        )
         c4.metric("Cash Yield", f"{result.asset_cash_yield:.1%}" if result.asset_cash_yield is not None else "N/A")
 
         details = {
-            "Metric": ["Asset Turnover", "Fixed Asset Leverage", "Income Yield", "Cash Yield", "Inventory Velocity", "Receivables Velocity"],
+            "Metric": [
+                "Asset Turnover",
+                "Fixed Asset Leverage",
+                "Income Yield",
+                "Cash Yield",
+                "Inventory Velocity",
+                "Receivables Velocity",
+            ],
             "Value": [
                 f"{result.asset_turnover:.4f}" if result.asset_turnover is not None else "N/A",
                 f"{result.fixed_asset_leverage:.4f}" if result.fixed_asset_leverage is not None else "N/A",
@@ -6285,6 +6991,7 @@ class FinancialInsightsPage:
             ],
         }
         import pandas as _pd
+
         with st.expander("Detail Breakdown"):
             st.table(_pd.DataFrame(details))
 
@@ -6293,6 +7000,7 @@ class FinancialInsightsPage:
     def _render_profit_sustainability(self, df: pd.DataFrame):
         """Phase 171: Profit Sustainability tab."""
         from financial_analyzer import ProfitSustainabilityResult
+
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result: ProfitSustainabilityResult = self.analyzer.profit_sustainability_analysis(fin_data)
 
@@ -6301,13 +7009,26 @@ class FinancialInsightsPage:
         st.markdown(f"### Profit Sustainability: :{color}[{result.ps_grade}] ({result.ps_score:.1f}/10)")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Cash Backing", f"{result.profit_cash_backing:.2f}" if result.profit_cash_backing is not None else "N/A")
-        c2.metric("Margin Depth", f"{result.profit_margin_depth:.1%}" if result.profit_margin_depth is not None else "N/A")
-        c3.metric("Reinvestment", f"{result.profit_reinvestment:.1%}" if result.profit_reinvestment is not None else "N/A")
+        c1.metric(
+            "Cash Backing", f"{result.profit_cash_backing:.2f}" if result.profit_cash_backing is not None else "N/A"
+        )
+        c2.metric(
+            "Margin Depth", f"{result.profit_margin_depth:.1%}" if result.profit_margin_depth is not None else "N/A"
+        )
+        c3.metric(
+            "Reinvestment", f"{result.profit_reinvestment:.1%}" if result.profit_reinvestment is not None else "N/A"
+        )
         c4.metric("Profit/Asset", f"{result.profit_to_asset:.1%}" if result.profit_to_asset is not None else "N/A")
 
         details = {
-            "Metric": ["Cash Backing", "Margin Depth", "Reinvestment", "Profit/Asset", "Stability Proxy", "Profit Leverage"],
+            "Metric": [
+                "Cash Backing",
+                "Margin Depth",
+                "Reinvestment",
+                "Profit/Asset",
+                "Stability Proxy",
+                "Profit Leverage",
+            ],
             "Value": [
                 f"{result.profit_cash_backing:.4f}" if result.profit_cash_backing is not None else "N/A",
                 f"{result.profit_margin_depth:.4f}" if result.profit_margin_depth is not None else "N/A",
@@ -6318,6 +7039,7 @@ class FinancialInsightsPage:
             ],
         }
         import pandas as _pd
+
         with st.expander("Detail Breakdown"):
             st.table(_pd.DataFrame(details))
 
@@ -6326,6 +7048,7 @@ class FinancialInsightsPage:
     def _render_debt_discipline(self, df: pd.DataFrame):
         """Phase 170: Debt Discipline tab."""
         from financial_analyzer import DebtDisciplineResult
+
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result: DebtDisciplineResult = self.analyzer.debt_discipline_analysis(fin_data)
 
@@ -6334,13 +7057,31 @@ class FinancialInsightsPage:
         st.markdown(f"### Debt Discipline: :{color}[{result.dd_grade}] ({result.dd_score:.1f}/10)")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Debt Prudence", f"{result.debt_prudence_ratio:.1%}" if result.debt_prudence_ratio is not None else "N/A")
-        c2.metric("Servicing Power", f"{result.debt_servicing_power:.2f}" if result.debt_servicing_power is not None else "N/A")
-        c3.metric("Coverage Spread", f"{result.debt_coverage_spread:.2f}" if result.debt_coverage_spread is not None else "N/A")
-        c4.metric("D/E Leverage", f"{result.debt_to_equity_leverage:.2f}" if result.debt_to_equity_leverage is not None else "N/A")
+        c1.metric(
+            "Debt Prudence", f"{result.debt_prudence_ratio:.1%}" if result.debt_prudence_ratio is not None else "N/A"
+        )
+        c2.metric(
+            "Servicing Power",
+            f"{result.debt_servicing_power:.2f}" if result.debt_servicing_power is not None else "N/A",
+        )
+        c3.metric(
+            "Coverage Spread",
+            f"{result.debt_coverage_spread:.2f}" if result.debt_coverage_spread is not None else "N/A",
+        )
+        c4.metric(
+            "D/E Leverage",
+            f"{result.debt_to_equity_leverage:.2f}" if result.debt_to_equity_leverage is not None else "N/A",
+        )
 
         details = {
-            "Metric": ["Debt Prudence", "Servicing Power", "Coverage Spread", "D/E Leverage", "Interest Absorption", "Repayment Capacity"],
+            "Metric": [
+                "Debt Prudence",
+                "Servicing Power",
+                "Coverage Spread",
+                "D/E Leverage",
+                "Interest Absorption",
+                "Repayment Capacity",
+            ],
             "Value": [
                 f"{result.debt_prudence_ratio:.4f}" if result.debt_prudence_ratio is not None else "N/A",
                 f"{result.debt_servicing_power:.4f}" if result.debt_servicing_power is not None else "N/A",
@@ -6351,6 +7092,7 @@ class FinancialInsightsPage:
             ],
         }
         import pandas as _pd
+
         with st.expander("Detail Breakdown"):
             st.table(_pd.DataFrame(details))
 
@@ -6359,6 +7101,7 @@ class FinancialInsightsPage:
     def _render_capital_preservation(self, df: pd.DataFrame):
         """Phase 168: Capital Preservation tab."""
         from financial_analyzer import CapitalPreservationResult
+
         fin_data = self.analyzer._dataframe_to_financial_data(df)
         result: CapitalPreservationResult = self.analyzer.capital_preservation_analysis(fin_data)
 
@@ -6367,13 +7110,31 @@ class FinancialInsightsPage:
         st.markdown(f"### Capital Preservation: :{color}[{result.cp_grade}] ({result.cp_score:.1f}/10)")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("RE Power", f"{result.retained_earnings_power:.1%}" if result.retained_earnings_power is not None else "N/A")
-        c2.metric("Capital Erosion", f"{result.capital_erosion_rate:.2f}" if result.capital_erosion_rate is not None else "N/A")
-        c3.metric("Asset Integrity", f"{result.asset_integrity_ratio:.1%}" if result.asset_integrity_ratio is not None else "N/A")
-        c4.metric("Op Capital Ratio", f"{result.operating_capital_ratio:.2f}" if result.operating_capital_ratio is not None else "N/A")
+        c1.metric(
+            "RE Power", f"{result.retained_earnings_power:.1%}" if result.retained_earnings_power is not None else "N/A"
+        )
+        c2.metric(
+            "Capital Erosion",
+            f"{result.capital_erosion_rate:.2f}" if result.capital_erosion_rate is not None else "N/A",
+        )
+        c3.metric(
+            "Asset Integrity",
+            f"{result.asset_integrity_ratio:.1%}" if result.asset_integrity_ratio is not None else "N/A",
+        )
+        c4.metric(
+            "Op Capital Ratio",
+            f"{result.operating_capital_ratio:.2f}" if result.operating_capital_ratio is not None else "N/A",
+        )
 
         details = {
-            "Metric": ["RE Power", "Capital Erosion Rate", "Asset Integrity", "Op Capital Ratio", "NW Growth Proxy", "Capital Buffer"],
+            "Metric": [
+                "RE Power",
+                "Capital Erosion Rate",
+                "Asset Integrity",
+                "Op Capital Ratio",
+                "NW Growth Proxy",
+                "Capital Buffer",
+            ],
             "Value": [
                 f"{result.retained_earnings_power:.4f}" if result.retained_earnings_power is not None else "N/A",
                 f"{result.capital_erosion_rate:.4f}" if result.capital_erosion_rate is not None else "N/A",
@@ -6384,6 +7145,7 @@ class FinancialInsightsPage:
             ],
         }
         import pandas as _pd
+
         with st.expander("Detail Breakdown"):
             st.table(_pd.DataFrame(details))
 
@@ -6391,21 +7153,33 @@ class FinancialInsightsPage:
 
     def _render_obligation_coverage(self, df: pd.DataFrame):
         """Phase 160: Obligation Coverage tab."""
-        from financial_analyzer import ObligationCoverageResult
         st.subheader("Obligation Coverage Analysis")
         fd = self.analyzer._dataframe_to_financial_data(df)
         analyzer = self.analyzer
         result = self.analyzer.obligation_coverage_analysis(fd)
 
         if result.oc_grade:
-            color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.oc_grade, "gray")
+            color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.oc_grade, "gray"
+            )
             st.markdown(f"**Grade:** :{color}[{result.oc_grade}] &nbsp; **Score:** {result.oc_score:.1f}/10")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("EBITDA Interest Coverage", f"{result.ebitda_interest_coverage:.2f}x" if result.ebitda_interest_coverage is not None else "N/A")
-        c2.metric("Cash Interest Coverage", f"{result.cash_interest_coverage:.2f}x" if result.cash_interest_coverage is not None else "N/A")
-        c3.metric("Fixed Charge Coverage", f"{result.fixed_charge_coverage:.2f}x" if result.fixed_charge_coverage is not None else "N/A")
-        c4.metric("Debt Burden Ratio", f"{result.debt_burden_ratio:.2f}x" if result.debt_burden_ratio is not None else "N/A")
+        c1.metric(
+            "EBITDA Interest Coverage",
+            f"{result.ebitda_interest_coverage:.2f}x" if result.ebitda_interest_coverage is not None else "N/A",
+        )
+        c2.metric(
+            "Cash Interest Coverage",
+            f"{result.cash_interest_coverage:.2f}x" if result.cash_interest_coverage is not None else "N/A",
+        )
+        c3.metric(
+            "Fixed Charge Coverage",
+            f"{result.fixed_charge_coverage:.2f}x" if result.fixed_charge_coverage is not None else "N/A",
+        )
+        c4.metric(
+            "Debt Burden Ratio", f"{result.debt_burden_ratio:.2f}x" if result.debt_burden_ratio is not None else "N/A"
+        )
 
         with st.expander("Details", expanded=False):
             details = {"Metric": [], "Value": []}
@@ -6429,20 +7203,30 @@ class FinancialInsightsPage:
 
     def _render_internal_growth_capacity(self, df: pd.DataFrame):
         """Phase 159: Internal Growth Capacity tab."""
-        from financial_analyzer import InternalGrowthCapacityResult
         st.subheader("Internal Growth Capacity Analysis")
         fd = self.analyzer._dataframe_to_financial_data(df)
         analyzer = self.analyzer
         result = self.analyzer.internal_growth_capacity_analysis(fd)
 
         if result.igc_grade:
-            color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.igc_grade, "gray")
+            color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+                result.igc_grade, "gray"
+            )
             st.markdown(f"**Grade:** :{color}[{result.igc_grade}] &nbsp; **Score:** {result.igc_score:.1f}/10")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Sustainable Growth Rate", f"{result.sustainable_growth_rate:.2%}" if result.sustainable_growth_rate is not None else "N/A")
-        c2.metric("Internal Growth Rate", f"{result.internal_growth_rate:.2%}" if result.internal_growth_rate is not None else "N/A")
-        c3.metric("Growth Financing Ratio", f"{result.growth_financing_ratio:.2f}x" if result.growth_financing_ratio is not None else "N/A")
+        c1.metric(
+            "Sustainable Growth Rate",
+            f"{result.sustainable_growth_rate:.2%}" if result.sustainable_growth_rate is not None else "N/A",
+        )
+        c2.metric(
+            "Internal Growth Rate",
+            f"{result.internal_growth_rate:.2%}" if result.internal_growth_rate is not None else "N/A",
+        )
+        c3.metric(
+            "Growth Financing Ratio",
+            f"{result.growth_financing_ratio:.2f}x" if result.growth_financing_ratio is not None else "N/A",
+        )
         c4.metric("Plowback Ratio", f"{result.plowback_ratio:.2%}" if result.plowback_ratio is not None else "N/A")
 
         with st.expander("Details", expanded=False):
@@ -6467,12 +7251,19 @@ class FinancialInsightsPage:
 
     def _render_liability_management(self, df: pd.DataFrame):
         """Render Phase 146: Liability Management tab."""
-        from financial_analyzer import FinancialData
         for _, row in df.iterrows():
             period = row.get("Period", "N/A")
             fd = self._row_to_financial_data(row)
             result = self.analyzer.liability_management_analysis(fd)
-            color = "green" if result.lm_grade == "Excellent" else "blue" if result.lm_grade == "Good" else "orange" if result.lm_grade == "Adequate" else "red"
+            color = (
+                "green"
+                if result.lm_grade == "Excellent"
+                else "blue"
+                if result.lm_grade == "Good"
+                else "orange"
+                if result.lm_grade == "Adequate"
+                else "red"
+            )
             st.markdown(f"### {period} — Liability Management: :{color}[{result.lm_grade}] ({result.lm_score}/10)")
             c1, c2, c3, c4 = st.columns(4)
             _pct = lambda v: f"{v:.1%}" if v is not None else "N/A"
@@ -6482,20 +7273,41 @@ class FinancialInsightsPage:
             c3.metric("Liab Coverage", _r2(result.liability_coverage))
             c4.metric("Net Liability", _pct(result.net_liability))
             detail = {
-                "Metric": ["Liab/Assets", "Liab/Equity", "Current Liab Ratio", "Liab Coverage", "Liab/Revenue", "Net Liability"],
-                "Value": [_pct(result.liability_to_assets), _r2(result.liability_to_equity), _pct(result.current_liability_ratio), _r2(result.liability_coverage), _r2(result.liability_to_revenue), _pct(result.net_liability)],
+                "Metric": [
+                    "Liab/Assets",
+                    "Liab/Equity",
+                    "Current Liab Ratio",
+                    "Liab Coverage",
+                    "Liab/Revenue",
+                    "Net Liability",
+                ],
+                "Value": [
+                    _pct(result.liability_to_assets),
+                    _r2(result.liability_to_equity),
+                    _pct(result.current_liability_ratio),
+                    _r2(result.liability_coverage),
+                    _r2(result.liability_to_revenue),
+                    _pct(result.net_liability),
+                ],
             }
             st.table(detail)
             st.caption(result.summary)
 
     def _render_revenue_predictability(self, df: pd.DataFrame):
         """Render Phase 142: Revenue Predictability tab."""
-        from financial_analyzer import FinancialData
         for _, row in df.iterrows():
             period = row.get("Period", "N/A")
             fd = self._row_to_financial_data(row)
             result = self.analyzer.revenue_predictability_analysis(fd)
-            color = "green" if result.rp_grade == "Excellent" else "blue" if result.rp_grade == "Good" else "orange" if result.rp_grade == "Adequate" else "red"
+            color = (
+                "green"
+                if result.rp_grade == "Excellent"
+                else "blue"
+                if result.rp_grade == "Good"
+                else "orange"
+                if result.rp_grade == "Adequate"
+                else "red"
+            )
             st.markdown(f"### {period} — Revenue Predictability: :{color}[{result.rp_grade}] ({result.rp_score}/10)")
             c1, c2, c3, c4 = st.columns(4)
             _pct = lambda v: f"{v:.1%}" if v is not None else "N/A"
@@ -6505,20 +7317,41 @@ class FinancialInsightsPage:
             c3.metric("Net Margin", _pct(result.net_margin))
             c4.metric("Rev/Assets", _r2(result.revenue_to_assets))
             detail = {
-                "Metric": ["Revenue/Assets", "Revenue/Equity", "Revenue/Debt", "Gross Margin", "Operating Margin", "Net Margin"],
-                "Value": [_r2(result.revenue_to_assets), _r2(result.revenue_to_equity), _r2(result.revenue_to_debt), _pct(result.gross_margin), _pct(result.operating_margin), _pct(result.net_margin)],
+                "Metric": [
+                    "Revenue/Assets",
+                    "Revenue/Equity",
+                    "Revenue/Debt",
+                    "Gross Margin",
+                    "Operating Margin",
+                    "Net Margin",
+                ],
+                "Value": [
+                    _r2(result.revenue_to_assets),
+                    _r2(result.revenue_to_equity),
+                    _r2(result.revenue_to_debt),
+                    _pct(result.gross_margin),
+                    _pct(result.operating_margin),
+                    _pct(result.net_margin),
+                ],
             }
             st.table(detail)
             st.caption(result.summary)
 
     def _render_equity_reinvestment(self, df: pd.DataFrame):
         """Render Phase 139: Equity Reinvestment tab."""
-        from financial_analyzer import FinancialData
         for _, row in df.iterrows():
             period = row.get("Period", "N/A")
             fd = self._row_to_financial_data(row)
             result = self.analyzer.equity_reinvestment_analysis(fd)
-            color = "green" if result.er_grade == "Excellent" else "blue" if result.er_grade == "Good" else "orange" if result.er_grade == "Adequate" else "red"
+            color = (
+                "green"
+                if result.er_grade == "Excellent"
+                else "blue"
+                if result.er_grade == "Good"
+                else "orange"
+                if result.er_grade == "Adequate"
+                else "red"
+            )
             st.markdown(f"### {period} — Equity Reinvestment: :{color}[{result.er_grade}] ({result.er_score}/10)")
             c1, c2, c3, c4 = st.columns(4)
             _pct = lambda v: f"{v:.1%}" if v is not None else "N/A"
@@ -6528,20 +7361,41 @@ class FinancialInsightsPage:
             c3.metric("Equity Growth Proxy", _pct(result.equity_growth_proxy))
             c4.metric("Div Coverage", _r2(result.dividend_coverage))
             detail = {
-                "Metric": ["Retention Ratio", "Reinvestment Rate", "Equity Growth Proxy", "Plowback/Assets", "Internal Growth Rate", "Dividend Coverage"],
-                "Value": [_pct(result.retention_ratio), _pct(result.reinvestment_rate), _pct(result.equity_growth_proxy), _pct(result.plowback_to_assets), _pct(result.internal_growth_rate), _r2(result.dividend_coverage)],
+                "Metric": [
+                    "Retention Ratio",
+                    "Reinvestment Rate",
+                    "Equity Growth Proxy",
+                    "Plowback/Assets",
+                    "Internal Growth Rate",
+                    "Dividend Coverage",
+                ],
+                "Value": [
+                    _pct(result.retention_ratio),
+                    _pct(result.reinvestment_rate),
+                    _pct(result.equity_growth_proxy),
+                    _pct(result.plowback_to_assets),
+                    _pct(result.internal_growth_rate),
+                    _r2(result.dividend_coverage),
+                ],
             }
             st.table(detail)
             st.caption(result.summary)
 
     def _render_fixed_asset_efficiency(self, df: pd.DataFrame):
         """Render Phase 138: Fixed Asset Efficiency tab."""
-        from financial_analyzer import FinancialData
         for _, row in df.iterrows():
             period = row.get("Period", "N/A")
             fd = self._row_to_financial_data(row)
             result = self.analyzer.fixed_asset_efficiency_analysis(fd)
-            color = "green" if result.fae_grade == "Excellent" else "blue" if result.fae_grade == "Good" else "orange" if result.fae_grade == "Adequate" else "red"
+            color = (
+                "green"
+                if result.fae_grade == "Excellent"
+                else "blue"
+                if result.fae_grade == "Good"
+                else "orange"
+                if result.fae_grade == "Adequate"
+                else "red"
+            )
             st.markdown(f"### {period} — Fixed Asset Efficiency: :{color}[{result.fae_grade}] ({result.fae_score}/10)")
             c1, c2, c3, c4 = st.columns(4)
             _pct = lambda v: f"{v:.1%}" if v is not None else "N/A"
@@ -6552,14 +7406,20 @@ class FinancialInsightsPage:
             c4.metric("CapEx/FA", _pct(result.capex_to_fixed))
             detail = {
                 "Metric": ["Fixed Asset Ratio", "FA Turnover", "Fixed/Equity", "FA Coverage", "Depr/FA", "CapEx/FA"],
-                "Value": [_pct(result.fixed_asset_ratio), _r2(result.fixed_asset_turnover), _r2(result.fixed_to_equity), _r2(result.fixed_asset_coverage), _pct(result.depreciation_to_fixed), _pct(result.capex_to_fixed)],
+                "Value": [
+                    _pct(result.fixed_asset_ratio),
+                    _r2(result.fixed_asset_turnover),
+                    _r2(result.fixed_to_equity),
+                    _r2(result.fixed_asset_coverage),
+                    _pct(result.depreciation_to_fixed),
+                    _pct(result.capex_to_fixed),
+                ],
             }
             st.table(detail)
             st.caption(result.summary)
 
     def _render_funding_efficiency(self, df: pd.DataFrame):
         """Render Phase 131: Funding Efficiency Analysis."""
-        from financial_analyzer import FundingEfficiencyResult
         rows = df.to_dict("records")
         if not rows:
             st.warning("No data available for Funding Efficiency analysis.")
@@ -6568,7 +7428,15 @@ class FinancialInsightsPage:
             period = row.get("Period", "N/A")
             fd = self._row_to_financial_data(row)
             result = self.analyzer.funding_efficiency_analysis(fd)
-            color = "green" if result.fe_grade == "Excellent" else "blue" if result.fe_grade == "Good" else "orange" if result.fe_grade == "Adequate" else "red"
+            color = (
+                "green"
+                if result.fe_grade == "Excellent"
+                else "blue"
+                if result.fe_grade == "Good"
+                else "orange"
+                if result.fe_grade == "Adequate"
+                else "red"
+            )
             st.markdown(f"### {period} — Funding Efficiency: :{color}[{result.fe_grade}] ({result.fe_score}/10)")
 
             c1, c2, c3, c4 = st.columns(4)
@@ -6610,11 +7478,22 @@ class FinancialInsightsPage:
         c4.metric("CF Sufficiency", _r2(result.cash_flow_sufficiency))
 
         detail = {
-            "Metric": ["OCF Margin", "OCF/EBITDA", "OCF/Debt Service",
-                        "CapEx/OCF", "Dividend Coverage", "Cash Flow Sufficiency"],
-            "Value": [_pct(result.ocf_margin), _r2(result.ocf_to_ebitda),
-                      f"{_r2(result.ocf_to_debt_service)}x", _pct(result.capex_to_ocf),
-                      f"{_r2(result.dividend_coverage)}x", _r2(result.cash_flow_sufficiency)],
+            "Metric": [
+                "OCF Margin",
+                "OCF/EBITDA",
+                "OCF/Debt Service",
+                "CapEx/OCF",
+                "Dividend Coverage",
+                "Cash Flow Sufficiency",
+            ],
+            "Value": [
+                _pct(result.ocf_margin),
+                _r2(result.ocf_to_ebitda),
+                f"{_r2(result.ocf_to_debt_service)}x",
+                _pct(result.capex_to_ocf),
+                f"{_r2(result.dividend_coverage)}x",
+                _r2(result.cash_flow_sufficiency),
+            ],
         }
         st.dataframe(pd.DataFrame(detail), use_container_width=True, hide_index=True)
 
@@ -6638,11 +7517,22 @@ class FinancialInsightsPage:
         c4.metric("Earnings Persistence", _pct(result.earnings_persistence))
 
         detail = {
-            "Metric": ["OCF/Net Income", "Accruals Ratio", "Cash Earnings Ratio",
-                        "Non-Cash Ratio", "Earnings Persistence", "Operating Income Ratio"],
-            "Value": [_r2(result.ocf_to_net_income), _pct(result.accruals_ratio),
-                      _r2(result.cash_earnings_ratio), _r2(result.non_cash_ratio),
-                      _pct(result.earnings_persistence), _r2(result.operating_income_ratio)],
+            "Metric": [
+                "OCF/Net Income",
+                "Accruals Ratio",
+                "Cash Earnings Ratio",
+                "Non-Cash Ratio",
+                "Earnings Persistence",
+                "Operating Income Ratio",
+            ],
+            "Value": [
+                _r2(result.ocf_to_net_income),
+                _pct(result.accruals_ratio),
+                _r2(result.cash_earnings_ratio),
+                _r2(result.non_cash_ratio),
+                _pct(result.earnings_persistence),
+                _r2(result.operating_income_ratio),
+            ],
         }
         st.dataframe(pd.DataFrame(detail), use_container_width=True, hide_index=True)
 
@@ -6657,7 +7547,6 @@ class FinancialInsightsPage:
 
     def _render_receivables_management(self, df: pd.DataFrame):
         """Render Phase 114: Receivables Management Analysis."""
-        from financial_analyzer import ReceivablesManagementResult
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.receivables_management_analysis(fd)
         grade_colors = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}
@@ -6683,7 +7572,6 @@ class FinancialInsightsPage:
 
     def _render_solvency_depth(self, df: pd.DataFrame):
         """Render Phase 109: Solvency Depth Analysis."""
-        from financial_analyzer import SolvencyDepthResult
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.solvency_depth_analysis(fd)
         grade_colors = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}
@@ -6708,10 +7596,11 @@ class FinancialInsightsPage:
 
     def _render_operational_leverage_depth(self, df: pd.DataFrame):
         """Render Phase 105: Operational Leverage Depth tab."""
-        from financial_analyzer import OperationalLeverageDepthResult
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.operational_leverage_depth_analysis(fd)
-        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.old_grade, "gray")
+        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+            result.old_grade, "gray"
+        )
         st.markdown(f"### Operational Leverage Depth: :{grade_color}[{result.old_grade}] ({result.old_score}/10)")
         c1, c2, c3, c4 = st.columns(4)
         _pct = lambda v: f"{v:.1%}" if v is not None else "N/A"
@@ -6733,7 +7622,6 @@ class FinancialInsightsPage:
 
     def _render_profitability_depth(self, df: pd.DataFrame):
         """Phase 103: Profitability Depth tab."""
-        from financial_analyzer import ProfitabilityDepthResult
         analyzer = self.analyzer
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.profitability_depth_analysis(fd)
@@ -6742,7 +7630,9 @@ class FinancialInsightsPage:
         st.markdown(f"**Profitability Depth Grade:** :{color}[{result.pd_grade}] ({result.pd_score}/10)")
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Gross Margin", f"{result.gross_margin:.1%}" if result.gross_margin is not None else "N/A")
-        c2.metric("Operating Margin", f"{result.operating_margin:.1%}" if result.operating_margin is not None else "N/A")
+        c2.metric(
+            "Operating Margin", f"{result.operating_margin:.1%}" if result.operating_margin is not None else "N/A"
+        )
         c3.metric("Net Margin", f"{result.net_margin:.1%}" if result.net_margin is not None else "N/A")
         c4.metric("EBITDA Margin", f"{result.ebitda_margin:.1%}" if result.ebitda_margin is not None else "N/A")
         details = {
@@ -6755,7 +7645,6 @@ class FinancialInsightsPage:
 
     def _render_revenue_efficiency(self, df: pd.DataFrame):
         """Phase 102: Revenue Efficiency tab."""
-        from financial_analyzer import RevenueEfficiencyResult
         analyzer = self.analyzer
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.revenue_efficiency_analysis(fd)
@@ -6763,9 +7652,18 @@ class FinancialInsightsPage:
         color = grade_colors.get(result.rev_eff_grade, "gray")
         st.markdown(f"**Revenue Efficiency Grade:** :{color}[{result.rev_eff_grade}] ({result.rev_eff_score}/10)")
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Cash Conversion", f"{result.cash_conversion_efficiency:.1%}" if result.cash_conversion_efficiency is not None else "N/A")
-        c2.metric("Gross Margin", f"{result.gross_margin_efficiency:.1%}" if result.gross_margin_efficiency is not None else "N/A")
-        c3.metric("Op Leverage", f"{result.operating_leverage_ratio:.2f}" if result.operating_leverage_ratio is not None else "N/A")
+        c1.metric(
+            "Cash Conversion",
+            f"{result.cash_conversion_efficiency:.1%}" if result.cash_conversion_efficiency is not None else "N/A",
+        )
+        c2.metric(
+            "Gross Margin",
+            f"{result.gross_margin_efficiency:.1%}" if result.gross_margin_efficiency is not None else "N/A",
+        )
+        c3.metric(
+            "Op Leverage",
+            f"{result.operating_leverage_ratio:.2f}" if result.operating_leverage_ratio is not None else "N/A",
+        )
         c4.metric("Rev/Equity", f"{result.revenue_to_equity:.2f}x" if result.revenue_to_equity is not None else "N/A")
         details = {
             "Revenue/Assets": result.revenue_per_asset,
@@ -6777,7 +7675,6 @@ class FinancialInsightsPage:
 
     def _render_debt_composition(self, df: pd.DataFrame):
         """Phase 101: Debt Composition tab."""
-        from financial_analyzer import DebtCompositionResult
         analyzer = self.analyzer
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.debt_composition_analysis(fd)
@@ -6788,7 +7685,10 @@ class FinancialInsightsPage:
         c1.metric("Debt/Equity", f"{result.debt_to_equity:.2f}x" if result.debt_to_equity is not None else "N/A")
         c2.metric("Debt/Assets", f"{result.debt_to_assets:.1%}" if result.debt_to_assets is not None else "N/A")
         c3.metric("Interest Burden", f"{result.interest_burden:.1%}" if result.interest_burden is not None else "N/A")
-        c4.metric("Coverage Margin", f"{result.debt_coverage_margin:.2f}" if result.debt_coverage_margin is not None else "N/A")
+        c4.metric(
+            "Coverage Margin",
+            f"{result.debt_coverage_margin:.2f}" if result.debt_coverage_margin is not None else "N/A",
+        )
         details = {
             "Long-term Debt Ratio": result.long_term_debt_ratio,
             "Debt Cost Ratio": result.debt_cost_ratio,
@@ -6799,7 +7699,6 @@ class FinancialInsightsPage:
 
     def _render_operational_risk(self, df: pd.DataFrame):
         """Phase 92: Operational Risk tab."""
-        from financial_analyzer import OperationalRiskResult
         analyzer = self.analyzer
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.operational_risk_analysis(fd)
@@ -6807,7 +7706,9 @@ class FinancialInsightsPage:
         color = grade_colors.get(result.or_grade, "gray")
         st.markdown(f"**Operational Risk Grade:** :{color}[{result.or_grade}] ({result.or_score}/10)")
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Margin of Safety", f"{result.margin_of_safety:.1%}" if result.margin_of_safety is not None else "N/A")
+        c1.metric(
+            "Margin of Safety", f"{result.margin_of_safety:.1%}" if result.margin_of_safety is not None else "N/A"
+        )
         c2.metric("Cost Rigidity", f"{result.cost_rigidity:.1%}" if result.cost_rigidity is not None else "N/A")
         c3.metric("Risk Buffer", f"{result.risk_buffer:.2f}x" if result.risk_buffer is not None else "N/A")
         c4.metric("Cash Burn Ratio", f"{result.cash_burn_ratio:.2f}" if result.cash_burn_ratio is not None else "N/A")
@@ -6821,7 +7722,6 @@ class FinancialInsightsPage:
 
     def _render_financial_health_score(self, df: pd.DataFrame):
         """Phase 90: Financial Health Score tab."""
-        from financial_analyzer import FinancialHealthScoreResult
         analyzer = self.analyzer
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.financial_health_score_analysis(fd)
@@ -6829,7 +7729,9 @@ class FinancialInsightsPage:
         color = grade_colors.get(result.fh_grade, "gray")
         st.markdown(f"**Financial Health Grade:** :{color}[{result.fh_grade}] ({result.fh_score}/10)")
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Profitability", f"{result.profitability_score:.1f}" if result.profitability_score is not None else "N/A")
+        c1.metric(
+            "Profitability", f"{result.profitability_score:.1f}" if result.profitability_score is not None else "N/A"
+        )
         c2.metric("Liquidity", f"{result.liquidity_score:.1f}" if result.liquidity_score is not None else "N/A")
         c3.metric("Solvency", f"{result.solvency_score:.1f}" if result.solvency_score is not None else "N/A")
         c4.metric("Composite", f"{result.composite_score:.1f}" if result.composite_score is not None else "N/A")
@@ -6844,16 +7746,26 @@ class FinancialInsightsPage:
     def _render_asset_quality(self, df: pd.DataFrame):
         """Phase 86: Asset Quality Analysis tab."""
         from financial_analyzer import AssetQualityResult
+
         fd = self.analyzer._dataframe_to_financial_data(df)
         result: AssetQualityResult = self.analyzer.asset_quality_analysis(fd)
 
-        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.aq_grade, "gray")
+        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+            result.aq_grade, "gray"
+        )
         st.markdown(f"**Grade:** :{grade_color}[{result.aq_grade}] | **Score:** {result.aq_score:.1f}/10")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Current Asset Ratio", f"{result.current_asset_ratio:.1%}" if result.current_asset_ratio is not None else "N/A")
-        c2.metric("Fixed Asset Ratio", f"{result.fixed_asset_ratio:.1%}" if result.fixed_asset_ratio is not None else "N/A")
-        c3.metric("Cash/CA", f"{result.cash_to_current_assets:.1%}" if result.cash_to_current_assets is not None else "N/A")
+        c1.metric(
+            "Current Asset Ratio",
+            f"{result.current_asset_ratio:.1%}" if result.current_asset_ratio is not None else "N/A",
+        )
+        c2.metric(
+            "Fixed Asset Ratio", f"{result.fixed_asset_ratio:.1%}" if result.fixed_asset_ratio is not None else "N/A"
+        )
+        c3.metric(
+            "Cash/CA", f"{result.cash_to_current_assets:.1%}" if result.cash_to_current_assets is not None else "N/A"
+        )
         c4.metric("AR/TA", f"{result.receivables_to_assets:.1%}" if result.receivables_to_assets is not None else "N/A")
 
         details = {"Metric": [], "Value": []}
@@ -6876,17 +7788,25 @@ class FinancialInsightsPage:
     def _render_financial_resilience(self, df: pd.DataFrame):
         """Phase 82: Financial Resilience Analysis tab."""
         from financial_analyzer import FinancialResilienceResult
+
         fd = self.analyzer._dataframe_to_financial_data(df)
         result: FinancialResilienceResult = self.analyzer.financial_resilience_analysis(fd)
 
-        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.fr_grade, "gray")
+        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+            result.fr_grade, "gray"
+        )
         st.markdown(f"**Grade:** :{grade_color}[{result.fr_grade}] | **Score:** {result.fr_score:.1f}/10")
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Cash/Assets", f"{result.cash_to_assets:.1%}" if result.cash_to_assets is not None else "N/A")
         c2.metric("Cash/Debt", f"{result.cash_to_debt:.2f}x" if result.cash_to_debt is not None else "N/A")
-        c3.metric("OCF Coverage", f"{result.operating_cash_coverage:.2f}x" if result.operating_cash_coverage is not None else "N/A")
-        c4.metric("Resilience Buffer", f"{result.resilience_buffer:.2f}x" if result.resilience_buffer is not None else "N/A")
+        c3.metric(
+            "OCF Coverage",
+            f"{result.operating_cash_coverage:.2f}x" if result.operating_cash_coverage is not None else "N/A",
+        )
+        c4.metric(
+            "Resilience Buffer", f"{result.resilience_buffer:.2f}x" if result.resilience_buffer is not None else "N/A"
+        )
 
         details = {"Metric": [], "Value": []}
         for label, val, fmt in [
@@ -6908,14 +7828,19 @@ class FinancialInsightsPage:
     def _render_equity_multiplier(self, df: pd.DataFrame):
         """Phase 81: Equity Multiplier Analysis tab."""
         from financial_analyzer import EquityMultiplierResult
+
         fd = self.analyzer._dataframe_to_financial_data(df)
         result: EquityMultiplierResult = self.analyzer.equity_multiplier_analysis(fd)
 
-        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.em_grade, "gray")
+        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+            result.em_grade, "gray"
+        )
         st.markdown(f"**Grade:** :{grade_color}[{result.em_grade}] | **Score:** {result.em_score:.1f}/10")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Equity Multiplier", f"{result.equity_multiplier:.2f}x" if result.equity_multiplier is not None else "N/A")
+        c1.metric(
+            "Equity Multiplier", f"{result.equity_multiplier:.2f}x" if result.equity_multiplier is not None else "N/A"
+        )
         c2.metric("Debt Ratio", f"{result.debt_ratio:.1%}" if result.debt_ratio is not None else "N/A")
         c3.metric("Equity Ratio", f"{result.equity_ratio:.1%}" if result.equity_ratio is not None else "N/A")
         c4.metric("DuPont ROE", f"{result.dupont_roe:.2%}" if result.dupont_roe is not None else "N/A")
@@ -6940,17 +7865,31 @@ class FinancialInsightsPage:
     def _render_defensive_interval(self, df: pd.DataFrame):
         """Phase 80: Defensive Interval Analysis tab."""
         from financial_analyzer import DefensiveIntervalResult
+
         fd = self.analyzer._dataframe_to_financial_data(df)
         result: DefensiveIntervalResult = self.analyzer.defensive_interval_analysis(fd)
 
-        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.di_grade, "gray")
+        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+            result.di_grade, "gray"
+        )
         st.markdown(f"### Defensive Interval &mdash; :{grade_color}[{result.di_grade}] ({result.di_score}/10)")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Defensive Interval", f"{result.defensive_interval_days:.0f} days" if result.defensive_interval_days is not None else "N/A")
-        c2.metric("Cash Interval", f"{result.cash_interval_days:.0f} days" if result.cash_interval_days is not None else "N/A")
-        c3.metric("Liquid Reserve Adequacy", f"{result.liquid_reserve_adequacy:.2f}x" if result.liquid_reserve_adequacy is not None else "N/A")
-        c4.metric("OpEx Coverage", f"{result.operating_expense_coverage:.2f}x" if result.operating_expense_coverage is not None else "N/A")
+        c1.metric(
+            "Defensive Interval",
+            f"{result.defensive_interval_days:.0f} days" if result.defensive_interval_days is not None else "N/A",
+        )
+        c2.metric(
+            "Cash Interval", f"{result.cash_interval_days:.0f} days" if result.cash_interval_days is not None else "N/A"
+        )
+        c3.metric(
+            "Liquid Reserve Adequacy",
+            f"{result.liquid_reserve_adequacy:.2f}x" if result.liquid_reserve_adequacy is not None else "N/A",
+        )
+        c4.metric(
+            "OpEx Coverage",
+            f"{result.operating_expense_coverage:.2f}x" if result.operating_expense_coverage is not None else "N/A",
+        )
 
         details = {"Metric": [], "Value": []}
         for label, val in [
@@ -6973,17 +7912,23 @@ class FinancialInsightsPage:
     def _render_cash_burn(self, df: pd.DataFrame):
         """Phase 79: Cash Burn Analysis tab."""
         from financial_analyzer import CashBurnResult
+
         fd = self.analyzer._dataframe_to_financial_data(df)
         result: CashBurnResult = self.analyzer.cash_burn_analysis(fd)
 
-        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.cb_grade, "gray")
+        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+            result.cb_grade, "gray"
+        )
         st.markdown(f"### Cash Burn &mdash; :{grade_color}[{result.cb_grade}] ({result.cb_score}/10)")
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("OCF Margin", f"{result.ocf_margin:.1%}" if result.ocf_margin is not None else "N/A")
         c2.metric("FCF Margin", f"{result.fcf_margin:.1%}" if result.fcf_margin is not None else "N/A")
         c3.metric("CapEx Intensity", f"{result.capex_intensity:.1%}" if result.capex_intensity is not None else "N/A")
-        c4.metric("Cash Self-Sufficiency", f"{result.cash_self_sufficiency:.2f}x" if result.cash_self_sufficiency is not None else "N/A")
+        c4.metric(
+            "Cash Self-Sufficiency",
+            f"{result.cash_self_sufficiency:.2f}x" if result.cash_self_sufficiency is not None else "N/A",
+        )
 
         details = {"Metric": [], "Value": []}
         for label, val in [
@@ -7006,17 +7951,23 @@ class FinancialInsightsPage:
     def _render_profit_retention(self, df: pd.DataFrame):
         """Phase 78: Profit Retention Analysis tab."""
         from financial_analyzer import ProfitRetentionResult
+
         fd = self.analyzer._dataframe_to_financial_data(df)
         result: ProfitRetentionResult = self.analyzer.profit_retention_analysis(fd)
 
-        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(result.pr_grade, "gray")
+        grade_color = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}.get(
+            result.pr_grade, "gray"
+        )
         st.markdown(f"### Profit Retention &mdash; :{grade_color}[{result.pr_grade}] ({result.pr_score}/10)")
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Retention Ratio", f"{result.retention_ratio:.1%}" if result.retention_ratio is not None else "N/A")
         c2.metric("Payout Ratio", f"{result.payout_ratio:.1%}" if result.payout_ratio is not None else "N/A")
         c3.metric("RE / Equity", f"{result.re_to_equity:.1%}" if result.re_to_equity is not None else "N/A")
-        c4.metric("Sustainable Growth", f"{result.sustainable_growth_rate:.1%}" if result.sustainable_growth_rate is not None else "N/A")
+        c4.metric(
+            "Sustainable Growth",
+            f"{result.sustainable_growth_rate:.1%}" if result.sustainable_growth_rate is not None else "N/A",
+        )
 
         details = {"Metric": [], "Value": []}
         for label, val in [
@@ -7038,7 +7989,6 @@ class FinancialInsightsPage:
 
     def _render_debt_service_coverage(self, df: pd.DataFrame):
         """Render Debt Service Coverage tab."""
-        from financial_analyzer import DebtServiceCoverageResult
         financial_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.debt_service_coverage_analysis(financial_data)
 
@@ -7048,12 +7998,26 @@ class FinancialInsightsPage:
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("DSCR", f"{result.dscr:.2f}x" if result.dscr is not None else "N/A")
-        c2.metric("OCF/Debt Service", f"{result.ocf_to_debt_service:.2f}x" if result.ocf_to_debt_service is not None else "N/A")
-        c3.metric("EBITDA/Interest", f"{result.ebitda_to_interest:.2f}x" if result.ebitda_to_interest is not None else "N/A")
-        c4.metric("Coverage Cushion", f"{result.coverage_cushion:.2f}x" if result.coverage_cushion is not None else "N/A")
+        c2.metric(
+            "OCF/Debt Service",
+            f"{result.ocf_to_debt_service:.2f}x" if result.ocf_to_debt_service is not None else "N/A",
+        )
+        c3.metric(
+            "EBITDA/Interest", f"{result.ebitda_to_interest:.2f}x" if result.ebitda_to_interest is not None else "N/A"
+        )
+        c4.metric(
+            "Coverage Cushion", f"{result.coverage_cushion:.2f}x" if result.coverage_cushion is not None else "N/A"
+        )
 
         detail_data = {
-            "Metric": ["DSCR", "OCF/Debt Svc", "EBITDA/Interest", "FCF/Debt Svc", "Debt Svc/Revenue", "Coverage Cushion"],
+            "Metric": [
+                "DSCR",
+                "OCF/Debt Svc",
+                "EBITDA/Interest",
+                "FCF/Debt Svc",
+                "Debt Svc/Revenue",
+                "Coverage Cushion",
+            ],
             "Value": [
                 f"{result.dscr:.4f}" if result.dscr is not None else "N/A",
                 f"{result.ocf_to_debt_service:.4f}" if result.ocf_to_debt_service is not None else "N/A",
@@ -7068,7 +8032,6 @@ class FinancialInsightsPage:
 
     def _render_capital_allocation(self, df: pd.DataFrame):
         """Render Capital Allocation tab."""
-        from financial_analyzer import CapitalAllocationResult
         financial_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.capital_allocation_analysis(financial_data)
 
@@ -7079,11 +8042,20 @@ class FinancialInsightsPage:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("CapEx/Revenue", f"{result.capex_to_revenue:.2%}" if result.capex_to_revenue is not None else "N/A")
         c2.metric("CapEx/OCF", f"{result.capex_to_ocf:.2%}" if result.capex_to_ocf is not None else "N/A")
-        c3.metric("Reinvestment Rate", f"{result.reinvestment_rate:.2%}" if result.reinvestment_rate is not None else "N/A")
+        c3.metric(
+            "Reinvestment Rate", f"{result.reinvestment_rate:.2%}" if result.reinvestment_rate is not None else "N/A"
+        )
         c4.metric("FCF Yield", f"{result.fcf_yield:.2%}" if result.fcf_yield is not None else "N/A")
 
         detail_data = {
-            "Metric": ["CapEx/Revenue", "CapEx/OCF", "Shareholder Return", "Reinvestment Rate", "FCF Yield", "Payout/FCF"],
+            "Metric": [
+                "CapEx/Revenue",
+                "CapEx/OCF",
+                "Shareholder Return",
+                "Reinvestment Rate",
+                "FCF Yield",
+                "Payout/FCF",
+            ],
             "Value": [
                 f"{result.capex_to_revenue:.4f}" if result.capex_to_revenue is not None else "N/A",
                 f"{result.capex_to_ocf:.4f}" if result.capex_to_ocf is not None else "N/A",
@@ -7098,7 +8070,6 @@ class FinancialInsightsPage:
 
     def _render_tax_efficiency(self, df: pd.DataFrame):
         """Render Tax Efficiency tab."""
-        from financial_analyzer import TaxEfficiencyResult
         financial_data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.tax_efficiency_analysis(financial_data)
 
@@ -7107,13 +8078,21 @@ class FinancialInsightsPage:
         st.markdown(f"**Tax Efficiency Grade:** :{color}[{result.te_grade}] — Score: {result.te_score}/10")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Effective Tax Rate", f"{result.effective_tax_rate:.1%}" if result.effective_tax_rate is not None else "N/A")
+        c1.metric(
+            "Effective Tax Rate", f"{result.effective_tax_rate:.1%}" if result.effective_tax_rate is not None else "N/A"
+        )
         c2.metric("Tax/Revenue", f"{result.tax_to_revenue:.1%}" if result.tax_to_revenue is not None else "N/A")
-        c3.metric("After-Tax Margin", f"{result.after_tax_margin:.1%}" if result.after_tax_margin is not None else "N/A")
-        c4.metric("Tax Shield Ratio", f"{result.tax_shield_ratio:.2f}" if result.tax_shield_ratio is not None else "N/A")
+        c3.metric(
+            "After-Tax Margin", f"{result.after_tax_margin:.1%}" if result.after_tax_margin is not None else "N/A"
+        )
+        c4.metric(
+            "Tax Shield Ratio", f"{result.tax_shield_ratio:.2f}" if result.tax_shield_ratio is not None else "N/A"
+        )
 
         details = {
-            "Effective Tax Rate": f"{result.effective_tax_rate:.2%}" if result.effective_tax_rate is not None else "N/A",
+            "Effective Tax Rate": f"{result.effective_tax_rate:.2%}"
+            if result.effective_tax_rate is not None
+            else "N/A",
             "Tax / Revenue": f"{result.tax_to_revenue:.2%}" if result.tax_to_revenue is not None else "N/A",
             "Tax / EBITDA": f"{result.tax_to_ebitda:.2%}" if result.tax_to_ebitda is not None else "N/A",
             "After-Tax Margin": f"{result.after_tax_margin:.2%}" if result.after_tax_margin is not None else "N/A",
@@ -7127,7 +8106,6 @@ class FinancialInsightsPage:
     def _render_roic_analysis(self, df: pd.DataFrame):
         """Render ROIC Analysis tab."""
         st.subheader("Return on Invested Capital (ROIC)")
-        from financial_analyzer import ROICResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.roic_analysis(data)
 
@@ -7149,7 +8127,9 @@ class FinancialInsightsPage:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("ROIC", f"{result.roic_pct:.1f}%")
         c2.metric("NOPAT", f"${result.nopat:,.0f}" if result.nopat is not None else "N/A")
-        c3.metric("Invested Capital", f"${result.invested_capital:,.0f}" if result.invested_capital is not None else "N/A")
+        c3.metric(
+            "Invested Capital", f"${result.invested_capital:,.0f}" if result.invested_capital is not None else "N/A"
+        )
         c4.metric("Score", f"{result.roic_score:.1f} / 10")
 
         # Detail table
@@ -7173,7 +8153,6 @@ class FinancialInsightsPage:
     def _render_roa_quality(self, df: pd.DataFrame):
         """Render Return on Assets Quality tab."""
         st.subheader("Return on Assets (ROA) Quality")
-        from financial_analyzer import ROAQualityResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.roa_quality_analysis(data)
 
@@ -7195,7 +8174,9 @@ class FinancialInsightsPage:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("ROA", f"{result.roa_pct:.1f}%")
         c2.metric("Asset Turnover", f"{result.asset_turnover:.2f}x" if result.asset_turnover is not None else "N/A")
-        c3.metric("Capital Intensity", f"{result.capital_intensity:.2f}x" if result.capital_intensity is not None else "N/A")
+        c3.metric(
+            "Capital Intensity", f"{result.capital_intensity:.2f}x" if result.capital_intensity is not None else "N/A"
+        )
         c4.metric("Score", f"{result.roa_score:.1f} / 10")
 
         # Detail table
@@ -7216,7 +8197,6 @@ class FinancialInsightsPage:
         st.table(details)
 
         # Bar chart: ROA vs Operating ROA vs Cash ROA
-        import plotly.graph_objects as go
         labels = []
         vals = []
         colors = []
@@ -7234,20 +8214,22 @@ class FinancialInsightsPage:
             colors.append("#2196F3")
 
         if labels:
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=labels,
-                values=vals,
-                colors=colors,
-                title="ROA Comparison",
-                y_title="Return (%)",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=labels,
+                    values=vals,
+                    colors=colors,
+                    title="ROA Comparison",
+                    y_title="Return (%)",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
     def _render_roe_analysis(self, df: pd.DataFrame):
         """Render Return on Equity Analysis tab."""
         st.subheader("Return on Equity (ROE) Analysis")
-        from financial_analyzer import ROEAnalysisResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.roe_analysis(data)
 
@@ -7269,7 +8251,9 @@ class FinancialInsightsPage:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("ROE", f"{result.roe_pct:.1f}%")
         c2.metric("Asset Turnover", f"{result.asset_turnover:.2f}x" if result.asset_turnover is not None else "N/A")
-        c3.metric("Equity Multiplier", f"{result.equity_multiplier:.2f}x" if result.equity_multiplier is not None else "N/A")
+        c3.metric(
+            "Equity Multiplier", f"{result.equity_multiplier:.2f}x" if result.equity_multiplier is not None else "N/A"
+        )
         c4.metric("Score", f"{result.roe_score:.1f} / 10")
 
         # Detail table
@@ -7291,7 +8275,6 @@ class FinancialInsightsPage:
         st.table(details)
 
         # DuPont decomposition bar chart
-        import plotly.graph_objects as go
         components = []
         values = []
         colors = []
@@ -7309,20 +8292,22 @@ class FinancialInsightsPage:
             colors.append("#2196F3")
 
         if components:
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=components,
-                values=values,
-                colors=colors,
-                title="DuPont Decomposition",
-                y_title="Value",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=components,
+                    values=values,
+                    colors=colors,
+                    title="DuPont Decomposition",
+                    y_title="Value",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
     def _render_net_profit_margin(self, df: pd.DataFrame):
         """Render Net Profit Margin Analysis tab."""
         st.subheader("Net Profit Margin Analysis")
-        from financial_analyzer import NetProfitMarginResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.net_profit_margin_analysis(data)
 
@@ -7365,22 +8350,27 @@ class FinancialInsightsPage:
         st.table(details)
 
         # Margin waterfall: EBITDA -> EBIT -> Net
-        if (result.ebitda_margin_pct is not None and result.ebit_margin_pct is not None
-                and result.net_margin_pct is not None):
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=["EBITDA Margin", "EBIT Margin", "Net Margin"],
-                values=[result.ebitda_margin_pct, result.ebit_margin_pct, result.net_margin_pct],
-                colors=["#4CAF50", "#FF9800", "#2196F3"],
-                title="Margin Waterfall: EBITDA to Net",
-                y_title="Margin (%)",
-            ), use_container_width=True)
+        if (
+            result.ebitda_margin_pct is not None
+            and result.ebit_margin_pct is not None
+            and result.net_margin_pct is not None
+        ):
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=["EBITDA Margin", "EBIT Margin", "Net Margin"],
+                    values=[result.ebitda_margin_pct, result.ebit_margin_pct, result.net_margin_pct],
+                    colors=["#4CAF50", "#FF9800", "#2196F3"],
+                    title="Margin Waterfall: EBITDA to Net",
+                    y_title="Margin (%)",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
     def _render_ebitda_margin_quality(self, df: pd.DataFrame):
         """Render EBITDA Margin Quality Analysis tab."""
         st.subheader("EBITDA Margin Quality Analysis")
-        from financial_analyzer import EbitdaMarginQualityResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.ebitda_margin_quality_analysis(data)
 
@@ -7423,20 +8413,22 @@ class FinancialInsightsPage:
 
         # Bar chart: EBITDA vs Operating margin
         if result.ebitda_margin_pct is not None and result.operating_margin_pct is not None:
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=["EBITDA Margin", "Operating Margin"],
-                values=[result.ebitda_margin_pct, result.operating_margin_pct],
-                colors=["#FF9800", "#2196F3"],
-                title="EBITDA vs Operating Margin",
-                y_title="Margin (%)",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=["EBITDA Margin", "Operating Margin"],
+                    values=[result.ebitda_margin_pct, result.operating_margin_pct],
+                    colors=["#FF9800", "#2196F3"],
+                    title="EBITDA vs Operating Margin",
+                    y_title="Margin (%)",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
     def _render_gross_margin_stability(self, df: pd.DataFrame):
         """Render Gross Margin Stability Analysis tab."""
         st.subheader("Gross Margin Stability Analysis")
-        from financial_analyzer import GrossMarginStabilityResult
         data = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.gross_margin_stability_analysis(data)
 
@@ -7480,13 +8472,16 @@ class FinancialInsightsPage:
 
         # Bar chart: Gross Margin vs Operating Margin
         if result.gross_margin_pct is not None and result.operating_margin_pct is not None:
-            st.plotly_chart(self.viz.create_simple_bar(
-                labels=["Gross Margin", "Operating Margin"],
-                values=[result.gross_margin_pct, result.operating_margin_pct],
-                colors=["#4CAF50", "#2196F3"],
-                title="Margin Comparison",
-                y_title="Margin (%)",
-            ), use_container_width=True)
+            st.plotly_chart(
+                self.viz.create_simple_bar(
+                    labels=["Gross Margin", "Operating Margin"],
+                    values=[result.gross_margin_pct, result.operating_margin_pct],
+                    colors=["#4CAF50", "#2196F3"],
+                    title="Margin Comparison",
+                    y_title="Margin (%)",
+                ),
+                use_container_width=True,
+            )
 
         st.caption(result.summary)
 
@@ -7522,7 +8517,7 @@ class FinancialInsightsPage:
 
     def _render_debt_capacity(self, df: pd.DataFrame):
         """Render debt capacity analysis."""
-        from underwriting import UnderwritingAnalyzer, LoanStructure
+        from underwriting import LoanStructure, UnderwritingAnalyzer
 
         data = self.analyzer._dataframe_to_financial_data(df)
         ua = UnderwritingAnalyzer(self.analyzer)
@@ -7592,8 +8587,14 @@ class FinancialInsightsPage:
         col1.metric("Gross Churn", f"{metrics.gross_churn_rate:.1%}" if metrics.gross_churn_rate is not None else "N/A")
         # P0-9: GRR (1 - gross churn) is what we can compute without expansion data;
         # NRR requires expansion-revenue tracking, hence often N/A.
-        col2.metric("Gross Revenue Retention", f"{metrics.gross_revenue_retention:.1%}" if metrics.gross_revenue_retention is not None else "N/A")
-        col3.metric("Net Revenue Retention", f"{metrics.net_revenue_retention:.1%}" if metrics.net_revenue_retention is not None else "N/A")
+        col2.metric(
+            "Gross Revenue Retention",
+            f"{metrics.gross_revenue_retention:.1%}" if metrics.gross_revenue_retention is not None else "N/A",
+        )
+        col3.metric(
+            "Net Revenue Retention",
+            f"{metrics.net_revenue_retention:.1%}" if metrics.net_revenue_retention is not None else "N/A",
+        )
 
         if metrics.interpretation:
             st.info(metrics.interpretation)
@@ -7633,7 +8634,11 @@ class FinancialInsightsPage:
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Net Burn", f"${br.net_burn:,.0f}/mo" if br.net_burn else "N/A")
-        runway_label = "Infinite" if br.is_cash_flow_positive else (f"{br.runway_months:.0f} months" if br.runway_months else "N/A")
+        runway_label = (
+            "Infinite"
+            if br.is_cash_flow_positive
+            else (f"{br.runway_months:.0f} months" if br.runway_months else "N/A")
+        )
         col2.metric("Runway", runway_label)
         col3.metric("Category", br.category.title() if br.category else "N/A")
 
@@ -7659,8 +8664,10 @@ class FinancialInsightsPage:
         scenarios = []
         for i in range(n_scenarios):
             col1, col2 = st.columns(2)
-            amount = col1.number_input(f"Raise Amount #{i+1} ($)", value=5_000_000, step=500_000, key=f"fund_amt_{i}")
-            valuation = col2.number_input(f"Pre-Money Valuation #{i+1} ($)", value=20_000_000, step=1_000_000, key=f"fund_val_{i}")
+            amount = col1.number_input(f"Raise Amount #{i + 1} ($)", value=5_000_000, step=500_000, key=f"fund_amt_{i}")
+            valuation = col2.number_input(
+                f"Pre-Money Valuation #{i + 1} ($)", value=20_000_000, step=1_000_000, key=f"fund_val_{i}"
+            )
             scenarios.append({"raise_amount": amount, "pre_money_valuation": valuation})
 
         if st.button("Analyze Funding Scenarios", key="btn_fund_analyze"):
@@ -7697,23 +8704,20 @@ class FinancialInsightsPage:
 
             # Column info
             st.subheader("Column Information")
-            col_info = pd.DataFrame({
-                'Column': df.columns,
-                'Type': df.dtypes.astype(str),
-                'Non-Null': df.count(),
-                'Null': df.isnull().sum(),
-                'Unique': df.nunique()
-            })
+            col_info = pd.DataFrame(
+                {
+                    "Column": df.columns,
+                    "Type": df.dtypes.astype(str),
+                    "Non-Null": df.count(),
+                    "Null": df.isnull().sum(),
+                    "Unique": df.nunique(),
+                }
+            )
             st.dataframe(col_info, use_container_width=True)
 
             # Export option
             csv = df.to_csv(index=False)
-            st.download_button(
-                "Download Data as CSV",
-                csv,
-                "financial_data.csv",
-                "text/csv"
-            )
+            st.download_button("Download Data as CSV", csv, "financial_data.csv", "text/csv")
 
     # ===== PORTFOLIO ANALYSIS TABS =====
 
@@ -7745,7 +8749,9 @@ class FinancialInsightsPage:
 
         st.subheader("Company Health Scores")
         for snap in sorted(report.snapshots, key=lambda s: s.health_score, reverse=True):
-            st.progress(snap.health_score / 100, text=f"{snap.name}: {snap.health_score}/100 (Grade {snap.health_grade})")
+            st.progress(
+                snap.health_score / 100, text=f"{snap.name}: {snap.health_score}/100 (Grade {snap.health_grade})"
+            )
 
         if report.risk_summary.risk_flags:
             st.subheader("Risk Flags")
@@ -7897,25 +8903,25 @@ class FinancialInsightsPage:
         metrics = {}
 
         # Column name patterns to look for
-        revenue_patterns = ['revenue', 'sales', 'income', 'turnover']
-        income_patterns = ['net income', 'profit', 'earnings']
+        revenue_patterns = ["revenue", "sales", "income", "turnover"]
+        income_patterns = ["net income", "profit", "earnings"]
 
         for col in df.columns:
             col_lower = col.lower()
 
             # Revenue
-            if any(p in col_lower for p in revenue_patterns) and 'net income' not in col_lower:
-                if 'revenue' not in metrics:
+            if any(p in col_lower for p in revenue_patterns) and "net income" not in col_lower:
+                if "revenue" not in metrics:
                     try:
-                        metrics['revenue'] = df[col].sum() if len(df) > 1 else df[col].iloc[0]
+                        metrics["revenue"] = df[col].sum() if len(df) > 1 else df[col].iloc[0]
                     except (TypeError, ValueError, IndexError):
                         pass
 
             # Net Income
             if any(p in col_lower for p in income_patterns):
-                if 'net_income' not in metrics:
+                if "net_income" not in metrics:
                     try:
-                        metrics['net_income'] = df[col].sum() if len(df) > 1 else df[col].iloc[0]
+                        metrics["net_income"] = df[col].sum() if len(df) > 1 else df[col].iloc[0]
                     except (TypeError, ValueError, IndexError):
                         pass
 

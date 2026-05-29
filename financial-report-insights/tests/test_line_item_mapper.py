@@ -1,14 +1,11 @@
 """Tests for line_item_mapper module."""
 
-import pytest
-
 from line_item_mapper import (
+    FIELD_MAPPINGS,
+    _normalize_label,
+    detect_periods,
     map_label,
     map_labels_batch,
-    detect_periods,
-    _normalize_label,
-    MappedItem,
-    FIELD_MAPPINGS,
 )
 
 
@@ -345,8 +342,16 @@ class TestFieldMappingsCoverage:
     def test_categories_covered(self):
         categories = {info["category"] for info in FIELD_MAPPINGS.values()}
         expected = {
-            "income_statement", "balance_sheet", "cash_flow",
-            "valuation", "debt", "cannabis", "cash_forecast",
-            "kpi", "saas", "construction", "fund",
+            "income_statement",
+            "balance_sheet",
+            "cash_flow",
+            "valuation",
+            "debt",
+            "cannabis",
+            "cash_forecast",
+            "kpi",
+            "saas",
+            "construction",
+            "fund",
         }
         assert expected.issubset(categories), f"Missing categories: {expected - categories}"

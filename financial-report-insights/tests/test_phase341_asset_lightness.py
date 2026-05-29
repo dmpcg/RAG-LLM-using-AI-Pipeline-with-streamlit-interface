@@ -4,10 +4,11 @@ Tests for asset_lightness_analysis() and AssetLightnessResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    AssetLightnessResult,
     CharlieAnalyzer,
     FinancialData,
-    AssetLightnessResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestAssetLightnessDataclass:
     def test_defaults(self):
         r = AssetLightnessResult()
@@ -68,6 +70,7 @@ class TestAssetLightnessDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestAssetLightnessAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestAssetLightnessAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestAssetLightnessScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -133,6 +137,7 @@ class TestAssetLightnessScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase341EdgeCases:
     def test_empty_data(self, analyzer):

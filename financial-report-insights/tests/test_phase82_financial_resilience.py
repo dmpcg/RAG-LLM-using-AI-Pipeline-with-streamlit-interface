@@ -4,6 +4,7 @@ Tests for financial_resilience_analysis() and FinancialResilienceResult dataclas
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestFinancialResilienceDataclass:
     def test_defaults(self):
         r = FinancialResilienceResult()
@@ -68,6 +70,7 @@ class TestFinancialResilienceDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestFinancialResilienceAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -114,6 +117,7 @@ class TestFinancialResilienceAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestFinancialResilienceScoring:
     def test_very_resilient(self, analyzer):
@@ -198,6 +202,7 @@ class TestFinancialResilienceScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase82EdgeCases:
     def test_empty_data(self, analyzer):

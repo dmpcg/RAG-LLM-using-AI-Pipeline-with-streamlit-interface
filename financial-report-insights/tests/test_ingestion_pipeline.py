@@ -1,26 +1,26 @@
 """Tests for ingestion_pipeline module."""
 
-import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
-import tempfile
 import os
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
+from document_chunker import RAGChunk
 from ingestion_pipeline import (
-    ingest_excel,
-    ingest_text,
-    ingest_file,
-    chunks_to_documents,
-    _detect_sheet_section_type,
-    _find_label_column,
-    _df_to_markdown,
     EXCEL_EXTENSIONS,
     PDF_EXTENSIONS,
     TEXT_EXTENSIONS,
+    _detect_sheet_section_type,
+    _df_to_markdown,
+    _find_label_column,
+    chunks_to_documents,
+    ingest_excel,
+    ingest_file,
+    ingest_text,
 )
-from document_chunker import RAGChunk
 
 
 class TestDetectSheetSectionType:
@@ -53,10 +53,12 @@ class TestDetectSheetSectionType:
         assert _detect_sheet_section_type(df, "LBO Returns") == "lbo"
 
     def test_content_based_detection(self):
-        df = pd.DataFrame({
-            "Label": ["Total Revenue", "Cost of Goods Sold", "Gross Profit", "Net Income"],
-            "2024": [1000, 500, 500, 200],
-        })
+        df = pd.DataFrame(
+            {
+                "Label": ["Total Revenue", "Cost of Goods Sold", "Gross Profit", "Net Income"],
+                "2024": [1000, 500, 500, 200],
+            }
+        )
         result = _detect_sheet_section_type(df, "Sheet1")
         assert result == "income_statement"
 
@@ -68,19 +70,23 @@ class TestDetectSheetSectionType:
 
 class TestFindLabelColumn:
     def test_first_column_labels(self):
-        df = pd.DataFrame({
-            "Items": ["Revenue", "COGS", "Gross Profit", "Net Income", "Tax"],
-            "2024": [1000, 500, 500, 200, 50],
-        })
+        df = pd.DataFrame(
+            {
+                "Items": ["Revenue", "COGS", "Gross Profit", "Net Income", "Tax"],
+                "2024": [1000, 500, 500, 200, 50],
+            }
+        )
         result = _find_label_column(df)
         assert result == 0
 
     def test_second_column_labels(self):
-        df = pd.DataFrame({
-            "Section": [None, None, None, None, None],
-            "Items": ["Revenue", "COGS", "Gross Profit", "Net Income", "Tax"],
-            "2024": [1000, 500, 500, 200, 50],
-        })
+        df = pd.DataFrame(
+            {
+                "Section": [None, None, None, None, None],
+                "Items": ["Revenue", "COGS", "Gross Profit", "Net Income", "Tax"],
+                "2024": [1000, 500, 500, 200, 50],
+            }
+        )
         result = _find_label_column(df)
         assert result == 1
 
@@ -90,10 +96,12 @@ class TestFindLabelColumn:
         assert result is None
 
     def test_all_numeric(self):
-        df = pd.DataFrame({
-            "A": [1, 2, 3, 4, 5],
-            "B": [10, 20, 30, 40, 50],
-        })
+        df = pd.DataFrame(
+            {
+                "A": [1, 2, 3, 4, 5],
+                "B": [10, 20, 30, 40, 50],
+            }
+        )
         result = _find_label_column(df)
         assert result is None
 
@@ -136,14 +144,17 @@ class TestIngestExcel:
 
     def test_xlsx_file(self):
         import gc
+
         path = Path(tempfile.mktemp(suffix=".xlsx"))
 
         try:
-            df = pd.DataFrame({
-                "Item": ["Revenue", "COGS", "Gross Profit"],
-                "2024": [1000, 500, 500],
-                "2023": [900, 400, 500],
-            })
+            df = pd.DataFrame(
+                {
+                    "Item": ["Revenue", "COGS", "Gross Profit"],
+                    "2024": [1000, 500, 500],
+                    "2023": [900, 400, 500],
+                }
+            )
             df.to_excel(path, index=False, sheet_name="Income Statement")
             chunks = ingest_excel(path)
             assert len(chunks) >= 1
@@ -325,19 +336,22 @@ class TestExtensions:
 # WP-PDF P1-C3 tests -- ingestion_pipeline
 # ---------------------------------------------------------------------------
 
+
 class TestIngestPdfExcInfo:
     """ingest_pdf error path must call logger.error with exc_info=True."""
 
     def test_ingest_pdf_logs_exc_info_on_failure(self, tmp_path):
         """When parse_pdf raises, ingest_pdf logs with exc_info=True."""
-        from ingestion_pipeline import ingest_pdf
         import ingestion_pipeline as _ip_mod
+        from ingestion_pipeline import ingest_pdf
 
         dummy = tmp_path / "bad.pdf"
         dummy.write_bytes(b"not a pdf")
 
-        with patch.object(_ip_mod.logger, "error") as mock_log, \
-             patch("pdf_parser.parse_pdf", side_effect=RuntimeError("parse fail")):
+        with (
+            patch.object(_ip_mod.logger, "error") as mock_log,
+            patch("pdf_parser.parse_pdf", side_effect=RuntimeError("parse fail")),
+        ):
             chunks = ingest_pdf(dummy)
 
         assert chunks == []
@@ -345,8 +359,7 @@ class TestIngestPdfExcInfo:
         assert mock_log.called, "logger.error was not called"
         calls = mock_log.call_args_list
         assert any(
-            call.kwargs.get("exc_info") is True or
-            (len(call.args) > 0 and call.kwargs.get("exc_info", False))
+            call.kwargs.get("exc_info") is True or (len(call.args) > 0 and call.kwargs.get("exc_info", False))
             for call in calls
         ), "logger.error was not called with exc_info=True"
 

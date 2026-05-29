@@ -13,10 +13,9 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # P0-2: healthcheck timeout + cache
@@ -263,7 +262,7 @@ class TestPrReviewWorkflow:
 
     def test_uses_fs_readfilesync(self, workflow_text):
         assert "fs.readFileSync" in workflow_text
-        assert "split('\\n').length" in workflow_text or "split(\"\\n\").length" in workflow_text
+        assert "split('\\n').length" in workflow_text or 'split("\\n").length' in workflow_text
 
     def test_validates_filename_path(self, workflow_text):
         # Path-traversal guard

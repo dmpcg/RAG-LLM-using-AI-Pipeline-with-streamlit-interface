@@ -4,6 +4,7 @@ Tests for financial_productivity_analysis() and FinancialProductivityResult data
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestFinancialProductivityDataclass:
     def test_defaults(self):
         r = FinancialProductivityResult()
@@ -68,6 +70,7 @@ class TestFinancialProductivityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestFinancialProductivityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestFinancialProductivityAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestFinancialProductivityScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """RPA=0.50 >=0.40 => base 4.0. EPO=1.25 <1.5 no adj. CFPA=0.11 <0.12 no adj. Score=4.0."""
@@ -157,6 +161,7 @@ class TestFinancialProductivityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase205EdgeCases:
     def test_empty_data(self, analyzer):

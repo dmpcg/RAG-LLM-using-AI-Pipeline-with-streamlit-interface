@@ -8,11 +8,9 @@ from evaluation.response_quality import (
     AnswerGrounder,
     ConfidenceScorer,
     HallucinationDetector,
-    _content_tokens,
     _overlap,
     _split_sentences,
 )
-
 
 # ===========================================================================
 # Helper / private function tests

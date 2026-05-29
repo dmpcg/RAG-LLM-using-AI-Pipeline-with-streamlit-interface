@@ -18,8 +18,7 @@ logger = logging.getLogger(__name__)
 _ENV_FILE = Path(__file__).parent / ".env"
 if not _ENV_FILE.exists():
     logger.warning(
-        ".env file not found at %s — using defaults. "
-        "Copy .env.example to .env for custom configuration.",
+        ".env file not found at %s — using defaults. Copy .env.example to .env for custom configuration.",
         _ENV_FILE,
     )
 load_dotenv(_ENV_FILE)
@@ -144,9 +143,7 @@ def validate_settings(s: Settings | None = None) -> Tuple[list[str], list[str]]:
     ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
     parsed = urlparse(ollama_host)
     if parsed.scheme not in ("http", "https"):
-        errors.append(
-            f"OLLAMA_HOST scheme must be http or https, got: {parsed.scheme!r}"
-        )
+        errors.append(f"OLLAMA_HOST scheme must be http or https, got: {parsed.scheme!r}")
 
     # --- CORS sanity (WS-1 P0-16, 2026-05-07) ---
     # The CORS spec forbids the wildcard origin when credentials are sent;
@@ -156,8 +153,7 @@ def validate_settings(s: Settings | None = None) -> Tuple[list[str], list[str]]:
     cors_origin_list = [o.strip() for o in s.cors_origins.split(",") if o.strip()]
     if s.cors_allow_credentials and "*" in cors_origin_list:
         errors.append(
-            "cors_origins='*' is incompatible with cors_allow_credentials=True; "
-            "list explicit origins instead."
+            "cors_origins='*' is incompatible with cors_allow_credentials=True; list explicit origins instead."
         )
 
     # --- Neo4j consistency ---
@@ -170,23 +166,16 @@ def validate_settings(s: Settings | None = None) -> Tuple[list[str], list[str]]:
     if not (100 <= s.chunk_size <= 5000):
         errors.append(f"chunk_size must be 100-5000, got {s.chunk_size}")
     if s.chunk_overlap >= s.chunk_size:
-        errors.append(
-            f"chunk_overlap ({s.chunk_overlap}) must be < chunk_size ({s.chunk_size})"
-        )
+        errors.append(f"chunk_overlap ({s.chunk_overlap}) must be < chunk_size ({s.chunk_size})")
     if not (1 <= s.top_k <= s.max_top_k):
         errors.append(f"top_k must be 1-{s.max_top_k}, got {s.top_k}")
     if s.llm_timeout_seconds < 10:
-        errors.append(
-            f"llm_timeout_seconds too low: {s.llm_timeout_seconds} (min 10)"
-        )
+        errors.append(f"llm_timeout_seconds too low: {s.llm_timeout_seconds} (min 10)")
     if s.embedding_dimension not in (0, 384, 768, 1024):
         warnings.append(f"Unusual embedding_dimension: {s.embedding_dimension}")
     if s.max_file_size_mb > 500:
         warnings.append(f"max_file_size_mb is very large: {s.max_file_size_mb}")
     if s.bm25_weight + s.semantic_weight != 1.0:
-        warnings.append(
-            f"bm25_weight + semantic_weight = {s.bm25_weight + s.semantic_weight} "
-            f"(expected 1.0)"
-        )
+        warnings.append(f"bm25_weight + semantic_weight = {s.bm25_weight + s.semantic_weight} (expected 1.0)")
 
     return errors, warnings

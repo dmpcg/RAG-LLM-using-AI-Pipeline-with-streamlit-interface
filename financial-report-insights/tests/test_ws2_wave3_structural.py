@@ -8,16 +8,18 @@ output after refactoring.
 """
 
 import pytest
+
 from financial_analyzer import (
+    AssetLightnessResult,
     CharlieAnalyzer,
     FinancialData,
-    AssetLightnessResult,
     PayoutResilienceResult,
 )
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def analyzer():
@@ -61,6 +63,7 @@ def sample_data():
 # They are written BEFORE the implementation so they define the expected contract.
 # ===========================================================================
 
+
 class TestScoredAnalysisDerivedPrimaryMode:
     """Unit tests for the new 'derived_primary' mode in _scored_analysis.
 
@@ -99,9 +102,7 @@ class TestScoredAnalysisDerivedPrimaryMode:
                 (0.0, 2.0),
             ],
             mode="derived_primary",
-            derive_primary_fn=lambda ratios, d: (
-                (d.revenue or 0) / (d.total_assets or 1)
-            ),
+            derive_primary_fn=lambda ratios, d: ((d.revenue or 0) / (d.total_assets or 1)),
             primary_result_field="primary_val",
         )
         # revenue/total_assets = 1_000_000 / 500_000 = 2.0 -> score 10.0
@@ -164,9 +165,7 @@ class TestScoredAnalysisDerivedPrimaryMode:
             higher_is_better=True,
             thresholds=[(0.15, 10.0), (0.08, 7.0), (0.0, 4.0)],
             mode="derived_primary",
-            derive_primary_fn=lambda ratios, d: (
-                (d.net_income or 0) / (d.total_equity or 1)
-            ),
+            derive_primary_fn=lambda ratios, d: ((d.net_income or 0) / (d.total_equity or 1)),
             primary_result_field="my_metric",
         )
         # NI/TE = 100k/500k = 0.20 -> >= 0.15 -> score 10.0
@@ -206,7 +205,7 @@ class TestScoredAnalysisBandMode:
             grade_field="b_grade",
             primary="ratio",
             higher_is_better=True,  # ignored in band mode
-            thresholds=[],           # ignored in band mode
+            thresholds=[],  # ignored in band mode
             mode="band",
             band_thresholds=[
                 (0.20, 0.50, 10.0),
@@ -337,9 +336,7 @@ class TestScoredAnalysisBandMode:
             b_grade: str = ""
             summary: str = ""
 
-        data = FinancialData(
-            dividends_paid=35_000, net_income=100_000, operating_cash_flow=200_000
-        )
+        data = FinancialData(dividends_paid=35_000, net_income=100_000, operating_cash_flow=200_000)
 
         result = analyzer._scored_analysis(
             data=data,
@@ -365,6 +362,7 @@ class TestScoredAnalysisBandMode:
 # Snapshots captured BEFORE conversion; same values asserted AFTER.
 # ===========================================================================
 
+
 class TestAssetLightnessSnapshotInvariance:
     """Assert byte-equal output for asset_lightness_analysis after conversion."""
 
@@ -378,33 +376,23 @@ class TestAssetLightnessSnapshotInvariance:
         assert r.revenue_to_assets == pytest.approx(0.5, abs=1e-9)
         assert r.fixed_asset_ratio == pytest.approx(0.75, abs=1e-9)
         assert r.lightness_spread == pytest.approx(-0.25, abs=1e-9)
-        assert r.summary == (
-            "Asset Lightness: CA/TA=0.2500, Revenue/TA=0.5000, Score=3.5/10 (Weak)."
-        )
+        assert r.summary == ("Asset Lightness: CA/TA=0.2500, Revenue/TA=0.5000, Score=3.5/10 (Weak).")
 
     def test_high_lightness_snapshot(self, analyzer):
         """CA/TA=0.75 -> score=10.0, grade=Excellent."""
-        data = FinancialData(
-            current_assets=1_500_000, total_assets=2_000_000, revenue=1_500_000
-        )
+        data = FinancialData(current_assets=1_500_000, total_assets=2_000_000, revenue=1_500_000)
         r = analyzer.asset_lightness_analysis(data)
         assert r.alt_score == pytest.approx(10.0, abs=1e-9)
         assert r.alt_grade == "Excellent"
-        assert r.summary == (
-            "Asset Lightness: CA/TA=0.7500, Revenue/TA=0.7500, Score=10.0/10 (Excellent)."
-        )
+        assert r.summary == ("Asset Lightness: CA/TA=0.7500, Revenue/TA=0.7500, Score=10.0/10 (Excellent).")
 
     def test_low_lightness_snapshot(self, analyzer):
         """CA/TA=0.05 -> score=1.5, grade=Weak."""
-        data = FinancialData(
-            current_assets=100_000, total_assets=2_000_000, revenue=500_000
-        )
+        data = FinancialData(current_assets=100_000, total_assets=2_000_000, revenue=500_000)
         r = analyzer.asset_lightness_analysis(data)
         assert r.alt_score == pytest.approx(1.5, abs=1e-9)
         assert r.alt_grade == "Weak"
-        assert r.summary == (
-            "Asset Lightness: CA/TA=0.0500, Revenue/TA=0.2500, Score=1.5/10 (Weak)."
-        )
+        assert r.summary == ("Asset Lightness: CA/TA=0.0500, Revenue/TA=0.2500, Score=1.5/10 (Weak).")
 
     def test_empty_data_returns_zero(self, analyzer):
         r = analyzer.asset_lightness_analysis(FinancialData())
@@ -436,36 +424,23 @@ class TestPayoutResilienceSnapshotInvariance:
         assert r.payout_ratio == pytest.approx(40_000 / 150_000, abs=1e-9)
         assert r.resilience_buffer == pytest.approx(1.0 - 40_000 / 150_000, abs=1e-9)
         # summary ends without a period — match exact pre-refactor format
-        assert r.summary == (
-            "Payout Resilience Analysis: Div/NI=0.2667, Div/OCF=0.1818, "
-            "Score=10.0/10 (Excellent)"
-        )
+        assert r.summary == ("Payout Resilience Analysis: Div/NI=0.2667, Div/OCF=0.1818, Score=10.0/10 (Excellent)")
 
     def test_high_payout_snapshot(self, analyzer):
         """Div/NI=0.933 -> score=3.0, grade=Weak."""
-        data = FinancialData(
-            dividends_paid=140_000, net_income=150_000, operating_cash_flow=220_000
-        )
+        data = FinancialData(dividends_paid=140_000, net_income=150_000, operating_cash_flow=220_000)
         r = analyzer.payout_resilience_analysis(data)
         assert r.prs_score == pytest.approx(3.0, abs=1e-9)
         assert r.prs_grade == "Weak"
-        assert r.summary == (
-            "Payout Resilience Analysis: Div/NI=0.9333, Div/OCF=0.6364, "
-            "Score=3.0/10 (Weak)"
-        )
+        assert r.summary == ("Payout Resilience Analysis: Div/NI=0.9333, Div/OCF=0.6364, Score=3.0/10 (Weak)")
 
     def test_over_payout_snapshot(self, analyzer):
         """Div/NI=1.333 -> score=1.5, grade=Weak."""
-        data = FinancialData(
-            dividends_paid=200_000, net_income=150_000, operating_cash_flow=220_000
-        )
+        data = FinancialData(dividends_paid=200_000, net_income=150_000, operating_cash_flow=220_000)
         r = analyzer.payout_resilience_analysis(data)
         assert r.prs_score == pytest.approx(1.5, abs=1e-9)
         assert r.prs_grade == "Weak"
-        assert r.summary == (
-            "Payout Resilience Analysis: Div/NI=1.3333, Div/OCF=0.9091, "
-            "Score=1.5/10 (Weak)"
-        )
+        assert r.summary == ("Payout Resilience Analysis: Div/NI=1.3333, Div/OCF=0.9091, Score=1.5/10 (Weak)")
 
     def test_empty_data_returns_zero(self, analyzer):
         r = analyzer.payout_resilience_analysis(FinancialData())
@@ -491,6 +466,7 @@ class TestPayoutResilienceSnapshotInvariance:
 # WP-F PART 3 — Regression: existing _scored_analysis methods unaffected
 # ===========================================================================
 
+
 class TestExistingScoredAnalysisRegression:
     """Confirm a sample of pre-existing _scored_analysis methods are unchanged."""
 
@@ -511,6 +487,7 @@ class TestExistingScoredAnalysisRegression:
 # ===========================================================================
 # WP-I — Three-composite-score unification (deprecation + behavior invariance)
 # ===========================================================================
+
 
 class TestComprehensiveHealthScoreSnapshot:
     """Canonical method output unchanged after WP-I docstring edits."""
@@ -546,23 +523,17 @@ class TestDeprecatedCompositesBehaviorUnchanged:
     def test_financial_rating_has_deprecation_docstring(self, analyzer):
         """financial_rating.__doc__ must contain a deprecation marker."""
         doc = analyzer.financial_rating.__doc__ or ""
-        assert "deprecat" in doc.lower(), (
-            "financial_rating docstring must contain a deprecation marker"
-        )
+        assert "deprecat" in doc.lower(), "financial_rating docstring must contain a deprecation marker"
 
     def test_financial_rating_docstring_references_canonical(self, analyzer):
         """financial_rating docstring must reference comprehensive_health_score."""
         doc = analyzer.financial_rating.__doc__ or ""
-        assert "comprehensive_health_score" in doc, (
-            "financial_rating docstring must reference the canonical method"
-        )
+        assert "comprehensive_health_score" in doc, "financial_rating docstring must reference the canonical method"
 
     def test_financial_health_score_analysis_has_deprecation_docstring(self, analyzer):
         """financial_health_score_analysis.__doc__ must contain a deprecation marker."""
         doc = analyzer.financial_health_score_analysis.__doc__ or ""
-        assert "deprecat" in doc.lower(), (
-            "financial_health_score_analysis docstring must contain a deprecation marker"
-        )
+        assert "deprecat" in doc.lower(), "financial_health_score_analysis docstring must contain a deprecation marker"
 
     def test_financial_health_score_analysis_docstring_references_canonical(self, analyzer):
         """financial_health_score_analysis docstring must reference comprehensive_health_score."""
@@ -574,6 +545,4 @@ class TestDeprecatedCompositesBehaviorUnchanged:
     def test_comprehensive_health_score_is_not_deprecated(self, analyzer):
         """The canonical method must NOT carry a deprecation marker."""
         doc = analyzer.comprehensive_health_score.__doc__ or ""
-        assert "deprecat" not in doc.lower(), (
-            "comprehensive_health_score must NOT be marked as deprecated"
-        )
+        assert "deprecat" not in doc.lower(), "comprehensive_health_score must NOT be marked as deprecated"

@@ -4,10 +4,11 @@ Tests for cash_conversion_efficiency_analysis() and CashConversionEfficiencyResu
 """
 
 import pytest
+
 from financial_analyzer import (
+    CashConversionEfficiencyResult,
     CharlieAnalyzer,
     FinancialData,
-    CashConversionEfficiencyResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCashConversionEfficiencyDataclass:
     def test_defaults(self):
         r = CashConversionEfficiencyResult()
@@ -68,6 +70,7 @@ class TestCashConversionEfficiencyDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCashConversionEfficiencyAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -105,6 +108,7 @@ class TestCashConversionEfficiencyAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestCashConversionEfficiencyScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """OCF/OI=1.10 >=1.00 => base 8.5. OCF/NI=1.467 >=1.20 => +0.5. OCF/Rev=0.22 >=0.20 => +0.5. Score=9.5."""
@@ -140,6 +144,7 @@ class TestCashConversionEfficiencyScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase237EdgeCases:
     def test_empty_data(self, analyzer):

@@ -1,18 +1,18 @@
 """Tests for observability.metrics and observability.dashboard_data."""
+
 import threading
 import time
-from collections import deque
 from typing import Any, Dict, List
 from unittest.mock import patch
 
 import pytest
 
-from observability.metrics import MetricsCollector, get_metrics_collector, _DEFAULT_WINDOW_SIZE
-
+from observability.metrics import MetricsCollector, get_metrics_collector
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_trace_summary(
     duration_ms: float = 100.0,
@@ -34,6 +34,7 @@ def _make_trace_summary(
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def collector() -> MetricsCollector:
     """Fresh MetricsCollector for each test."""
@@ -43,6 +44,7 @@ def collector() -> MetricsCollector:
 # ---------------------------------------------------------------------------
 # Singleton tests
 # ---------------------------------------------------------------------------
+
 
 class TestSingleton:
     def test_get_metrics_collector_returns_same_instance(self):
@@ -63,6 +65,7 @@ class TestSingleton:
 # ---------------------------------------------------------------------------
 # record_query
 # ---------------------------------------------------------------------------
+
 
 class TestRecordQuery:
     def test_record_single_query(self, collector: MetricsCollector):
@@ -103,6 +106,7 @@ class TestRecordQuery:
 # record_retrieval
 # ---------------------------------------------------------------------------
 
+
 class TestRecordRetrieval:
     def test_record_single_retrieval(self, collector: MetricsCollector):
         collector.record_retrieval("semantic", 5, 0.85, 42.5)
@@ -139,6 +143,7 @@ class TestRecordRetrieval:
 # ---------------------------------------------------------------------------
 # record_llm_call
 # ---------------------------------------------------------------------------
+
 
 class TestRecordLlmCall:
     def test_record_single_llm_call(self, collector: MetricsCollector):
@@ -178,6 +183,7 @@ class TestRecordLlmCall:
 # record_cache_event
 # ---------------------------------------------------------------------------
 
+
 class TestRecordCacheEvent:
     def test_all_hits(self, collector: MetricsCollector):
         for _ in range(5):
@@ -210,6 +216,7 @@ class TestRecordCacheEvent:
 # ---------------------------------------------------------------------------
 # Empty-collector edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestEmptyCollector:
     def test_get_query_stats_empty(self, collector: MetricsCollector):
@@ -248,6 +255,7 @@ class TestEmptyCollector:
 # ---------------------------------------------------------------------------
 # Rolling window tests
 # ---------------------------------------------------------------------------
+
 
 class TestRollingWindow:
     def test_window_enforced_on_queries(self):
@@ -299,6 +307,7 @@ class TestRollingWindow:
 # ---------------------------------------------------------------------------
 # Thread-safety tests
 # ---------------------------------------------------------------------------
+
 
 class TestThreadSafety:
     def test_concurrent_record_query(self, collector: MetricsCollector):
@@ -385,6 +394,7 @@ class TestThreadSafety:
 # reset() tests
 # ---------------------------------------------------------------------------
 
+
 class TestReset:
     def test_reset_clears_all_windows(self, collector: MetricsCollector):
         collector.record_query(_make_trace_summary())
@@ -412,6 +422,7 @@ class TestReset:
 # get_summary
 # ---------------------------------------------------------------------------
 
+
 class TestGetSummary:
     def test_summary_keys_present(self, collector: MetricsCollector):
         summary = collector.get_summary()
@@ -435,6 +446,7 @@ class TestGetSummary:
 # ---------------------------------------------------------------------------
 # dashboard_data tests
 # ---------------------------------------------------------------------------
+
 
 class TestGetDashboardData:
     def test_dashboard_data_keys(self, collector: MetricsCollector):
@@ -566,6 +578,7 @@ class TestGetDashboardData:
 def _reset_metrics_flag():
     """Ensure the enable_metrics_endpoint flag is restored after each test."""
     import api as api_module
+
     original = api_module.settings.enable_metrics_endpoint
     yield
     api_module.settings.enable_metrics_endpoint = original
@@ -574,8 +587,9 @@ def _reset_metrics_flag():
 @pytest.fixture()
 def api_client(_reset_metrics_flag):
     """TestClient for the FastAPI app with a stable RAG mock."""
-    import api as api_module
     from fastapi.testclient import TestClient
+
+    import api as api_module
 
     api_module._rag_instance = None  # do not boot real RAG
     with TestClient(api_module.app, raise_server_exceptions=False) as c:
@@ -629,12 +643,10 @@ class TestPrometheusCounterIncrements:
     def test_counter_appears_in_exposition_after_request(self, _reset_metrics_flag):
         """Issue a /health request then scrape /metrics; counter must be present."""
         import prometheus_client
+        from fastapi.testclient import TestClient
 
         import api as api_module
         import observability.metrics as obs
-
-        from fastapi.testclient import TestClient
-        from unittest.mock import patch
 
         # Isolated registry so this test does not pollute the global one
         registry = prometheus_client.CollectorRegistry()

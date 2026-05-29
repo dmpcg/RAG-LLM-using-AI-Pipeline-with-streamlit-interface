@@ -53,26 +53,20 @@ def test_negative_ccc_wording(analyzer):
 def test_dcf_terminal_value_none_when_growth_ge_discount(analyzer):
     data = FinancialData(revenue=1000, cogs=400, operating_expenses=200)
     # terminal_growth == discount_rate -> GGM undefined -> None (not inf).
-    result = analyzer.forecast_cashflow(
-        data, periods=5, discount_rate=0.05, terminal_growth=0.05
-    )
+    result = analyzer.forecast_cashflow(data, periods=5, discount_rate=0.05, terminal_growth=0.05)
     assert result.terminal_value is None
     assert result.dcf_value is not None
     assert not math.isinf(result.dcf_value)
 
     # terminal_growth > discount_rate -> still None.
-    result2 = analyzer.forecast_cashflow(
-        data, periods=5, discount_rate=0.03, terminal_growth=0.08
-    )
+    result2 = analyzer.forecast_cashflow(data, periods=5, discount_rate=0.03, terminal_growth=0.08)
     assert result2.terminal_value is None
     assert not math.isinf(result2.dcf_value)
 
 
 def test_dcf_none_when_discount_rate_at_or_below_neg_100pct(analyzer):
     data = FinancialData(revenue=1000, cogs=400, operating_expenses=200)
-    result = analyzer.forecast_cashflow(
-        data, periods=5, discount_rate=-1.0, terminal_growth=0.02
-    )
+    result = analyzer.forecast_cashflow(data, periods=5, discount_rate=-1.0, terminal_growth=0.02)
     # discount_rate <= -100% makes (1 + r) ** i non-positive -> undefined DCF.
     # Guard returns an empty forecast: no terminal value, no DCF value, no inf.
     assert result.terminal_value is None

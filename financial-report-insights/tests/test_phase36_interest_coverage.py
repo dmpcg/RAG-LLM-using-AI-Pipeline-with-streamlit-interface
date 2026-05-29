@@ -4,6 +4,7 @@ Tests for interest_coverage_analysis() and InterestCoverageResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestInterestCoverageDataclass:
     def test_defaults(self):
         r = InterestCoverageResult()
@@ -67,6 +69,7 @@ class TestInterestCoverageDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestInterestCoverage:
     def test_returns_result(self, analyzer, sample_data):
@@ -129,6 +132,7 @@ class TestInterestCoverage:
 
 # ===== SCORING TESTS =====
 
+
 class TestInterestCoverageScoring:
     def test_excellent_coverage(self, analyzer):
         """Very high coverage ratios => Excellent."""
@@ -183,6 +187,7 @@ class TestInterestCoverageScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase36EdgeCases:
     def test_empty_data(self, analyzer):

@@ -4,11 +4,12 @@ Tests for CCC/DSO/DIO/DPO metrics and auto-generated SWOT narratives.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
-    WorkingCapitalResult,
     NarrativeReport,
+    WorkingCapitalResult,
 )
 
 
@@ -71,6 +72,7 @@ def weak_data():
 
 # ===== WORKING CAPITAL RESULT DATACLASS =====
 
+
 class TestWorkingCapitalResultDataclass:
     def test_defaults(self):
         r = WorkingCapitalResult()
@@ -86,6 +88,7 @@ class TestWorkingCapitalResultDataclass:
 
 # ===== NARRATIVE REPORT DATACLASS =====
 
+
 class TestNarrativeReportDataclass:
     def test_defaults(self):
         r = NarrativeReport()
@@ -99,6 +102,7 @@ class TestNarrativeReportDataclass:
 
 
 # ===== WORKING CAPITAL ANALYSIS =====
+
 
 class TestWorkingCapitalAnalysis:
     def test_returns_working_capital_result(self, analyzer, sample_data):
@@ -150,8 +154,7 @@ class TestWorkingCapitalAnalysis:
         assert result.dso is None
 
     def test_no_inventory_no_dio(self, analyzer):
-        data = FinancialData(revenue=100_000, cogs=50_000,
-                             accounts_receivable=10_000)
+        data = FinancialData(revenue=100_000, cogs=50_000, accounts_receivable=10_000)
         result = analyzer.working_capital_analysis(data)
         assert result.dio is None
 
@@ -162,8 +165,7 @@ class TestWorkingCapitalAnalysis:
         assert result.dpo is None
 
     def test_ccc_none_if_incomplete(self, analyzer):
-        data = FinancialData(revenue=100_000, cogs=50_000,
-                             accounts_receivable=10_000)
+        data = FinancialData(revenue=100_000, cogs=50_000, accounts_receivable=10_000)
         result = analyzer.working_capital_analysis(data)
         # Missing inventory and AP, so DIO and DPO are None => CCC is None
         assert result.ccc is None
@@ -193,6 +195,7 @@ class TestWorkingCapitalAnalysis:
 
 # ===== NARRATIVE INTELLIGENCE =====
 
+
 class TestNarrativeIntelligence:
     def test_returns_narrative_report(self, analyzer, sample_data):
         result = analyzer.generate_narrative(sample_data)
@@ -208,7 +211,7 @@ class TestNarrativeIntelligence:
 
     def test_strong_company_headline_positive(self, analyzer, sample_data):
         result = analyzer.generate_narrative(sample_data)
-        assert 'strong' in result.headline.lower() or 'moderate' in result.headline.lower()
+        assert "strong" in result.headline.lower() or "moderate" in result.headline.lower()
 
     def test_weak_company_has_risks(self, analyzer, weak_data):
         result = analyzer.generate_narrative(weak_data)
@@ -216,7 +219,7 @@ class TestNarrativeIntelligence:
 
     def test_weak_company_headline_negative(self, analyzer, weak_data):
         result = analyzer.generate_narrative(weak_data)
-        assert 'weak' in result.headline.lower() or 'moderate' in result.headline.lower()
+        assert "weak" in result.headline.lower() or "moderate" in result.headline.lower()
 
     def test_recommendation_not_empty(self, analyzer, sample_data):
         result = analyzer.generate_narrative(sample_data)
@@ -225,21 +228,19 @@ class TestNarrativeIntelligence:
     def test_profitability_strength_detected(self, analyzer, sample_data):
         """Net margin = 15%, should be flagged as strength."""
         result = analyzer.generate_narrative(sample_data)
-        has_margin = any('margin' in s.lower() or 'profit' in s.lower()
-                         for s in result.strengths)
+        has_margin = any("margin" in s.lower() or "profit" in s.lower() for s in result.strengths)
         assert has_margin
 
     def test_leverage_strength_detected(self, analyzer, sample_data):
         """D/E = 0.67, should be flagged as conservative leverage."""
         result = analyzer.generate_narrative(sample_data)
-        has_leverage = any('leverage' in s.lower() or 'd/e' in s.lower()
-                          for s in result.strengths)
+        has_leverage = any("leverage" in s.lower() or "d/e" in s.lower() for s in result.strengths)
         assert has_leverage
 
     def test_interest_coverage_strength(self, analyzer, sample_data):
         """EBIT/interest = 200k/30k = 6.67, should be flagged."""
         result = analyzer.generate_narrative(sample_data)
-        has_ic = any('interest coverage' in s.lower() for s in result.strengths)
+        has_ic = any("interest coverage" in s.lower() for s in result.strengths)
         assert has_ic
 
     def test_empty_data_no_crash(self, analyzer):
@@ -251,44 +252,41 @@ class TestNarrativeIntelligence:
         """Z-Score should appear somewhere in SWOT (strengths or risks)."""
         result = analyzer.generate_narrative(sample_data)
         all_items = result.strengths + result.risks
-        has_z = any('z-score' in s.lower() or 'z score' in s.lower()
-                     or 'altman' in s.lower()
-                     for s in all_items)
+        has_z = any("z-score" in s.lower() or "z score" in s.lower() or "altman" in s.lower() for s in all_items)
         assert has_z
 
     def test_breakeven_in_narrative(self, analyzer, sample_data):
         """Profitable company should mention margin of safety."""
         result = analyzer.generate_narrative(sample_data)
         all_items = result.strengths + result.opportunities
-        has_breakeven = any('breakeven' in s.lower() or 'margin of safety' in s.lower()
-                           for s in all_items)
+        has_breakeven = any("breakeven" in s.lower() or "margin of safety" in s.lower() for s in all_items)
         assert has_breakeven
 
     def test_weak_company_liquidity_warning(self, analyzer, weak_data):
         """Current ratio < 1 should trigger weakness."""
         result = analyzer.generate_narrative(weak_data)
-        has_liquidity = any('current ratio' in w.lower() or 'liquidity' in w.lower()
-                           for w in result.weaknesses)
+        has_liquidity = any("current ratio" in w.lower() or "liquidity" in w.lower() for w in result.weaknesses)
         assert has_liquidity
 
     def test_unprofitable_company_weakness(self, analyzer, weak_data):
         """Negative net income should trigger weakness."""
         result = analyzer.generate_narrative(weak_data)
-        has_profit_weakness = any('margin' in w.lower() or 'unprofitable' in w.lower()
-                                 for w in result.weaknesses)
+        has_profit_weakness = any("margin" in w.lower() or "unprofitable" in w.lower() for w in result.weaknesses)
         assert has_profit_weakness
 
 
 # ===== EDGE CASES =====
 
+
 class TestPhase8EdgeCases:
     def test_wc_negative_ccc(self, analyzer):
         """Company with very high DPO can have negative CCC."""
         data = FinancialData(
-            revenue=100_000, cogs=50_000,
+            revenue=100_000,
+            cogs=50_000,
             accounts_receivable=5_000,  # DSO = 18.25
-            inventory=5_000,            # DIO = 36.5
-            accounts_payable=30_000,    # DPO = 219
+            inventory=5_000,  # DIO = 36.5
+            accounts_payable=30_000,  # DPO = 219
         )
         result = analyzer.working_capital_analysis(data)
         assert result.ccc is not None
@@ -297,8 +295,7 @@ class TestPhase8EdgeCases:
     def test_narrative_swot_counts(self, analyzer, sample_data):
         """Total SWOT items should be reasonable."""
         result = analyzer.generate_narrative(sample_data)
-        total = len(result.strengths) + len(result.weaknesses) + \
-                len(result.opportunities) + len(result.risks)
+        total = len(result.strengths) + len(result.weaknesses) + len(result.opportunities) + len(result.risks)
         assert total >= 3  # Should have at least a few items
         assert total <= 20  # Not excessively verbose
 
@@ -310,12 +307,16 @@ class TestPhase8EdgeCases:
     def test_narrative_high_leverage_risk(self, analyzer):
         """Very high leverage should trigger risk."""
         data = FinancialData(
-            revenue=100_000, net_income=5_000, ebit=10_000,
-            total_assets=200_000, total_liabilities=180_000,
-            total_equity=20_000, total_debt=150_000,
-            current_assets=30_000, current_liabilities=20_000,
+            revenue=100_000,
+            net_income=5_000,
+            ebit=10_000,
+            total_assets=200_000,
+            total_liabilities=180_000,
+            total_equity=20_000,
+            total_debt=150_000,
+            current_assets=30_000,
+            current_liabilities=20_000,
         )
         result = analyzer.generate_narrative(data)
-        has_leverage_risk = any('debt' in r.lower() or 'leverage' in r.lower()
-                               for r in result.risks)
+        has_leverage_risk = any("debt" in r.lower() or "leverage" in r.lower() for r in result.risks)
         assert has_leverage_risk

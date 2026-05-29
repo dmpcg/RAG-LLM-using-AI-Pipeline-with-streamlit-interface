@@ -13,16 +13,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-
 from dotenv import load_dotenv
 
 from config import settings
-from local_llm import LocalLLM, LocalEmbedder
+from local_llm import LocalEmbedder, LocalLLM
 from logging_config import setup_logging
-from protocols import LLMProvider, EmbeddingProvider
 
 # Versioned prompt templates (Phase 2.3 – Prompt Engineering)
-from prompts import get_prompt_for_query_type, build_prompt, format_context_with_citations
+from prompts import build_prompt, format_context_with_citations, get_prompt_for_query_type
+from protocols import EmbeddingProvider, LLMProvider
 
 # Setup structured logging
 setup_logging()
@@ -36,24 +35,126 @@ class SimpleRAG:
     """Simple RAG implementation for local use with Excel and financial analysis support."""
 
     # Supported Excel extensions
-    EXCEL_EXTENSIONS = {'.xlsx', '.xlsm', '.xls', '.csv', '.tsv'}
+    EXCEL_EXTENSIONS = {".xlsx", ".xlsm", ".xls", ".csv", ".tsv"}
 
     # Financial-domain stop words (extend standard English stop words)
-    _STOP_WORDS = frozenset({
-        'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-        'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-        'should', 'may', 'might', 'shall', 'can', 'need', 'dare', 'ought',
-        'used', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from',
-        'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below',
-        'between', 'out', 'off', 'over', 'under', 'again', 'further', 'then',
-        'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'each',
-        'every', 'both', 'few', 'more', 'most', 'other', 'some', 'such', 'no',
-        'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very',
-        'just', 'because', 'but', 'and', 'or', 'if', 'while', 'about',
-        'this', 'that', 'these', 'those', 'i', 'me', 'my', 'we', 'our',
-        'you', 'your', 'he', 'him', 'his', 'she', 'her', 'it', 'its',
-        'they', 'them', 'their', 'what', 'which', 'who', 'whom',
-    })
+    _STOP_WORDS = frozenset(
+        {
+            "a",
+            "an",
+            "the",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "shall",
+            "can",
+            "need",
+            "dare",
+            "ought",
+            "used",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "as",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "between",
+            "out",
+            "off",
+            "over",
+            "under",
+            "again",
+            "further",
+            "then",
+            "once",
+            "here",
+            "there",
+            "when",
+            "where",
+            "why",
+            "how",
+            "all",
+            "each",
+            "every",
+            "both",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "no",
+            "nor",
+            "not",
+            "only",
+            "own",
+            "same",
+            "so",
+            "than",
+            "too",
+            "very",
+            "just",
+            "because",
+            "but",
+            "and",
+            "or",
+            "if",
+            "while",
+            "about",
+            "this",
+            "that",
+            "these",
+            "those",
+            "i",
+            "me",
+            "my",
+            "we",
+            "our",
+            "you",
+            "your",
+            "he",
+            "him",
+            "his",
+            "she",
+            "her",
+            "it",
+            "its",
+            "they",
+            "them",
+            "their",
+            "what",
+            "which",
+            "who",
+            "whom",
+        }
+    )
 
     def __init__(
         self,
@@ -108,6 +209,7 @@ class SimpleRAG:
         self._vector_index = None
         try:
             from vector_index import create_index
+
             self._vector_index = create_index(
                 dimension=settings.embedding_dimension,
                 backend=settings.vector_backend,
@@ -122,7 +224,8 @@ class SimpleRAG:
         self._bm25_index = None
         self._bm25_available = False
         try:
-            from rank_bm25 import BM25Okapi
+            from rank_bm25 import BM25Okapi  # noqa: F401 — availability probe only
+
             self._bm25_available = True
             logger.info("BM25 search enabled")
         except ImportError:
@@ -140,6 +243,7 @@ class SimpleRAG:
         else:
             try:
                 from graph_store import Neo4jStore
+
                 self._graph_store = Neo4jStore.connect()
             except ImportError:
                 self._graph_store = None
@@ -158,7 +262,7 @@ class SimpleRAG:
         self._cache_dir.mkdir(parents=True, exist_ok=True)
 
         # Wait for embedding service before loading docs (handles cold start)
-        if hasattr(self.embedder, 'wait_for_embedding_service'):
+        if hasattr(self.embedder, "wait_for_embedding_service"):
             if not self.embedder.wait_for_embedding_service(timeout=120):
                 logger.error("Embedding service unavailable — documents may not be indexed")
 
@@ -171,6 +275,7 @@ class SimpleRAG:
         if self._excel_processor is None:
             try:
                 from excel_processor import ExcelProcessor
+
                 self._excel_processor = ExcelProcessor(str(self.docs_folder))
             except ImportError:
                 logger.warning("Excel processor not available. Install openpyxl and pandas.")
@@ -182,6 +287,7 @@ class SimpleRAG:
         if self._charlie_analyzer is None:
             try:
                 from financial_analyzer import CharlieAnalyzer
+
                 self._charlie_analyzer = CharlieAnalyzer()
             except ImportError:
                 logger.warning("Financial analyzer not available.")
@@ -239,9 +345,7 @@ class SimpleRAG:
                         else:
                             for sheet in workbook.sheets[:3]:
                                 if not sheet.df.empty:
-                                    dfs_to_analyze.append(
-                                        (f"{file_path.name}/{sheet.name}", sheet.df)
-                                    )
+                                    dfs_to_analyze.append((f"{file_path.name}/{sheet.name}", sheet.df))
 
                         for source_name, df in dfs_to_analyze:
                             financial_data = self.charlie_analyzer._dataframe_to_financial_data(df)
@@ -261,6 +365,7 @@ class SimpleRAG:
                                 try:
                                     from graph_retriever import persist_structured_analysis_to_graph
                                     from ratio_framework import run_all_ratios
+
                                     ratio_results = run_all_ratios(financial_data)
                                     persist_structured_analysis_to_graph(
                                         self._graph_store,
@@ -322,6 +427,7 @@ class SimpleRAG:
         if not cache_file.exists() and legacy.exists():
             try:
                 import joblib
+
                 data = joblib.load(legacy)
                 # Re-save as JSON and delete unsafe pickle file
                 with open(cache_file, "w", encoding="utf-8") as fp:
@@ -361,6 +467,7 @@ class SimpleRAG:
 
         if suffix == ".pdf":
             import fitz
+
             doc = fitz.open(file_path)
             text = "".join(page.get_text() for page in doc)
             doc.close()
@@ -372,6 +479,7 @@ class SimpleRAG:
 
         if suffix == ".docx":
             from docx import Document as DocxDocument
+
             doc = DocxDocument(file_path)
             text = "\n".join(p.text for p in doc.paragraphs)
             return text if text.strip() else None
@@ -389,7 +497,8 @@ class SimpleRAG:
 
         # Try to use the new ingestion pipeline
         try:
-            from ingestion_pipeline import ingest_file, chunks_to_documents
+            from ingestion_pipeline import chunks_to_documents, ingest_file
+
             _pipeline_available = True
         except ImportError:
             _pipeline_available = False
@@ -426,15 +535,23 @@ class SimpleRAG:
 
                 # Use new ingestion pipeline when available
                 if _pipeline_available and suffix in (
-                    ".pdf", ".txt", ".md", ".docx",
-                    ".xlsx", ".xlsm", ".xls", ".csv", ".tsv",
+                    ".pdf",
+                    ".txt",
+                    ".md",
+                    ".docx",
+                    ".xlsx",
+                    ".xlsm",
+                    ".xls",
+                    ".csv",
+                    ".tsv",
                 ):
                     rag_chunks = ingest_file(file_path)
                     file_docs = chunks_to_documents(rag_chunks)
                     if file_docs:
                         logger.info(
                             "Ingested %d chunks from %s via pipeline",
-                            len(file_docs), file_path.name,
+                            len(file_docs),
+                            file_path.name,
                         )
                 # Legacy fallback for text files
                 elif suffix in (".pdf", ".txt", ".md", ".docx"):
@@ -454,11 +571,13 @@ class SimpleRAG:
                         chunks = self._filter_low_quality_chunks(chunks)
                         rel_path = str(file_path.relative_to(self.docs_folder))
                         for chunk in chunks:
-                            file_docs.append({
-                                "source": rel_path,
-                                "content": chunk,
-                                "type": doc_type,
-                            })
+                            file_docs.append(
+                                {
+                                    "source": rel_path,
+                                    "content": chunk,
+                                    "type": doc_type,
+                                }
+                            )
                         logger.info(f"Loaded {len(chunks)} chunks from {rel_path}")
                 # Legacy fallback for Excel
                 elif suffix in self.EXCEL_EXTENSIONS:
@@ -486,30 +605,36 @@ class SimpleRAG:
                 # Self-healing: exponential backoff retries (3s, 6s, 12s)
                 # to handle DMR cold-start 5xx errors on large Excel batches.
                 import time as _time
+
                 _per_file_delays = [3, 6, 12]
                 _last_err: Exception | None = e
                 for _retry_num, _delay in enumerate(_per_file_delays, start=1):
                     logger.warning(
                         "Load failed for %s (retry %d/%d in %ds): %s",
-                        file_path.name, _retry_num, len(_per_file_delays), _delay, e,
+                        file_path.name,
+                        _retry_num,
+                        len(_per_file_delays),
+                        _delay,
+                        e,
                     )
                     _time.sleep(_delay)
                     try:
                         if file_docs and not any(
-                            d.get("source") == str(
-                                file_path.relative_to(self.docs_folder))
-                            for d in self.documents
+                            d.get("source") == str(file_path.relative_to(self.docs_folder)) for d in self.documents
                         ):
                             texts = [d["content"] for d in file_docs]
                             embs = self.embedder.embed_batch(texts)
                             self._save_cached_embeddings(
-                                self._embedding_cache_key(file_path), file_docs, embs,
+                                self._embedding_cache_key(file_path),
+                                file_docs,
+                                embs,
                             )
                             self.documents.extend(file_docs)
                             self.embeddings.extend(embs)
                             logger.info(
                                 "Retry %d succeeded for %s",
-                                _retry_num, file_path.name,
+                                _retry_num,
+                                file_path.name,
                             )
                             _last_err = None
                             break
@@ -521,7 +646,9 @@ class SimpleRAG:
                 if _last_err is not None:
                     logger.error(
                         "Failed to load %s after %d retries: %s",
-                        file_path.name, len(_per_file_delays), _last_err,
+                        file_path.name,
+                        len(_per_file_delays),
+                        _last_err,
                     )
 
         # Chunk count validation: warn if suspiciously few chunks indexed
@@ -532,7 +659,9 @@ class SimpleRAG:
             logger.warning(
                 "Only %d chunks indexed from %d files (expected >%d). "
                 "Some embeddings may have failed. Consider restarting to re-ingest.",
-                n_chunks, n_files, n_files * 5,
+                n_chunks,
+                n_files,
+                n_files * 5,
             )
 
         if self.documents:
@@ -565,6 +694,7 @@ class SimpleRAG:
         if self._vector_index is not None:
             try:
                 from vector_index import create_index
+
                 # Re-create a fresh index so we can add all embeddings at once
                 self._vector_index = create_index(
                     dimension=settings.embedding_dimension,
@@ -596,10 +726,9 @@ class SimpleRAG:
 
         try:
             from rank_bm25 import BM25Okapi
+
             # Tokenize with stop-word removal and stemming
-            tokenized_corpus = [
-                self._tokenize_for_bm25(doc["content"]) for doc in self.documents
-            ]
+            tokenized_corpus = [self._tokenize_for_bm25(doc["content"]) for doc in self.documents]
             self._bm25_index = BM25Okapi(tokenized_corpus)
             logger.info("BM25 index built successfully")
         except Exception as e:
@@ -614,6 +743,7 @@ class SimpleRAG:
 
         try:
             from excel_processor import process_excel_for_rag
+
             return process_excel_for_rag(file_path, str(self.docs_folder))
         except Exception as e:
             logger.error(f"Failed to process Excel file {file_path}: {e}")
@@ -637,7 +767,7 @@ class SimpleRAG:
 
         # Split into sentences using regex (handles Mr./Mrs./Dr./etc.)
         # Pattern: split on sentence-ending punctuation followed by whitespace and capital letter
-        sentence_pattern = r'(?<=[.!?])\s+(?=[A-Z])'
+        sentence_pattern = r"(?<=[.!?])\s+(?=[A-Z])"
         sentences = re.split(sentence_pattern, text)
 
         # Filter empty sentences
@@ -666,7 +796,7 @@ class SimpleRAG:
 
                 # Word-split the long sentence with overlap
                 for i in range(0, sentence_word_count, chunk_size - overlap):
-                    chunk = " ".join(sentence_words[i:i + chunk_size])
+                    chunk = " ".join(sentence_words[i : i + chunk_size])
                     if chunk.strip():
                         chunks.append(chunk)
                 continue
@@ -756,7 +886,7 @@ class SimpleRAG:
         import re
 
         # Tokenize: lowercase, split on non-alphanumeric
-        tokens = re.findall(r'[a-z0-9]+', text.lower())
+        tokens = re.findall(r"[a-z0-9]+", text.lower())
 
         # Remove stop words and very short tokens
         tokens = [t for t in tokens if t not in SimpleRAG._STOP_WORDS and len(t) > 1]
@@ -764,13 +894,13 @@ class SimpleRAG:
         # Simple suffix stripping (lightweight stemming without nltk dependency)
         stemmed = []
         for token in tokens:
-            if len(token) > 5 and token.endswith('ing'):
+            if len(token) > 5 and token.endswith("ing"):
                 token = token[:-3]
-            elif len(token) > 4 and token.endswith('ed'):
+            elif len(token) > 4 and token.endswith("ed"):
                 token = token[:-2]
-            elif len(token) > 4 and token.endswith('ly'):
+            elif len(token) > 4 and token.endswith("ly"):
                 token = token[:-2]
-            elif len(token) > 3 and token.endswith('s') and not token.endswith('ss'):
+            elif len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
                 token = token[:-1]
             stemmed.append(token)
 
@@ -797,42 +927,84 @@ class SimpleRAG:
 
         # Ratio lookup patterns
         ratio_keywords = [
-            'what is the', 'calculate', 'compute', 'ratio', 'score',
-            'margin', 'roe', 'roa', 'roic', 'ebitda', 'z-score', 'f-score',
-            'current ratio', 'quick ratio', 'debt to equity',
+            "what is the",
+            "calculate",
+            "compute",
+            "ratio",
+            "score",
+            "margin",
+            "roe",
+            "roa",
+            "roic",
+            "ebitda",
+            "z-score",
+            "f-score",
+            "current ratio",
+            "quick ratio",
+            "debt to equity",
         ]
         if any(kw in query_lower for kw in ratio_keywords):
-            return 'ratio_lookup'
+            return "ratio_lookup"
 
         # Trend analysis patterns
         trend_keywords = [
-            'trend', 'over time', 'year over year', 'yoy', 'growth',
-            'changed', 'increasing', 'decreasing', 'trajectory',
-            'quarter over quarter', 'qoq', 'month over month',
-            'historically', 'over the past', 'forecast', 'predict',
+            "trend",
+            "over time",
+            "year over year",
+            "yoy",
+            "growth",
+            "changed",
+            "increasing",
+            "decreasing",
+            "trajectory",
+            "quarter over quarter",
+            "qoq",
+            "month over month",
+            "historically",
+            "over the past",
+            "forecast",
+            "predict",
         ]
         if any(kw in query_lower for kw in trend_keywords):
-            return 'trend_analysis'
+            return "trend_analysis"
 
         # Comparison patterns
         comparison_keywords = [
-            'compare', 'versus', 'vs', 'difference between', 'better than',
-            'worse than', 'relative to', 'compared to', 'benchmark',
-            'how does', 'which is', 'stronger', 'weaker',
+            "compare",
+            "versus",
+            "vs",
+            "difference between",
+            "better than",
+            "worse than",
+            "relative to",
+            "compared to",
+            "benchmark",
+            "how does",
+            "which is",
+            "stronger",
+            "weaker",
         ]
         if any(kw in query_lower for kw in comparison_keywords):
-            return 'comparison'
+            return "comparison"
 
         # Explanation patterns
         explanation_keywords = [
-            'why', 'how does', 'explain', 'what causes', 'reason for',
-            'impact of', 'effect of', 'significance', 'implications',
-            'what drove', 'contributing factors',
+            "why",
+            "how does",
+            "explain",
+            "what causes",
+            "reason for",
+            "impact of",
+            "effect of",
+            "significance",
+            "implications",
+            "what drove",
+            "contributing factors",
         ]
         if any(kw in query_lower for kw in explanation_keywords):
-            return 'explanation'
+            return "explanation"
 
-        return 'general'
+        return "general"
 
     def _hyde_expand_query(self, query: str) -> list:
         """Generate a hypothetical answer to use as search query (HyDE).
@@ -922,46 +1094,51 @@ class SimpleRAG:
         # Post-processing: reranking, MMR diversification, citations
 
         # Apply reranking if enabled
-        if getattr(settings, 'enable_reranking', False) and len(results) > 1:
+        if getattr(settings, "enable_reranking", False) and len(results) > 1:
             try:
                 from reranker import EmbeddingReranker
+
                 reranker = EmbeddingReranker(self.embedder)
                 results = reranker.rerank(query, results, top_k)
             except Exception as e:
                 logger.debug("Reranking failed: %s", e)
 
         # Apply MMR diversification if enabled
-        if getattr(settings, 'enable_mmr', False) and len(results) > 1:
+        if getattr(settings, "enable_mmr", False) and len(results) > 1:
             try:
                 from reranker import mmr_diversify
+
                 doc_texts = [d.get("content", "") for d in results]
                 doc_embs = self.embedder.embed_batch(doc_texts)
                 query_emb = self.embedder.embed(query)
                 results = mmr_diversify(
-                    query_emb, results, doc_embs,
+                    query_emb,
+                    results,
+                    doc_embs,
                     top_k=top_k,
-                    lambda_param=getattr(settings, 'mmr_lambda', 0.7),
+                    lambda_param=getattr(settings, "mmr_lambda", 0.7),
                 )
             except Exception as e:
                 logger.debug("MMR diversification failed: %s", e)
 
         # Add citations if enabled
-        if getattr(settings, 'enable_citations', False):
+        if getattr(settings, "enable_citations", False):
             try:
                 from reranker import add_citations
+
                 results = add_citations(results)
             except Exception as e:
                 logger.debug("Citation addition failed: %s", e)
 
         # Parent chunk expansion: swap child content with parent text for LLM context
-        if getattr(settings, 'enable_parent_expansion', True) and results:
+        if getattr(settings, "enable_parent_expansion", True) and results:
             results = self._expand_parent_chunks(results)
 
         # Record retrieval metrics (non-blocking, never raises)
-        if getattr(settings, 'enable_tracing', False):
+        if getattr(settings, "enable_tracing", False):
             try:
-                import time as _time
                 from observability.metrics import get_metrics_collector
+
                 _search_type = "hybrid" if (self._bm25_available and self._bm25_index is not None) else "semantic"
                 _similarities = [float(r.get("score", 0.0)) for r in results if "score" in r]
                 _avg_sim = sum(_similarities) / len(_similarities) if _similarities else 0.0
@@ -1037,7 +1214,7 @@ class SimpleRAG:
         from observability.tracing import get_current_trace
 
         def _embed_query():
-            if getattr(settings, 'enable_hyde', False) and hasattr(self, 'llm'):
+            if getattr(settings, "enable_hyde", False) and hasattr(self, "llm"):
                 return self._hyde_expand_query(query)
             return self.embedder.embed(query)
 
@@ -1052,7 +1229,9 @@ class SimpleRAG:
         if getattr(self, "_graph_store", None):
             try:
                 neo4j_results = self._graph_store.graph_search(
-                    query_embedding, top_k, self._embedding_model_name,
+                    query_embedding,
+                    top_k,
+                    self._embedding_model_name,
                 )
                 if neo4j_results:
                     return [
@@ -1139,12 +1318,7 @@ class SimpleRAG:
 
         return [self.documents[i] for i in top_indices]
 
-    def _fuse_results_rrf(
-        self,
-        semantic_results: list,
-        bm25_results: list,
-        top_k: int
-    ) -> list:
+    def _fuse_results_rrf(self, semantic_results: list, bm25_results: list, top_k: int) -> list:
         """
         Fuse semantic and BM25 results using Reciprocal Rank Fusion.
 
@@ -1186,11 +1360,7 @@ class SimpleRAG:
             rrf_scores[doc_id] = score
 
         # Sort by RRF score and return top-k
-        sorted_docs = sorted(
-            all_docs.items(),
-            key=lambda x: rrf_scores[x[0]],
-            reverse=True
-        )[:top_k]
+        sorted_docs = sorted(all_docs.items(), key=lambda x: rrf_scores[x[0]], reverse=True)[:top_k]
 
         return [doc for doc_id, doc in sorted_docs]
 
@@ -1223,12 +1393,12 @@ class SimpleRAG:
         excel_data = []
 
         for doc in relevant_docs:
-            citation = doc.get('_citation', '')
+            citation = doc.get("_citation", "")
             source_info = citation if citation else f"[Source: {doc['source']}]"
-            doc_type = doc.get('type', 'unknown')
+            doc_type = doc.get("type", "unknown")
 
-            if doc_type == 'excel':
-                financial_type = doc.get('metadata', {}).get('financial_type', '')
+            if doc_type == "excel":
+                financial_type = doc.get("metadata", {}).get("financial_type", "")
                 if financial_type and not citation:
                     source_info += f" [Type: {financial_type}]"
                 excel_data.append(doc)
@@ -1251,6 +1421,7 @@ class SimpleRAG:
         # Generate answer
         try:
             import time as _time
+
             from observability.tracing import get_current_trace
 
             trace = get_current_trace()
@@ -1263,9 +1434,10 @@ class SimpleRAG:
             _llm_latency_ms = (_time.monotonic() - _llm_start) * 1000.0
 
             # Record LLM metrics (non-blocking, never raises)
-            if getattr(settings, 'enable_tracing', False):
+            if getattr(settings, "enable_tracing", False):
                 try:
                     from observability.metrics import get_metrics_collector
+
                     _pt = len(prompt.split())  # token approximation
                     _ct = len(answer.split())
                     get_metrics_collector().record_llm_call(
@@ -1305,7 +1477,7 @@ class SimpleRAG:
             results = self.retrieve(sq, top_k=top_k)
             for doc in results:
                 # Deduplicate by source + first 200 chars of content
-                key = (doc.get('source', ''), doc.get('content', '')[:200])
+                key = (doc.get("source", ""), doc.get("content", "")[:200])
                 if key not in seen_keys:
                     seen_keys.add(key)
                     all_results.append(doc)
@@ -1325,10 +1497,10 @@ class SimpleRAG:
             List of sub-queries including the original
         """
         sub_queries = [query]  # Always include original
-        max_subs = getattr(settings, 'max_sub_queries', 4)
+        max_subs = getattr(settings, "max_sub_queries", 4)
 
         # Try LLM-based decomposition if enabled
-        if getattr(settings, 'enable_query_decomposition', False) and hasattr(self, 'llm'):
+        if getattr(settings, "enable_query_decomposition", False) and hasattr(self, "llm"):
             try:
                 decomp_prompt = (
                     "Break this financial question into 2-3 simpler sub-questions "
@@ -1339,16 +1511,10 @@ class SimpleRAG:
                 )
 
                 result = self.llm.generate(decomp_prompt)
-                lines = [
-                    line.strip().lstrip('0123456789.-) ')
-                    for line in result.strip().split('\n')
-                ]
-                lines = [
-                    line for line in lines
-                    if line and ('?' in line or len(line) > 20) and len(line) > 10
-                ]
+                lines = [line.strip().lstrip("0123456789.-) ") for line in result.strip().split("\n")]
+                lines = [line for line in lines if line and ("?" in line or len(line) > 20) and len(line) > 10]
 
-                for line in lines[:max_subs - 1]:  # Leave room for original
+                for line in lines[: max_subs - 1]:  # Leave room for original
                     if line not in sub_queries:
                         sub_queries.append(line)
 
@@ -1376,14 +1542,14 @@ class SimpleRAG:
         query_lower = query.lower()
 
         expansions = {
-            'profitability': ['revenue', 'net income', 'margin', 'profit'],
-            'liquidity': ['current ratio', 'cash', 'working capital'],
-            'leverage': ['debt', 'equity', 'interest coverage'],
-            'efficiency': ['asset turnover', 'inventory turnover', 'receivables'],
-            'growth': ['revenue growth', 'trend', 'year over year'],
-            'risk': ['z-score', 'bankruptcy', 'distress', 'leverage'],
-            'cash flow': ['operating cash flow', 'free cash flow', 'capex'],
-            'valuation': ['roe', 'roa', 'roic', 'earnings'],
+            "profitability": ["revenue", "net income", "margin", "profit"],
+            "liquidity": ["current ratio", "cash", "working capital"],
+            "leverage": ["debt", "equity", "interest coverage"],
+            "efficiency": ["asset turnover", "inventory turnover", "receivables"],
+            "growth": ["revenue growth", "trend", "year over year"],
+            "risk": ["z-score", "bankruptcy", "distress", "leverage"],
+            "cash flow": ["operating cash flow", "free cash flow", "capex"],
+            "valuation": ["roe", "roa", "roic", "earnings"],
         }
 
         matched_aspects = []
@@ -1400,8 +1566,8 @@ class SimpleRAG:
                             return sub_queries
 
         if len(sub_queries) == 1:
-            if '?' in query:
-                sub_queries.append(query.replace('?', ' details?'))
+            if "?" in query:
+                sub_queries.append(query.replace("?", " details?"))
             else:
                 sub_queries.append(f"details about {query}")
 
@@ -1410,14 +1576,48 @@ class SimpleRAG:
     def _is_financial_query(self, query: str) -> bool:
         """Check if query involves financial analysis."""
         financial_keywords = [
-            'ratio', 'margin', 'profit', 'revenue', 'income', 'expense',
-            'cash flow', 'budget', 'variance', 'roe', 'roa', 'roi',
-            'liquidity', 'leverage', 'debt', 'equity', 'asset', 'liability',
-            'growth', 'trend', 'forecast', 'analysis', 'financial',
-            'balance sheet', 'income statement', 'p&l', 'cfo', 'ebitda',
-            'z-score', 'zscore', 'f-score', 'fscore', 'piotroski', 'altman',
-            'dupont', 'health score', 'composite', 'working capital',
-            'bankruptcy', 'distress', 'scoring', 'grade',
+            "ratio",
+            "margin",
+            "profit",
+            "revenue",
+            "income",
+            "expense",
+            "cash flow",
+            "budget",
+            "variance",
+            "roe",
+            "roa",
+            "roi",
+            "liquidity",
+            "leverage",
+            "debt",
+            "equity",
+            "asset",
+            "liability",
+            "growth",
+            "trend",
+            "forecast",
+            "analysis",
+            "financial",
+            "balance sheet",
+            "income statement",
+            "p&l",
+            "cfo",
+            "ebitda",
+            "z-score",
+            "zscore",
+            "f-score",
+            "fscore",
+            "piotroski",
+            "altman",
+            "dupont",
+            "health score",
+            "composite",
+            "working capital",
+            "bankruptcy",
+            "distress",
+            "scoring",
+            "grade",
         ]
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in financial_keywords)
@@ -1426,11 +1626,28 @@ class SimpleRAG:
     def _is_temporal_comparison_query(query: str) -> bool:
         """Detect queries that compare across time periods."""
         temporal_patterns = [
-            "change from", "changed from", "year over year", "yoy",
-            "quarter over quarter", "qoq", "compared to", "comparison",
-            "trend", "trends", "over time", "growth rate",
-            "improved", "deteriorated", "worsened", "increased", "decreased",
-            "vs ", "versus", "relative to", "from fy", "from q",
+            "change from",
+            "changed from",
+            "year over year",
+            "yoy",
+            "quarter over quarter",
+            "qoq",
+            "compared to",
+            "comparison",
+            "trend",
+            "trends",
+            "over time",
+            "growth rate",
+            "improved",
+            "deteriorated",
+            "worsened",
+            "increased",
+            "decreased",
+            "vs ",
+            "versus",
+            "relative to",
+            "from fy",
+            "from q",
         ]
         query_lower = query.lower()
         return any(pattern in query_lower for pattern in temporal_patterns)
@@ -1460,11 +1677,11 @@ COMPUTED FINANCIAL ANALYSIS (use these exact values when answering):
             graph_contexts = [
                 d["_graph_context"]
                 for d in relevant_docs
-                if d.get("_graph_context")
-                and (d["_graph_context"].get("ratios") or d["_graph_context"].get("scores"))
+                if d.get("_graph_context") and (d["_graph_context"].get("ratios") or d["_graph_context"].get("scores"))
             ]
             if graph_contexts:
                 from graph_retriever import format_graph_context
+
                 formatted = format_graph_context(graph_contexts)
                 if formatted:
                     graph_section = f"""
@@ -1523,12 +1740,12 @@ Answer:"""
         excel_data = []
 
         for doc in relevant_docs:
-            citation = doc.get('_citation', '')
+            citation = doc.get("_citation", "")
             source_info = citation if citation else f"[Source: {doc['source']}]"
-            doc_type = doc.get('type', 'unknown')
+            doc_type = doc.get("type", "unknown")
 
-            if doc_type == 'excel':
-                financial_type = doc.get('metadata', {}).get('financial_type', '')
+            if doc_type == "excel":
+                financial_type = doc.get("metadata", {}).get("financial_type", "")
                 if financial_type and not citation:
                     source_info += f" [Type: {financial_type}]"
                 excel_data.append(doc)
@@ -1548,7 +1765,7 @@ Answer:"""
             prompt = build_prompt(template, query, formatted_context)
 
         try:
-            if hasattr(self.llm, 'generate_stream'):
+            if hasattr(self.llm, "generate_stream"):
                 yield from self.llm.generate_stream(prompt)
             else:
                 answer = self.llm.generate(prompt)

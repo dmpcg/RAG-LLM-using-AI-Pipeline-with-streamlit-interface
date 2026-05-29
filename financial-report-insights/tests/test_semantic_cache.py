@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import math
 import threading
-from typing import Optional
 
 import numpy as np
 import pytest
@@ -25,7 +24,6 @@ from ml.semantic_cache import (
     _normalise_text,
     _simhash,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures & helpers
@@ -412,10 +410,12 @@ class TestChunkDeduplicatorFindDuplicates:
 
     def test_no_duplicates_returns_empty(self) -> None:
         d = ChunkDeduplicator()
-        pairs = d.find_duplicates([
-            "Revenue grew 20% year-over-year in Q4.",
-            "Quantum entanglement governs particle spin.",
-        ])
+        pairs = d.find_duplicates(
+            [
+                "Revenue grew 20% year-over-year in Q4.",
+                "Quantum entanglement governs particle spin.",
+            ]
+        )
         assert pairs == []
 
     def test_pair_ordering_is_always_idx_a_lt_idx_b(self) -> None:

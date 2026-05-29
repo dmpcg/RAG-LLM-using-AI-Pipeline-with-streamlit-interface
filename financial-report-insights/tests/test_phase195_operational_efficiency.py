@@ -4,6 +4,7 @@ Tests for operational_efficiency_analysis() and OperationalEfficiencyResult data
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestOperationalEfficiencyDataclass:
     def test_defaults(self):
         r = OperationalEfficiencyResult()
@@ -68,6 +70,7 @@ class TestOperationalEfficiencyDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestOperationalEfficiencyAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestOperationalEfficiencyAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestOperationalEfficiencyScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """OIM=0.20 => base 8.5. RtA=0.50 no adj (<0.80). OE=5.00 >=5.0 => +0.5. Score=9.0."""
@@ -155,6 +159,7 @@ class TestOperationalEfficiencyScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase195EdgeCases:
     def test_empty_data(self, analyzer):
