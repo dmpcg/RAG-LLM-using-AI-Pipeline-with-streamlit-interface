@@ -33,6 +33,23 @@ services:
       retries: 3
       start_period: 60s
     restart: unless-stopped
+    # WS-1 P0-4 (2026-05-07): kernel hardening
+    # read_only=true forces the container root FS to be immutable; writable
+    # paths are explicitly enumerated as a tmpfs (/tmp) plus the existing
+    # `app-cache` named volume (mounted at /app/.cache) and the
+    # `./documents` bind mount.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 8192
+      nproc: 1024
     networks:
       - frontend
       - backend
@@ -47,9 +64,11 @@ services:
           memory: 3G
         limits:
           memory: 4G
+          pids: 512
 
   neo4j:
-    image: neo4j:5-community
+    # WS-1 P1-F3 (2026-05-07): base image pinned to digest for reproducibility.
+    image: neo4j:5-community@sha256:b357872da95a164c5243ca8d9060601130717ff43cee3c829402fab46209a412
     container_name: rag-neo4j
     ports:
       - "7474:7474"
@@ -71,6 +90,23 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+    # WS-1 P0-4 (2026-05-07): kernel hardening for the Neo4j sidecar.
+    # Neo4j needs to write to /data, /logs and a few JVM scratch areas, so we
+    # leave the root FS mutable but drop privileges + capabilities and cap
+    # PID/ulimit budgets to mitigate fork bombs and FD exhaustion.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     networks:
       - backend
     logging:
@@ -82,6 +118,7 @@ services:
       resources:
         limits:
           memory: 1536M
+          pids: 1024
     profiles:
       - graph
 

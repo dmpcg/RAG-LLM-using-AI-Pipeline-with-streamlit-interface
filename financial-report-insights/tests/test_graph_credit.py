@@ -249,10 +249,14 @@ class TestStoreCreditAssessment:
     def test_returns_none_on_neo4j_failure(
         self, store, mock_driver, sample_scorecard, sample_debt_capacity
     ):
+        # WS-1 P0-3 (2026-05-07): transient failures must raise
+        # Neo4jTransientError so callers can retry instead of treating None
+        # as "nothing to write" (silent data loss).
+        from graph_store import Neo4jTransientError
         _, session = mock_driver
         session.run.side_effect = ConnectionError("Neo4j unavailable")
-        result = store.store_credit_assessment("Acme Corp", sample_scorecard, sample_debt_capacity)
-        assert result is None
+        with pytest.raises(Neo4jTransientError):
+            store.store_credit_assessment("Acme Corp", sample_scorecard, sample_debt_capacity)
 
     def test_uses_unwind_batch_query(
         self, store, mock_driver, sample_scorecard, sample_debt_capacity
@@ -338,10 +342,12 @@ class TestStoreCovenantPackage:
     def test_returns_none_on_neo4j_failure(
         self, store, mock_driver, sample_covenant_package
     ):
+        # WS-1 P0-3: transient failures must raise Neo4jTransientError.
+        from graph_store import Neo4jTransientError
         _, session = mock_driver
         session.run.side_effect = ConnectionError("Connection refused")
-        result = store.store_covenant_package("f" * 64, sample_covenant_package)
-        assert result is None
+        with pytest.raises(Neo4jTransientError):
+            store.store_covenant_package("f" * 64, sample_covenant_package)
 
     def test_uses_unwind_batch_query(
         self, store, mock_driver, sample_covenant_package
@@ -440,17 +446,19 @@ class TestCreditAssessmentCovenantChain:
         sample_debt_capacity,
         sample_covenant_package,
     ):
-        """If assessment fails, store_credit_assessment returns None.
-        Caller can still attempt store_covenant_package (it will create a dangling
-        link or fail gracefully -- behaviour is caller's responsibility, but
-        the method itself must not raise).
+        """WS-1 P0-3: when the assessment write fails transiently, the typed
+        Neo4jTransientError now bubbles up so the caller can decide whether to
+        retry; once the connection recovers the covenant write is independent
+        and still succeeds.
         """
+        from graph_store import Neo4jTransientError
+
         _, session = mock_driver
         session.run.side_effect = ConnectionError("DB down")
-        assessment_id = store.store_credit_assessment(
-            "FailCo", sample_scorecard, sample_debt_capacity
-        )
-        assert assessment_id is None
+        with pytest.raises(Neo4jTransientError):
+            store.store_credit_assessment(
+                "FailCo", sample_scorecard, sample_debt_capacity
+            )
 
         # Reset: let covenant store succeed
         session.run.side_effect = None

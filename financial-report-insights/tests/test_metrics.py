@@ -555,3 +555,126 @@ class TestGetDashboardData:
         collector.record_query(_make_trace_summary())
         data = get_dashboard_data(collector)
         assert data["summary"]["queries"]["total_queries"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Prometheus /metrics endpoint tests (WS-1 P1-F5)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=False)
+def _reset_metrics_flag():
+    """Ensure the enable_metrics_endpoint flag is restored after each test."""
+    import api as api_module
+    original = api_module.settings.enable_metrics_endpoint
+    yield
+    api_module.settings.enable_metrics_endpoint = original
+
+
+@pytest.fixture()
+def api_client(_reset_metrics_flag):
+    """TestClient for the FastAPI app with a stable RAG mock."""
+    import api as api_module
+    from fastapi.testclient import TestClient
+
+    api_module._rag_instance = None  # do not boot real RAG
+    with TestClient(api_module.app, raise_server_exceptions=False) as c:
+        yield c
+
+
+class TestPrometheusEndpointDisabled:
+    """Test 1: /metrics returns 404 when enable_metrics_endpoint is False."""
+
+    def test_returns_404_by_default(self, api_client):
+        import api as api_module
+
+        api_module.settings.enable_metrics_endpoint = False
+        resp = api_client.get("/metrics")
+        assert resp.status_code == 404
+
+    def test_setting_defaults_to_false(self):
+        from config import Settings
+
+        assert Settings().enable_metrics_endpoint is False
+
+
+class TestPrometheusEndpointEnabled:
+    """Test 2: /metrics returns 200 with correct content-type and metric name."""
+
+    def test_returns_200_when_enabled(self, api_client):
+        import api as api_module
+
+        api_module.settings.enable_metrics_endpoint = True
+        resp = api_client.get("/metrics")
+        assert resp.status_code == 200
+
+    def test_content_type_starts_text_plain(self, api_client):
+        import api as api_module
+
+        api_module.settings.enable_metrics_endpoint = True
+        resp = api_client.get("/metrics")
+        assert resp.headers["content-type"].startswith("text/plain")
+
+    def test_body_contains_http_requests_total(self, api_client):
+        import api as api_module
+
+        api_module.settings.enable_metrics_endpoint = True
+        resp = api_client.get("/metrics")
+        assert b"http_requests_total" in resp.content
+
+
+class TestPrometheusCounterIncrements:
+    """Test 3: Counter increments appear in the exposition after a request."""
+
+    def test_counter_appears_in_exposition_after_request(self, _reset_metrics_flag):
+        """Issue a /health request then scrape /metrics; counter must be present."""
+        import prometheus_client
+
+        import api as api_module
+        import observability.metrics as obs
+
+        from fastapi.testclient import TestClient
+        from unittest.mock import patch
+
+        # Isolated registry so this test does not pollute the global one
+        registry = prometheus_client.CollectorRegistry()
+        isolated_counter = prometheus_client.Counter(
+            "http_requests_total_ws1_test",
+            "Isolated counter for WS-1 increment test",
+            ["method", "route", "status"],
+            registry=registry,
+        )
+        isolated_latency = prometheus_client.Histogram(
+            "http_request_duration_seconds_ws1_test",
+            "Isolated histogram for WS-1 increment test",
+            ["method", "route"],
+            registry=registry,
+        )
+
+        orig_counter = obs._HTTP_REQUESTS
+        orig_latency = obs._REQUEST_LATENCY
+        orig_registry = obs._REGISTRY
+        obs._HTTP_REQUESTS = isolated_counter
+        obs._REQUEST_LATENCY = isolated_latency
+        obs._REGISTRY = registry
+
+        api_module._rag_instance = None
+        api_module.settings.enable_metrics_endpoint = True
+
+        try:
+            with TestClient(api_module.app, raise_server_exceptions=False) as client:
+                with patch(
+                    "api.get_health_status",
+                    return_value={"healthy": True, "status": "ok", "checks": []},
+                ):
+                    client.get("/health")
+
+                resp = client.get("/metrics")
+
+            assert resp.status_code == 200
+            body = resp.content.decode()
+            assert "http_requests_total_ws1_test" in body
+        finally:
+            obs._HTTP_REQUESTS = orig_counter
+            obs._REQUEST_LATENCY = orig_latency
+            obs._REGISTRY = orig_registry
