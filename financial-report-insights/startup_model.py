@@ -24,7 +24,11 @@ class SaaSMetrics:
     mrr: Optional[float] = None  # Monthly Recurring Revenue
     arr: Optional[float] = None  # Annual Recurring Revenue
     mrr_growth_rate: Optional[float] = None  # MoM growth
-    net_revenue_retention: Optional[float] = None  # NRR %
+    # P0-9: Real NRR requires multi-period expansion data (upgrades + downgrades).
+    # Without it, set to None to avoid mislabeling 1-gross_churn as NRR.
+    net_revenue_retention: Optional[float] = None  # NRR % (true NRR with expansion data)
+    # GRR = 1 - gross_churn -- the upper bound on NRR when no expansion data is available.
+    gross_revenue_retention: Optional[float] = None  # GRR %
     gross_churn_rate: Optional[float] = None  # Customer churn %
     revenue_churn_rate: Optional[float] = None  # Revenue churn %
     arpu: Optional[float] = None  # Average Revenue Per User
@@ -118,15 +122,55 @@ class StartupAnalyzer:
         if data.churned_customers is not None and data.customer_count is not None and data.customer_count > 0:
             gross_churn = safe_divide(data.churned_customers, data.customer_count)
 
-        # Simplified NRR estimate: 1 - gross_churn (real NRR requires prior-period data)
-        nrr: Optional[float] = None
+        # P0-9: 1 - gross_churn is GROSS revenue retention (GRR), not NRR.
+        # True NRR requires multi-period expansion (upgrade) data we do not have here,
+        # so net_revenue_retention is left None until that data is supplied.
+        grr: Optional[float] = None
         if gross_churn is not None:
-            nrr = 1.0 - gross_churn
+            grr = 1.0 - gross_churn
+        nrr: Optional[float] = None  # Requires expansion data; intentionally None.
 
         # MRR growth rate requires multi-period data
         mrr_growth_rate: Optional[float] = None
 
         # Build interpretation
+        interpretation = self._build_saas_interpretation(
+            mrr=mrr,
+            arr=arr,
+            gross_churn=gross_churn,
+            mrr_growth_rate=mrr_growth_rate,
+            net_revenue_retention=nrr,
+        )
+
+        return SaaSMetrics(
+            mrr=mrr,
+            arr=arr,
+            mrr_growth_rate=mrr_growth_rate,
+            net_revenue_retention=nrr,
+            gross_revenue_retention=grr,
+            gross_churn_rate=gross_churn,
+            revenue_churn_rate=None,  # requires revenue-level churn data
+            arpu=arpu,
+            customers=data.customer_count,
+            interpretation=interpretation,
+        )
+
+    @staticmethod
+    def _build_saas_interpretation(
+        mrr: Optional[float],
+        arr: Optional[float],
+        gross_churn: Optional[float],
+        mrr_growth_rate: Optional[float],
+        net_revenue_retention: Optional[float],
+    ) -> str:
+        """Build the SaaS metrics interpretation string.
+
+        When a metric cannot be derived from the supplied single-period data it
+        is surfaced as explicitly "unavailable" rather than silently omitted, so
+        a reader can distinguish an intentionally withheld value from a dropped
+        one. NRR is only available with multi-period expansion data (P0-9).
+        """
+
         parts: List[str] = []
         if mrr is not None:
             parts.append(f"MRR ${mrr:,.0f}")
@@ -138,19 +182,9 @@ class StartupAnalyzer:
             parts.append(f"Gross churn {pct:.1f}% ({health})")
         if mrr_growth_rate is None:
             parts.append("MRR growth rate unavailable (requires multi-period data)")
-        interpretation = ". ".join(parts) + "." if parts else "No SaaS metrics available."
-
-        return SaaSMetrics(
-            mrr=mrr,
-            arr=arr,
-            mrr_growth_rate=mrr_growth_rate,
-            net_revenue_retention=nrr,
-            gross_churn_rate=gross_churn,
-            revenue_churn_rate=None,  # requires revenue-level churn data
-            arpu=arpu,
-            customers=data.customer_count,
-            interpretation=interpretation,
-        )
+        if net_revenue_retention is None:
+            parts.append("NRR unavailable (requires multi-period expansion data)")
+        return ". ".join(parts) + "." if parts else "No SaaS metrics available."
 
     # -- Unit economics -----------------------------------------------------
 
@@ -189,13 +223,25 @@ class StartupAnalyzer:
         if ltv is not None and gross_margin is not None:
             gm_ltv = ltv * gross_margin
 
-        # LTV / CAC ratio
-        ltv_to_cac = safe_divide(ltv, cac)
+        # P0-10: LTV/CAC must use gross-margin-adjusted LTV. Raw LTV overstates value
+        # because it ignores variable cost of serving the customer.
+        if gm_ltv is not None:
+            ltv_to_cac = safe_divide(gm_ltv, cac)
+        else:
+            # Fall back to raw LTV/CAC only when gross margin is unavailable;
+            # otherwise we always prefer the GM-adjusted ratio.
+            ltv_to_cac = safe_divide(ltv, cac)
 
-        # Payback months = CAC / monthly ARPU (uses same MRR/ARPU as LTV)
+        # P0-10: CAC payback uses gross-margin-adjusted ARPU. Recovering CAC requires
+        # the *contribution* portion of ARPU, not gross billings.
         payback: Optional[float] = None
         if cac is not None:
-            payback = safe_divide(cac, arpu)
+            gm_arpu = (arpu * gross_margin) if (arpu is not None and gross_margin is not None) else None
+            if gm_arpu is not None:
+                payback = safe_divide(cac, gm_arpu)
+            else:
+                # Fall back to raw ARPU only when gross margin is unknown.
+                payback = safe_divide(cac, arpu)
 
         # Magic number requires prior-period data
         magic_number: Optional[float] = None
@@ -308,7 +354,7 @@ class StartupAnalyzer:
 
         results: List[FundingScenario] = []
         for i, s in enumerate(scenarios, 1):
-            raise_amount = s.get("raise_amount", 0)
+            raise_amount = max(0.0, float(s.get("raise_amount", 0) or 0.0))
             pre_money = s.get("pre_money_valuation", 0)
             post_money = pre_money + raise_amount
             dilution = safe_divide(raise_amount, post_money) if post_money > 0 else 0.0

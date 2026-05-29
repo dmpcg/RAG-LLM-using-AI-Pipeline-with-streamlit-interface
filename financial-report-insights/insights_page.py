@@ -271,7 +271,6 @@ class FinancialInsightsPage:
                     entries = self.CATEGORY_TABS[selected_cat]
                     sub_tabs = st.tabs([label for label, _, _ in entries])
 
-
                     for tab, (label, method, needs_wb) in zip(sub_tabs, entries):
                         with tab:
                             if needs_wb:
@@ -7573,7 +7572,11 @@ class FinancialInsightsPage:
 
         st.subheader("Category Breakdown")
         for cat, score in scorecard.category_scores.items():
-            st.progress(score / 20, text=f"{cat.title()}: {score}/20")
+            if score is None:
+                # WP-7b: a category with no input data is "not evaluable" (None), not 0.
+                st.progress(0.0, text=f"{cat.title()}: N/A (not evaluable)")
+            else:
+                st.progress(score / 20, text=f"{cat.title()}: {score}/20")
 
         if scorecard.strengths:
             st.success("**Strengths:** " + ", ".join(scorecard.strengths))
@@ -7650,9 +7653,12 @@ class FinancialInsightsPage:
         col3.metric("ARPU", f"${metrics.arpu:,.0f}" if metrics.arpu else "N/A")
         col4.metric("Customers", f"{metrics.customers:,}" if metrics.customers else "N/A")
 
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         col1.metric("Gross Churn", f"{metrics.gross_churn_rate:.1%}" if metrics.gross_churn_rate is not None else "N/A")
-        col2.metric("Net Revenue Retention", f"{metrics.net_revenue_retention:.1%}" if metrics.net_revenue_retention is not None else "N/A")
+        # P0-9: GRR (1 - gross churn) is what we can compute without expansion data;
+        # NRR requires expansion-revenue tracking, hence often N/A.
+        col2.metric("Gross Revenue Retention", f"{metrics.gross_revenue_retention:.1%}" if metrics.gross_revenue_retention is not None else "N/A")
+        col3.metric("Net Revenue Retention", f"{metrics.net_revenue_retention:.1%}" if metrics.net_revenue_retention is not None else "N/A")
 
         if metrics.interpretation:
             st.info(metrics.interpretation)

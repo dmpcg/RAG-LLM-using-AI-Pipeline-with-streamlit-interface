@@ -41,6 +41,12 @@ class RatioDefinition:
     higher_is_better: bool = True
     scoring_thresholds: List[Tuple[float, float]] = field(default_factory=list)  # [(threshold, score), ...] descending
     adjustments: List[Adjustment] = field(default_factory=list)
+    # One-line provenance/rationale for the scoring_thresholds cut-offs above.
+    # Documentation only -- does NOT affect computed scores. Lets a reviewer
+    # see why a threshold band was chosen rather than treating it as a magic
+    # number. Empty string means "undocumented" (acceptable for ad-hoc/test
+    # definitions; catalog entries should populate it).
+    threshold_source: str = ""
     grade_map: Dict[Tuple[float, float], str] = field(default_factory=lambda: {
         (8.0, 10.0): "Excellent",
         (6.0, 8.0): "Good",
@@ -274,6 +280,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "roa": RatioDefinition(
         name="Return on Assets (ROA)",
         description="Measures how efficiently assets generate profit",
+        threshold_source=(
+            "Bands reflect common cross-industry ROA conventions: >15% top-tier, "
+            "10-15% strong, 5-10% average, 2-5% weak (e.g. CFA curriculum / "
+            "Damodaran sector medians)."
+        ),
         numerator_field="net_income",
         denominator_field="total_assets",
         higher_is_better=True,
@@ -295,6 +306,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "roe": RatioDefinition(
         name="Return on Equity (ROE)",
         description="Measures return generated on shareholders' equity",
+        threshold_source=(
+            "ROE bands track equity-return norms: >20% excellent, 15-20% strong, "
+            "10-15% adequate (near typical cost of equity), 5-10% weak. Leverage "
+            "adjustment flags debt-inflated ROE."
+        ),
         numerator_field="net_income",
         denominator_field="total_equity",
         higher_is_better=True,
@@ -316,6 +332,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "ebit_to_total_assets": RatioDefinition(
         name="EBIT / Total Assets",
         description="Measures operating return on total assets (not true ROIC)",
+        threshold_source=(
+            "Mirrors the ROA bands (operating-return basis): >15% excellent down "
+            "to 5% weak. Used as an operating-efficiency proxy since invested "
+            "capital is unavailable in this data model."
+        ),
         numerator_field="ebit",
         denominator_field="total_assets",
         higher_is_better=True,
@@ -331,6 +352,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "gross_margin": RatioDefinition(
         name="Gross Profit Margin",
         description="Measures profitability after direct costs",
+        threshold_source=(
+            "Generalized gross-margin tiers spanning capital-light software (>50%) "
+            "down to thin-margin distribution/retail (15-25%); midpoints chosen to "
+            "separate healthy from commoditized businesses."
+        ),
         numerator_field="gross_profit",
         denominator_field="revenue",
         higher_is_better=True,
@@ -346,6 +372,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "operating_margin": RatioDefinition(
         name="Operating Profit Margin",
         description="Measures profitability from operations",
+        threshold_source=(
+            "Operating-margin bands: >20% excellent, 15-20% strong, 10-15% "
+            "adequate, 5-10% weak -- typical S&P operating-margin distribution "
+            "where double-digit margins indicate durable operations."
+        ),
         numerator_field="operating_income",
         denominator_field="revenue",
         higher_is_better=True,
@@ -361,6 +392,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "net_margin": RatioDefinition(
         name="Net Profit Margin",
         description="Measures bottom-line profitability",
+        threshold_source=(
+            "Net-margin tiers: >15% excellent, 10-15% strong, 5-10% adequate, "
+            "2-5% weak -- consistent with broad-market net-margin norms after tax "
+            "and interest."
+        ),
         numerator_field="net_income",
         denominator_field="revenue",
         higher_is_better=True,
@@ -377,6 +413,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "current_ratio": RatioDefinition(
         name="Current Ratio",
         description="Measures ability to meet short-term obligations",
+        threshold_source=(
+            "Textbook liquidity rule of thumb: ~2.0 healthy, 1.5-2.0 good, "
+            "1.0-1.5 adequate, <1.0 indicates a working-capital shortfall "
+            "(standard analyst convention)."
+        ),
         numerator_field="current_assets",
         denominator_field="current_liabilities",
         higher_is_better=True,
@@ -399,6 +440,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "cash_ratio": RatioDefinition(
         name="Cash Ratio",
         description="Most conservative liquidity measure",
+        threshold_source=(
+            "Most conservative liquidity test (cash only). Bands set stricter than "
+            "current ratio: >=0.75 excellent, 0.30-0.50 adequate; values <0.15 "
+            "signal heavy reliance on receivables/inventory to meet obligations."
+        ),
         numerator_field="cash",
         denominator_field="current_liabilities",
         higher_is_better=True,
@@ -415,6 +461,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "debt_to_equity": RatioDefinition(
         name="Debt-to-Equity Ratio",
         description="Measures financial leverage",
+        threshold_source=(
+            "Lower-is-better leverage bands: <0.3 excellent, 0.3-0.5 good, "
+            "0.5-1.0 adequate, 1.0-2.0 weak -- aligns with conservative "
+            "investment-grade gearing expectations for non-financial firms."
+        ),
         numerator_field="total_debt",
         denominator_field="total_equity",
         higher_is_better=False,  # Lower is better
@@ -433,6 +484,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "debt_to_ebitda": RatioDefinition(
         name="Debt-to-EBITDA Ratio",
         description="Measures debt coverage by earnings",
+        threshold_source=(
+            "Leverage-multiple bands common in credit/LBO underwriting: <2x "
+            "excellent, 2-3x good, 3-4x adequate, 4-5x weak; >5x is typically "
+            "covenant-stressed (lower is better)."
+        ),
         numerator_field="total_debt",
         denominator_field="ebitda",
         higher_is_better=False,
@@ -448,6 +504,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "interest_coverage": RatioDefinition(
         name="Interest Coverage Ratio",
         description="Measures ability to pay interest",
+        threshold_source=(
+            "Times-interest-earned bands: >8x excellent, 5-8x good, 2.5-5x "
+            "adequate, 1.5-2.5x weak; <1.5x is a distress signal -- consistent "
+            "with rating-agency coverage guidelines."
+        ),
         numerator_field="ebit",
         denominator_field="interest_expense",
         higher_is_better=True,
@@ -464,6 +525,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "asset_turnover": RatioDefinition(
         name="Asset Turnover Ratio",
         description="Measures efficiency of asset utilization",
+        threshold_source=(
+            "Generalized turnover bands (>2x excellent ... 0.5x weak). Note "
+            "turnover is strongly industry-dependent (retail high, capital-heavy "
+            "low); these are broad defaults, not sector-tuned."
+        ),
         numerator_field="revenue",
         denominator_field="total_assets",
         higher_is_better=True,
@@ -479,6 +545,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "inventory_turnover": RatioDefinition(
         name="Inventory Turnover",
         description="Measures how quickly inventory is sold",
+        threshold_source=(
+            "COGS/inventory turns: >=12x (roughly monthly) excellent, down to 4x "
+            "weak. Heuristic defaults; optimal turns vary widely by industry "
+            "(grocery vs. heavy equipment)."
+        ),
         numerator_field="cogs",
         denominator_field="inventory",
         higher_is_better=True,
@@ -494,6 +565,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "receivables_turnover": RatioDefinition(
         name="Receivables Turnover",
         description="Measures collection efficiency",
+        threshold_source=(
+            "Revenue/AR turns proxy collection speed: >=12x (~30-day DSO) "
+            "excellent, 6x (~60-day DSO) weak. Bands map turns to implied "
+            "days-sales-outstanding (heuristic)."
+        ),
         numerator_field="revenue",
         denominator_field="accounts_receivable",
         higher_is_better=True,
@@ -510,6 +586,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "fcf_yield": RatioDefinition(
         name="Free Cash Flow Yield",
         description="FCF as % of enterprise value (simplified using assets)",
+        threshold_source=(
+            "OCF/assets yield bands: >10% excellent down to 3% weak. Simplified "
+            "proxy (assets stand in for enterprise value); cut-offs are heuristic "
+            "yield tiers, not market-derived."
+        ),
         numerator_field="operating_cash_flow",
         denominator_field="total_assets",
         higher_is_better=True,
@@ -525,6 +606,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "ocf_to_ni": RatioDefinition(
         name="Operating Cash Flow to Net Income",
         description="Measures earnings quality",
+        threshold_source=(
+            "Earnings-quality (accruals) bands: OCF/NI >=1.2 excellent, ~1.0 "
+            "good, <1.0 raises accrual concerns. Anchored on the principle that "
+            "high-quality earnings convert to cash (>=1x)."
+        ),
         numerator_field="operating_cash_flow",
         denominator_field="net_income",
         higher_is_better=True,
@@ -540,6 +626,11 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
     "cash_conversion_cycle": RatioDefinition(
         name="Cash Conversion Cycle",
         description="Days to convert operations to cash (simplified)",
+        threshold_source=(
+            "Simplified CCC proxy (inventory/revenue, lower is better): <5% of "
+            "revenue excellent, >20% weak. Heuristic proxy -- the full DSO+DIO-DPO "
+            "CCC is computed in CharlieAnalyzer, not here."
+        ),
         numerator_field="inventory",
         denominator_field="revenue",  # Simplified CCC proxy
         higher_is_better=False,  # Lower is better

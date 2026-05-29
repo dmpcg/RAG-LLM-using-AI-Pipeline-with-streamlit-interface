@@ -251,6 +251,89 @@ class TestDebtCapacity:
         # pro_forma = 5M, target = 3.5M -> warning
         assert "WARNING" in result.assessment or result.pro_forma_leverage > 3.5
 
+    # ------------------------------------------------------------------
+    # P0-6: DSCR includes existing debt service
+    # ------------------------------------------------------------------
+
+    def test_p0_6_dscr_drops_when_existing_service_supplied(self, analyzer):
+        """Pro-forma DSCR must shrink once existing debt service is included."""
+        data = FinancialData(total_debt=2_000_000, ebitda=3_000_000)
+        loan = LoanStructure(principal=1_000_000, annual_rate=0.06, term_years=5)
+
+        # Baseline: no existing service
+        loan_no_existing = LoanStructure(
+            principal=1_000_000, annual_rate=0.06, term_years=5,
+            existing_debt_service=0.0,
+        )
+        r_no = analyzer.debt_capacity(data, loan_no_existing)
+
+        # With explicit existing service
+        loan_with_existing = LoanStructure(
+            principal=1_000_000, annual_rate=0.06, term_years=5,
+            existing_debt_service=300_000,
+        )
+        r_with = analyzer.debt_capacity(data, loan_with_existing)
+
+        assert r_with.pro_forma_dscr is not None
+        assert r_no.pro_forma_dscr is not None
+        # Same EBITDA, larger denominator -> smaller DSCR
+        assert r_with.pro_forma_dscr < r_no.pro_forma_dscr
+
+    def test_p0_6_existing_service_estimated_from_interest_and_debt(self, analyzer):
+        """When existing_debt_service is None, estimator uses interest_expense + total_debt/term."""
+        data = FinancialData(
+            total_debt=2_000_000,
+            ebitda=3_000_000,
+            interest_expense=100_000,
+        )
+        loan = LoanStructure(principal=500_000, annual_rate=0.05, term_years=5)
+        # New service = 100k principal + 25k interest = 125k
+        # Estimated existing = 100k interest + 2M/5 = 500k principal = 600k
+        # Total = 725k -> DSCR = 3M / 725k ~ 4.14
+        r = analyzer.debt_capacity(data, loan)
+        assert r.pro_forma_dscr is not None
+        assert 3.5 < r.pro_forma_dscr < 5.0
+
+    def test_p0_6_loan_structure_has_existing_debt_service_field(self):
+        """LoanStructure exposes existing_debt_service (default None)."""
+        ls = LoanStructure()
+        assert hasattr(ls, "existing_debt_service")
+        assert ls.existing_debt_service is None
+        ls2 = LoanStructure(existing_debt_service=250_000)
+        assert ls2.existing_debt_service == 250_000
+
+    # ------------------------------------------------------------------
+    # P0-7: Debt capacity returns None for non-positive EBITDA
+    # ------------------------------------------------------------------
+
+    def test_p0_7_negative_ebitda_returns_none_capacity(self, analyzer):
+        """Negative EBITDA must produce max_additional_debt=None, not 0."""
+        data = FinancialData(total_debt=1_000_000, ebitda=-500_000)
+        result = analyzer.debt_capacity(data)
+        assert result.max_additional_debt is None
+        assert "undefined" in result.assessment.lower()
+
+    def test_p0_7_zero_ebitda_returns_none_capacity(self, analyzer):
+        """Zero EBITDA must also produce None (leverage ratio is undefined)."""
+        data = FinancialData(total_debt=500_000, ebitda=0.0)
+        result = analyzer.debt_capacity(data)
+        assert result.max_additional_debt is None
+        assert "undefined" in result.assessment.lower()
+
+    def test_p0_7_missing_ebitda_returns_none_capacity(self, analyzer):
+        """No EBITDA at all must produce None."""
+        data = FinancialData(total_debt=500_000)
+        result = analyzer.debt_capacity(data)
+        assert result.max_additional_debt is None
+
+    def test_p0_7_headroom_pct_is_none_when_capacity_undefined(self, analyzer):
+        """headroom_pct should be None (not 0.0) when capacity is undefined."""
+        data = FinancialData(total_debt=1_000_000, ebitda=-100_000)
+        loan = LoanStructure(principal=500_000)
+        result = analyzer.debt_capacity(data, loan)
+        assert result.max_additional_debt is None
+        assert result.headroom_pct is None
+
 
 # ---------------------------------------------------------------------------
 # CovenantPackage tests
@@ -452,7 +535,7 @@ class TestScoringBoundaries:
         (0.02, 0.02, 5),      # AT threshold: falls to tier 4
         (0.001, 0.001, 5),    # Above tier 4
         (0, 0, 0),            # AT threshold: not > 0, falls to 0
-        (None, None, 0),      # None values -> 0
+        (None, None, None),   # WP-7b: not evaluable -> None (was misleading 0)
     ])
     def test_score_profitability(self, nm, roa, expected):
         assert UnderwritingAnalyzer._score_profitability(nm, roa) == expected
@@ -483,7 +566,7 @@ class TestScoringBoundaries:
         (1.2, 0.1, 5),        # AT threshold: not > 1.2, falls to tier 4
         (1.01, 0.0, 5),       # Above tier 4 (cash doesn't matter)
         (1.0, 0.0, 0),        # AT threshold: not > 1.0, falls to 0
-        (None, None, 0),      # None values -> 0
+        (None, None, None),   # WP-7b: not evaluable -> None (was misleading 0)
     ])
     def test_score_liquidity(self, cr, cashr, expected):
         assert UnderwritingAnalyzer._score_liquidity(cr, cashr) == expected
@@ -498,7 +581,7 @@ class TestScoringBoundaries:
         (0.15, 0.0, 5),       # AT threshold: not > 0.15, falls to tier 4
         (0.051, 0.0, 5),      # Above tier 4
         (0.05, 0.0, 0),       # AT threshold: not > 0.05, falls to 0
-        (None, None, 0),      # None values -> 0
+        (None, None, None),   # WP-7b: not evaluable -> None (was misleading 0)
     ])
     def test_score_cash_flow(self, od, fm, expected):
         assert UnderwritingAnalyzer._score_cash_flow(od, fm) == expected
@@ -513,7 +596,78 @@ class TestScoringBoundaries:
         (2.5, 0.10, 5),       # AT threshold: not > 2.5, falls to tier 4
         (1.51, 0.0, 5),       # Above tier 4 (em doesn't matter)
         (1.5, 0.0, 0),        # AT threshold: not > 1.5, falls to 0
-        (None, None, 0),      # None values -> 0
+        (None, None, None),   # WP-7b: not evaluable -> None (was misleading 0)
     ])
     def test_score_stability(self, ic, em, expected):
         assert UnderwritingAnalyzer._score_stability(ic, em) == expected
+
+
+# ---------------------------------------------------------------------------
+# WP-7b: 'or 0' None-aware handling -- missing data is "not evaluable",
+# not a misleading 0-derived (worst-case) score.
+# ---------------------------------------------------------------------------
+
+
+class TestNotEvaluableScoring:
+    """A category with NO evaluable inputs must return None ('N/A'), not 0.
+
+    The previous ``metric or 0`` coerced a missing (None) metric to 0, which
+    failed every positive threshold and produced the worst possible score --
+    indistinguishable from a genuinely measured 0. WP-7b distinguishes the two:
+    all-None inputs -> None (not evaluable); any present input -> scored
+    normally with a missing companion treated conservatively (documented safe
+    result, since real data exists).
+    """
+
+    def test_profitability_all_none_is_not_evaluable(self):
+        assert UnderwritingAnalyzer._score_profitability(None, None) is None
+
+    def test_liquidity_all_none_is_not_evaluable(self):
+        assert UnderwritingAnalyzer._score_liquidity(None, None) is None
+
+    def test_cash_flow_all_none_is_not_evaluable(self):
+        assert UnderwritingAnalyzer._score_cash_flow(None, None) is None
+
+    def test_stability_all_none_is_not_evaluable(self):
+        assert UnderwritingAnalyzer._score_stability(None, None) is None
+
+    def test_partial_data_still_scores(self):
+        """One present metric -> still evaluable (companion None treated as 0)."""
+        # Strong net margin present, roa missing -> not None, modest score.
+        assert UnderwritingAnalyzer._score_profitability(0.50, None) is not None
+        # Strong current ratio present, cash ratio missing -> evaluable.
+        assert UnderwritingAnalyzer._score_liquidity(5.0, None) is not None
+
+    def test_measured_zero_is_not_none(self):
+        """A genuine measured 0 stays a 0 score (worst), distinct from None."""
+        assert UnderwritingAnalyzer._score_profitability(0.0, 0.0) == 0
+        assert UnderwritingAnalyzer._score_liquidity(0.0, 0.0) == 0
+        assert UnderwritingAnalyzer._score_cash_flow(0.0, 0.0) == 0
+        assert UnderwritingAnalyzer._score_stability(0.0, 0.0) == 0
+
+    def test_empty_financials_categories_are_not_evaluable(self, analyzer):
+        """With no data, profit/liquidity/cash_flow/stability categories are N/A.
+
+        Leverage is intentionally still scored (it has its own worst-case
+        sentinel by design, CORRUPT-04), so only the four 'or 0' categories
+        become None.
+        """
+        sc = analyzer.credit_scorecard(FinancialData())
+        assert sc.category_scores["profitability"] is None
+        assert sc.category_scores["liquidity"] is None
+        assert sc.category_scores["cash_flow"] is None
+        assert sc.category_scores["stability"] is None
+
+    def test_not_evaluable_excluded_from_strengths_weaknesses(self, analyzer):
+        """A None (N/A) category is neither a strength nor a weakness."""
+        sc = analyzer.credit_scorecard(FinancialData())
+        for cat in ("profitability", "liquidity", "cash_flow", "stability"):
+            assert cat not in sc.strengths
+            assert cat not in sc.weaknesses
+
+    def test_not_evaluable_total_excludes_none(self, analyzer):
+        """total_score sums only evaluable categories (None contributes nothing)."""
+        sc = analyzer.credit_scorecard(FinancialData())
+        evaluable = [v for v in sc.category_scores.values() if v is not None]
+        assert sc.total_score == sum(evaluable)
+        assert 0 <= sc.total_score <= 100

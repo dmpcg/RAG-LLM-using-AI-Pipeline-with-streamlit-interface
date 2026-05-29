@@ -319,3 +319,48 @@ class TestExtensions:
         assert ".txt" in TEXT_EXTENSIONS
         assert ".md" in TEXT_EXTENSIONS
         assert ".docx" in TEXT_EXTENSIONS
+
+
+# ---------------------------------------------------------------------------
+# WP-PDF P1-C3 tests -- ingestion_pipeline
+# ---------------------------------------------------------------------------
+
+class TestIngestPdfExcInfo:
+    """ingest_pdf error path must call logger.error with exc_info=True."""
+
+    def test_ingest_pdf_logs_exc_info_on_failure(self, tmp_path):
+        """When parse_pdf raises, ingest_pdf logs with exc_info=True."""
+        from ingestion_pipeline import ingest_pdf
+        import ingestion_pipeline as _ip_mod
+
+        dummy = tmp_path / "bad.pdf"
+        dummy.write_bytes(b"not a pdf")
+
+        with patch.object(_ip_mod.logger, "error") as mock_log, \
+             patch("pdf_parser.parse_pdf", side_effect=RuntimeError("parse fail")):
+            chunks = ingest_pdf(dummy)
+
+        assert chunks == []
+        # logger.error must have been called at least once with exc_info=True
+        assert mock_log.called, "logger.error was not called"
+        calls = mock_log.call_args_list
+        assert any(
+            call.kwargs.get("exc_info") is True or
+            (len(call.args) > 0 and call.kwargs.get("exc_info", False))
+            for call in calls
+        ), "logger.error was not called with exc_info=True"
+
+    def test_ingest_pdf_returns_empty_list_on_parse_failure(self, tmp_path):
+        """ingest_pdf returns [] and does not re-raise when parse_pdf raises."""
+        from ingestion_pipeline import ingest_pdf
+
+        dummy = tmp_path / "fail.pdf"
+        dummy.write_bytes(b"junk")
+
+        with patch("pdf_parser.parse_pdf", side_effect=ValueError("bad pdf")):
+            try:
+                result = ingest_pdf(dummy)
+            except Exception as exc:
+                pytest.fail(f"ingest_pdf raised unexpectedly: {exc!r}")
+
+        assert result == []

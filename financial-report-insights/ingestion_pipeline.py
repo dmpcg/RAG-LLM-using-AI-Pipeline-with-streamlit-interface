@@ -323,7 +323,7 @@ def ingest_pdf(
         )
 
     except Exception as e:
-        logger.error("Failed to ingest PDF file %s: %s", source, e)
+        logger.error("Failed to ingest PDF file %s: %s", source, e, exc_info=True)
 
     return all_chunks
 

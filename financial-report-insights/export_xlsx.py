@@ -5,11 +5,25 @@ ratio tables, health scores, and scenario comparisons.
 """
 
 import io
+import logging
 from dataclasses import asdict, fields
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 import xlsxwriter
+
+logger = logging.getLogger(__name__)
+
+# Hard cap on rows written to a single scenario-comparison sheet. The row
+# counter spans MULTIPLE scenarios in one sheet; the cap is enforced at a
+# whole-scenario boundary so no partial/corrupt scenario block is ever emitted.
+_MAX_EXPORT_ROWS = 10_000
+
+# Hard cap on the number of ratio/metric entries written to a non-scenario
+# tabular sheet (Ratios sheet + single-sheet export_ratios). When the input
+# exceeds this, the export is capped and SURFACED -- a truncation note row is
+# written and the drop is logged (never a silent slice).
+_MAX_RATIO_ENTRIES = 500
 
 from financial_analyzer import (
     FinancialData,
@@ -26,6 +40,7 @@ from export_utils import (
     _PERCENT_KEYWORDS,
     _DOLLAR_KEYWORDS,
     _is_percent_key,
+    _is_ratio_key,
     _is_dollar_key,
     _CATEGORY_MAP,
     _categorize,
@@ -58,6 +73,11 @@ def _make_header_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
 
 def _make_pct_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
     return wb.add_format({"num_format": "0.00%", "border": 1})
+
+
+def _make_ratio_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
+    """Multiplier format -- e.g. 1.5 renders as '1.50x'."""
+    return wb.add_format({"num_format": "0.00\"x\"", "border": 1})
 
 
 def _make_dollar_fmt(wb: xlsxwriter.Workbook) -> xlsxwriter.format.Format:
@@ -98,6 +118,7 @@ class _Formats:
     def __init__(self, wb: xlsxwriter.Workbook):
         self.header = _make_header_fmt(wb)
         self.pct = _make_pct_fmt(wb)
+        self.ratio = _make_ratio_fmt(wb)
         self.dollar = _make_dollar_fmt(wb)
         self.score = _make_score_fmt(wb)
         self.text = _make_text_fmt(wb)
@@ -108,6 +129,9 @@ class _Formats:
 
     def value_fmt(self, key: str) -> xlsxwriter.format.Format:
         """Select the best numeric format for *key*."""
+        # Check ratio BEFORE percent -- a "ratio" is a multiplier (1.5x), not a percentage (150%).
+        if _is_ratio_key(key):
+            return self.ratio
         if _is_percent_key(key):
             return self.pct
         if _is_dollar_key(key):
@@ -177,6 +201,19 @@ class FinancialExcelExporter:
         ws.freeze_panes(row + 1, 0)
         row += 1
 
+        # Cap + surface oversized inputs (log + truncation note row), so the
+        # sheet size stays bounded without a silent slice.
+        truncated = len(ratios) > _MAX_RATIO_ENTRIES
+        if truncated:
+            omitted = len(ratios) - _MAX_RATIO_ENTRIES
+            logger.warning(
+                "Ratios export entry cap (%d) reached; truncating %d "
+                "ratio entry(ies) to avoid runaway sheet size.",
+                _MAX_RATIO_ENTRIES,
+                omitted,
+            )
+            ratios = dict(list(ratios.items())[:_MAX_RATIO_ENTRIES])
+
         col0_width = 12
         for key, value in ratios.items():
             label = key.replace("_", " ").title()
@@ -186,6 +223,16 @@ class FinancialExcelExporter:
                 ws.write(row, 1, "N/A", fmt.text)
             else:
                 ws.write_number(row, 1, value, fmt.value_fmt(key))
+            row += 1
+
+        if truncated:
+            ws.write(
+                row,
+                0,
+                f"... {omitted} ratio entries truncated "
+                f"(entry cap {_MAX_RATIO_ENTRIES} reached) ...",
+                fmt.text,
+            )
             row += 1
 
         ws.set_column(0, 0, col0_width)
@@ -209,7 +256,50 @@ class FinancialExcelExporter:
         ws.write(row, 0, f"Generated: {datetime.now():%Y-%m-%d %H:%M}", fmt.text)
         row += 2
 
-        for scenario in scenarios:
+        for idx, scenario in enumerate(scenarios):
+            # Enforce the row cap at a WHOLE-SCENARIO boundary: project this
+            # scenario's full row footprint up front and stop before writing
+            # it if it would push the sheet past the cap. This guarantees no
+            # scenario is ever truncated mid-block (no corrupt partial block).
+            all_keys = sorted(
+                set(
+                    list(scenario.base_ratios.keys())
+                    + list(scenario.scenario_ratios.keys())
+                )
+            )
+            # Worst-case projected rows for this scenario block:
+            #   1 scenario header
+            # + adjustments: 1 header + N rows + 1 gap (when present)
+            # + ratio table: 1 header + len(all_keys) rows (when present)
+            # + impact: 1 gap + 1 label + 1 text (when present)
+            # + 2 trailing gap rows
+            projected_scenario_rows = 1
+            if scenario.adjustments:
+                projected_scenario_rows += 1 + len(scenario.adjustments) + 1
+            if all_keys:
+                projected_scenario_rows += 1 + len(all_keys)
+            if scenario.impact_summary:
+                projected_scenario_rows += 3
+            projected_scenario_rows += 2
+
+            if row + projected_scenario_rows > _MAX_EXPORT_ROWS:
+                omitted = len(scenarios) - idx
+                logger.warning(
+                    "Scenario export row cap (%d) reached; omitting %d "
+                    "scenario(s) to avoid memory blow-up.",
+                    _MAX_EXPORT_ROWS,
+                    omitted,
+                )
+                ws.write(
+                    row,
+                    0,
+                    f"... {omitted} scenarios omitted "
+                    f"(row cap {_MAX_EXPORT_ROWS} reached) ...",
+                    fmt.text,
+                )
+                row += 1
+                break
+
             # Scenario header
             ws.write(row, 0, scenario.scenario_name, fmt.section)
             row += 1
@@ -226,10 +316,7 @@ class FinancialExcelExporter:
                     row += 1
                 row += 1
 
-            # Ratio comparison table
-            all_keys = sorted(
-                set(list(scenario.base_ratios.keys()) + list(scenario.scenario_ratios.keys()))
-            )
+            # Ratio comparison table (all_keys computed above for projection)
             if all_keys:
                 ws.write(row, 0, "Metric", fmt.header)
                 ws.write(row, 1, "Base", fmt.header)
@@ -367,8 +454,15 @@ class FinancialExcelExporter:
             k: v for k, v in results.items()
             if isinstance(v, (int, float)) or v is None
         }
-        _MAX_RATIO_ENTRIES = 500
-        if len(numeric) > _MAX_RATIO_ENTRIES:
+        truncated = len(numeric) > _MAX_RATIO_ENTRIES
+        if truncated:
+            omitted = len(numeric) - _MAX_RATIO_ENTRIES
+            logger.warning(
+                "Ratios sheet entry cap (%d) reached; truncating %d "
+                "ratio entry(ies) to avoid runaway sheet size.",
+                _MAX_RATIO_ENTRIES,
+                omitted,
+            )
             numeric = dict(list(numeric.items())[:_MAX_RATIO_ENTRIES])
         if not numeric:
             ws.write(0, 0, "No ratio data available.", fmt.text)
@@ -405,6 +499,16 @@ class FinancialExcelExporter:
                 else:
                     ws.write(row, 2, "N/A", fmt.text)
                 row += 1
+
+        if truncated:
+            ws.write(
+                row,
+                0,
+                f"... {omitted} ratio entries truncated "
+                f"(entry cap {_MAX_RATIO_ENTRIES} reached) ...",
+                fmt.text,
+            )
+            row += 1
 
         ws.set_column(0, 0, 18)
         ws.set_column(1, 1, 30)
