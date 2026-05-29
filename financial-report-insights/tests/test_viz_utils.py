@@ -513,3 +513,216 @@ class TestCreateVarianceTableChart:
             ["Item"], [100], [0]
         )
         assert isinstance(fig, go.Figure)
+
+
+# ---------------------------------------------------------------------------
+# create_simple_bar (Wave 3 VIZ migration helper)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateSimpleBar:
+    """
+    Unit tests for FinancialVizUtils.create_simple_bar.
+
+    Verify: trace count, trace type, x/y data, marker colors, title,
+    y-axis label, height, showlegend.  These are the figure-equivalence
+    assertions required by WS5-UI-PLAN.md Decision Log D7.
+    """
+
+    def test_returns_go_figure(self):
+        from viz_utils import FinancialVizUtils
+
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=["A", "B"],
+            values=[1.0, 2.0],
+            colors=None,
+            title="T",
+            y_title="Y",
+        )
+        assert isinstance(fig, go.Figure)
+
+    def test_exactly_one_bar_trace(self):
+        from viz_utils import FinancialVizUtils
+
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=["X", "Y", "Z"],
+            values=[10.0, 20.0, 30.0],
+            colors=["#111111", "#222222", "#333333"],
+            title="Test",
+            y_title="Units",
+        )
+        assert len(fig.data) == 1
+        assert isinstance(fig.data[0], go.Bar)
+
+    def test_x_data_matches_labels(self):
+        from viz_utils import FinancialVizUtils
+
+        labels = ["ROE", "ROA", "ROIC"]
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=labels,
+            values=[15.0, 8.0, 12.0],
+            colors=None,
+            title="Returns",
+            y_title="%",
+        )
+        assert list(fig.data[0].x) == labels
+
+    def test_y_data_matches_values(self):
+        from viz_utils import FinancialVizUtils
+
+        values = [5.0, 10.0, 15.0]
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=["A", "B", "C"],
+            values=values,
+            colors=None,
+            title="Test",
+            y_title="",
+        )
+        assert list(fig.data[0].y) == values
+
+    def test_marker_colors_applied(self):
+        from viz_utils import FinancialVizUtils
+
+        colors = ["#636EFA", "#00CC96", "#FFA15A"]
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=["A", "B", "C"],
+            values=[1.0, 2.0, 3.0],
+            colors=colors,
+            title="T",
+            y_title="",
+        )
+        assert list(fig.data[0].marker.color) == colors
+
+    def test_title_in_layout(self):
+        from viz_utils import FinancialVizUtils
+
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=["A"],
+            values=[1.0],
+            colors=None,
+            title="My Chart Title",
+            y_title="",
+        )
+        assert fig.layout.title.text == "My Chart Title"
+
+    def test_y_axis_title_in_layout(self):
+        from viz_utils import FinancialVizUtils
+
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=["A"],
+            values=[1.0],
+            colors=None,
+            title="T",
+            y_title="Return (%)",
+        )
+        assert fig.layout.yaxis.title.text == "Return (%)"
+
+    def test_default_height_is_350(self):
+        from viz_utils import FinancialVizUtils
+
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=["A"],
+            values=[1.0],
+            colors=None,
+            title="T",
+            y_title="",
+        )
+        assert fig.layout.height == 350
+
+    def test_custom_height_applied(self):
+        from viz_utils import FinancialVizUtils
+
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=["A"],
+            values=[1.0],
+            colors=None,
+            title="T",
+            y_title="",
+            height=500,
+        )
+        assert fig.layout.height == 500
+
+    def test_showlegend_false_by_default(self):
+        from viz_utils import FinancialVizUtils
+
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=["A"],
+            values=[1.0],
+            colors=None,
+            title="T",
+            y_title="",
+        )
+        assert fig.layout.showlegend is False
+
+    def test_none_colors_uses_palette(self):
+        """When colors=None, PALETTE is used; no AttributeError."""
+        from viz_utils import FinancialVizUtils
+
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=["A", "B"],
+            values=[1.0, 2.0],
+            colors=None,
+            title="Palette test",
+            y_title="",
+        )
+        # Colors list should have 2 entries from PALETTE
+        assert len(fig.data[0].marker.color) == 2
+
+    def test_empty_labels_no_crash(self):
+        """Empty input must not crash (returns an empty bar chart)."""
+        from viz_utils import FinancialVizUtils
+
+        fig = FinancialVizUtils.create_simple_bar(
+            labels=[],
+            values=[],
+            colors=[],
+            title="Empty",
+            y_title="",
+        )
+        assert isinstance(fig, go.Figure)
+        assert len(fig.data) == 1
+
+    def test_figure_equivalence_valuation_multiples(self):
+        """
+        Figure-equivalence assertion for the valuation multiples migration
+        (insights_page.py _render_valuation_indicators).
+
+        Pre-migration: go.Figure(data=[go.Bar(x=..., y=..., marker_color=...)])
+                       + update_layout(title="Valuation Multiples", yaxis_title="Multiple", height=350)
+
+        Post-migration: create_simple_bar(labels, values, colors, "Valuation Multiples", "Multiple")
+
+        Assert: same trace type, same x/y data, same title, same y-axis title, same height.
+        """
+        import plotly.graph_objects as _go
+        from viz_utils import FinancialVizUtils
+
+        labels = ["EV/EBITDA", "EV/Revenue", "EV/EBIT"]
+        values = [12.5, 2.3, 10.1]
+        colors = ["#3498db", "#2ecc71", "#e67e22"]
+
+        # PRE-migration reference figure
+        ref = _go.Figure(data=[_go.Bar(
+            x=labels,
+            y=values,
+            marker_color=colors,
+        )])
+        ref.update_layout(title="Valuation Multiples", yaxis_title="Multiple", height=350)
+
+        # POST-migration helper figure
+        got = FinancialVizUtils.create_simple_bar(
+            labels=labels,
+            values=values,
+            colors=colors,
+            title="Valuation Multiples",
+            y_title="Multiple",
+        )
+
+        assert len(got.data) == len(ref.data)
+        assert isinstance(got.data[0], _go.Bar)
+        assert list(got.data[0].x) == list(ref.data[0].x)
+        assert list(got.data[0].y) == list(ref.data[0].y)
+        assert list(got.data[0].marker.color) == list(ref.data[0].marker.color)
+        assert got.layout.title.text == ref.layout.title.text
+        assert got.layout.yaxis.title.text == ref.layout.yaxis.title.text
+        assert got.layout.height == ref.layout.height

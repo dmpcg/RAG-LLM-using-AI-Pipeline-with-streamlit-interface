@@ -1407,3 +1407,102 @@ class TestWave1B1SingleAnalyzerInstance:
             "Found orphaned local CharlieAnalyzer imports (WP-B1 cleanup):\n"
             + "\n".join(orphaned)
         )
+
+
+# ---------------------------------------------------------------------------
+# 9. DuPont fix tests (Wave 3 Part 1 — correctness)
+# ---------------------------------------------------------------------------
+
+class TestDupontAnalysisFix:
+    """
+    Verify _render_dupont_analysis uses the REAL DuPontAnalysis fields
+    (roe, net_margin, asset_turnover, equity_multiplier, tax_burden,
+    interest_burden, primary_driver, interpretation) and does NOT access
+    any of the previously non-existent fields that caused AttributeError:
+    da_grade, da_score, roe_dupont, net_profit_margin (on DuPontAnalysis),
+    roa, leverage_effect, summary, dupont_grade, dupont_score.
+    """
+
+    def test_dupont_render_reaches_metric_path_no_attribute_error(self, page, rich_df):
+        """
+        _render_dupont_analysis must not raise AttributeError and must reach
+        the metric/chart path (col.metric calls recorded via _FakeCM forwarding).
+        """
+        p, fake_st = page
+        _reset_spy(fake_st)
+        # Must not raise AttributeError with the real DuPontAnalysis fields.
+        p._render_dupont_analysis(rich_df)
+        # Metrics are rendered via c1-c4.metric(); forwarded to fake_st.metric_calls.
+        assert len(fake_st.metric_calls) >= 1, (
+            "_render_dupont_analysis did not call any col.metric(); "
+            "method may have raised before reaching the metrics block"
+        )
+
+    def test_dupont_render_reaches_plotly_chart(self, page, rich_df):
+        """
+        With rich fixture (non-None roe, net_margin, etc.) the bar chart
+        branch is taken and plotly_chart is called.
+        """
+        p, fake_st = page
+        _reset_spy(fake_st)
+        p._render_dupont_analysis(rich_df)
+        assert len(fake_st.plotly_chart_calls) >= 1, (
+            "_render_dupont_analysis did not call plotly_chart; "
+            "bar_data guard may not have been satisfied or go.Figure failed"
+        )
+
+    def test_dupont_result_real_fields_accessible(self, rich_financial_data):
+        """
+        dupont_analysis() returns a DuPontAnalysis with the actual fields
+        roe, net_margin, asset_turnover, equity_multiplier, tax_burden,
+        interest_burden, primary_driver, interpretation.
+        None of the legacy phantom fields (da_grade, roe_dupont, summary,
+        net_profit_margin, roa, leverage_effect) should be accessed.
+        """
+        from financial_analyzer import CharlieAnalyzer
+        analyzer = CharlieAnalyzer()
+        result = analyzer.dupont_analysis(rich_financial_data)
+        # Real fields must be accessible without AttributeError.
+        _ = result.roe
+        _ = result.net_margin
+        _ = result.asset_turnover
+        _ = result.equity_multiplier
+        _ = result.tax_burden
+        _ = result.interest_burden
+        _ = result.primary_driver
+        _ = result.interpretation
+        # With rich fixture, roe should be non-None (all inputs present).
+        assert result.roe is not None, (
+            "dupont_analysis returned None roe for rich fixture; "
+            "primary driver classification will also be None"
+        )
+        assert result.net_margin is not None
+        assert result.asset_turnover is not None
+        assert result.equity_multiplier is not None
+
+    def test_dupont_render_source_uses_real_fields(self):
+        """
+        Source-level check: the canonical _render_dupont_analysis must reference
+        result.net_margin and result.interpretation, and must NOT reference any
+        of the phantom fields that caused AttributeError.
+        """
+        import inspect
+        import insights_page as ip
+        source = inspect.getsource(ip.FinancialInsightsPage._render_dupont_analysis)
+        # Real fields that must be present.
+        assert "result.net_margin" in source, (
+            "_render_dupont_analysis must use result.net_margin (not result.net_profit_margin)"
+        )
+        assert "result.roe" in source, (
+            "_render_dupont_analysis must use result.roe"
+        )
+        # Phantom fields that caused AttributeError must be absent.
+        for bad_field in ("result.da_grade", "result.da_score", "result.roe_dupont",
+                          "result.roa", "result.leverage_effect", "result.summary",
+                          "result.dupont_grade", "result.dupont_score",
+                          "result.roe_3factor", "result.roe_5factor",
+                          "result.operating_margin", "result.net_profit_margin"):
+            assert bad_field not in source, (
+                f"_render_dupont_analysis must not reference phantom field {bad_field!r}; "
+                f"it does not exist on DuPontAnalysis"
+            )

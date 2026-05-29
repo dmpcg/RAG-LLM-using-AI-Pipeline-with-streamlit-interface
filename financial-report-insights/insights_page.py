@@ -3467,14 +3467,13 @@ class FinancialInsightsPage:
             multiples["P/B Proxy"] = result.price_to_book_proxy
 
         if multiples:
-            import plotly.graph_objects as go
-            fig = go.Figure(data=[go.Bar(
-                x=list(multiples.keys()),
-                y=list(multiples.values()),
-                marker_color=["#3498db", "#2ecc71", "#e67e22", "#9b59b6"][:len(multiples)],
-            )])
-            fig.update_layout(title="Valuation Multiples", yaxis_title="Multiple", height=350)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=list(multiples.keys()),
+                values=list(multiples.values()),
+                colors=["#3498db", "#2ecc71", "#e67e22", "#9b59b6"][:len(multiples)],
+                title="Valuation Multiples",
+                y_title="Multiple",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 
@@ -3541,14 +3540,13 @@ class FinancialInsightsPage:
             rates["ROA"] = result.roa * 100
 
         if rates:
-            import plotly.graph_objects as go
-            fig = go.Figure(data=[go.Bar(
-                x=list(rates.keys()),
-                y=list(rates.values()),
-                marker_color=["#27ae60", "#2ecc71", "#3498db", "#5dade2"][:len(rates)],
-            )])
-            fig.update_layout(title="Growth & Return Rates (%)", yaxis_title="%", height=350)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=list(rates.keys()),
+                values=list(rates.values()),
+                colors=["#27ae60", "#2ecc71", "#3498db", "#5dade2"][:len(rates)],
+                title="Growth & Return Rates (%)",
+                y_title="%",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 
@@ -3817,80 +3815,93 @@ class FinancialInsightsPage:
         if result.spare_borrowing_capacity is not None:
             gauge_data["Spare Capacity %"] = min(max(result.spare_borrowing_capacity * 100, -20), 60)
         if gauge_data:
-            import plotly.graph_objects as go
-            labels = list(gauge_data.keys())
-            values = list(gauge_data.values())
-            colors = ["#00CC96" if v > 10 else "#FFA15A" if v > 0 else "#EF553B" for v in values]
-            fig = go.Figure(data=[go.Bar(x=labels, y=values, marker_color=colors)])
-            fig.update_layout(title="Flexibility Components (%)", yaxis_title="%", height=350)
-            st.plotly_chart(fig, use_container_width=True)
+            _labels = list(gauge_data.keys())
+            _values = list(gauge_data.values())
+            _colors = ["#00CC96" if v > 10 else "#FFA15A" if v > 0 else "#EF553B" for v in _values]
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=_labels,
+                values=_values,
+                colors=_colors,
+                title="Flexibility Components (%)",
+                y_title="%",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 
     def _render_dupont_analysis(self, df: pd.DataFrame):
-        """Render DuPont decomposition of ROE."""
-        from financial_analyzer import DupontAnalysisResult
+        """Render DuPont decomposition of ROE (Phase 119 / 3-factor + 5-factor)."""
         fd = self.analyzer._dataframe_to_financial_data(df)
         result = self.analyzer.dupont_analysis(fd)
 
-        grade_colors = {
-            "Excellent": "#00CC96", "Good": "#636EFA",
-            "Fair": "#FFA15A", "Weak": "#EF553B",
-        }
-        color = grade_colors.get(result.dupont_grade, "#888")
+        # Derive a display grade from ROE since DuPontAnalysis has no grade field.
+        roe = result.roe
+        if roe is None:
+            roe_grade = "N/A"
+            color = "#888"
+        elif roe >= 0.20:
+            roe_grade = "Excellent"
+            color = "#00CC96"
+        elif roe >= 0.12:
+            roe_grade = "Good"
+            color = "#636EFA"
+        elif roe >= 0.06:
+            roe_grade = "Fair"
+            color = "#FFA15A"
+        else:
+            roe_grade = "Weak"
+            color = "#EF553B"
+
         st.markdown(
             f"<span style='background:{color};color:white;padding:4px 12px;"
-            f"border-radius:8px;font-weight:bold'>{result.dupont_grade} "
-            f"({result.dupont_score:.1f}/10)</span>",
+            f"border-radius:8px;font-weight:bold'>DuPont ROE Grade: {roe_grade}</span>",
             unsafe_allow_html=True,
         )
 
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("ROE", f"{result.roe:.1%}" if result.roe is not None else "N/A")
-        c2.metric("Net Margin", f"{result.net_profit_margin:.1%}" if result.net_profit_margin is not None else "N/A")
+        c2.metric("Net Margin", f"{result.net_margin:.1%}" if result.net_margin is not None else "N/A")
         c3.metric("Asset Turnover", f"{result.asset_turnover:.2f}x" if result.asset_turnover is not None else "N/A")
         c4.metric("Equity Multiplier", f"{result.equity_multiplier:.2f}x" if result.equity_multiplier is not None else "N/A")
 
         detail = {}
         if result.roe is not None:
-            detail["ROE"] = f"{result.roe:.2%}"
-        if result.net_profit_margin is not None:
-            detail["Net Profit Margin"] = f"{result.net_profit_margin:.2%}"
+            detail["ROE (3-Factor)"] = f"{result.roe:.2%}"
+        if result.net_margin is not None:
+            detail["Net Profit Margin"] = f"{result.net_margin:.2%}"
         if result.asset_turnover is not None:
             detail["Asset Turnover"] = f"{result.asset_turnover:.3f}x"
         if result.equity_multiplier is not None:
             detail["Equity Multiplier"] = f"{result.equity_multiplier:.3f}x"
-        if result.operating_margin is not None:
-            detail["Operating Margin (EBIT/Rev)"] = f"{result.operating_margin:.2%}"
         if result.tax_burden is not None:
             detail["Tax Burden (NI/EBT)"] = f"{result.tax_burden:.3f}"
         if result.interest_burden is not None:
             detail["Interest Burden (EBT/EBIT)"] = f"{result.interest_burden:.3f}"
-        if result.roe_3factor is not None:
-            detail["ROE (3-Factor Recon)"] = f"{result.roe_3factor:.2%}"
-        if result.roe_5factor is not None:
-            detail["ROE (5-Factor Recon)"] = f"{result.roe_5factor:.2%}"
+        if result.primary_driver is not None:
+            detail["Primary Driver"] = result.primary_driver
         if detail:
             st.table(pd.DataFrame(list(detail.items()), columns=["Metric", "Value"]))
 
-        # DuPont decomposition bar chart
+        # DuPont decomposition bar chart (3-factor components)
         bar_data = {}
-        if result.net_profit_margin is not None:
-            bar_data["Net Margin"] = result.net_profit_margin * 100
+        if result.net_margin is not None:
+            bar_data["Net Margin"] = result.net_margin * 100
         if result.asset_turnover is not None:
-            bar_data["Asset Turnover"] = result.asset_turnover * 100
+            bar_data["Asset Turnover (x100)"] = result.asset_turnover * 100
         if result.equity_multiplier is not None:
-            bar_data["Equity Multiplier"] = result.equity_multiplier * 100
+            bar_data["Equity Multiplier (x100)"] = result.equity_multiplier * 100
         if bar_data:
-            import plotly.graph_objects as go
-            labels = list(bar_data.keys())
-            values = list(bar_data.values())
-            colors = ["#636EFA", "#00CC96", "#FFA15A"][:len(values)]
-            fig = go.Figure(data=[go.Bar(x=labels, y=values, marker_color=colors)])
-            fig.update_layout(title="3-Factor DuPont Components", yaxis_title="Value (%/100x)", height=350)
-            st.plotly_chart(fig, use_container_width=True)
+            _labels = list(bar_data.keys())
+            _values = list(bar_data.values())
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=_labels,
+                values=_values,
+                colors=["#636EFA", "#00CC96", "#FFA15A"][:len(_values)],
+                title="3-Factor DuPont Components",
+                y_title="Value (%/100x)",
+            ), use_container_width=True)
 
-        st.caption(result.summary)
+        if result.interpretation:
+            st.caption(result.interpretation)
 
     def _render_altman_z_score(self, df: pd.DataFrame):
         """Render Altman Z-Score bankruptcy prediction."""
@@ -3946,13 +3957,15 @@ class FinancialInsightsPage:
         if result.x5_weighted is not None:
             bar_data["1.0 x Rev/TA"] = result.x5_weighted
         if bar_data:
-            import plotly.graph_objects as go
-            labels = list(bar_data.keys())
-            values = list(bar_data.values())
-            colors = ["#00CC96" if v > 0 else "#EF553B" for v in values]
-            fig = go.Figure(data=[go.Bar(x=labels, y=values, marker_color=colors)])
-            fig.update_layout(title="Z-Score Weighted Components", yaxis_title="Contribution", height=350)
-            st.plotly_chart(fig, use_container_width=True)
+            _labels = list(bar_data.keys())
+            _values = list(bar_data.values())
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=_labels,
+                values=_values,
+                colors=["#00CC96" if v > 0 else "#EF553B" for v in _values],
+                title="Z-Score Weighted Components",
+                y_title="Contribution",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 
@@ -4070,13 +4083,15 @@ class FinancialInsightsPage:
         if result.ocf_to_debt is not None:
             bar_data["OCF/Debt %"] = result.ocf_to_debt * 100
         if bar_data:
-            import plotly.graph_objects as go
-            labels = list(bar_data.keys())
-            values = list(bar_data.values())
-            colors = ["#00CC96" if v > 3 else "#FFA15A" if v > 1 else "#EF553B" for v in values]
-            fig = go.Figure(data=[go.Bar(x=labels, y=values, marker_color=colors)])
-            fig.update_layout(title="Coverage Ratios", yaxis_title="Value", height=350)
-            st.plotly_chart(fig, use_container_width=True)
+            _labels = list(bar_data.keys())
+            _values = list(bar_data.values())
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=_labels,
+                values=_values,
+                colors=["#00CC96" if v > 3 else "#FFA15A" if v > 1 else "#EF553B" for v in _values],
+                title="Coverage Ratios",
+                y_title="Value",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 
@@ -4359,18 +4374,13 @@ class FinancialInsightsPage:
 
         # CCC components bar chart
         if dso is not None and result.dio is not None and result.dpo is not None:
-            import plotly.graph_objects as go
-            fig = go.Figure(data=[go.Bar(
-                x=["DSO", "DIO", "DPO", "CCC"],
-                y=[dso, result.dio, result.dpo, ccc if ccc else 0],
-                marker_color=["#636EFA", "#EF553B", "#00CC96", "#AB63FA"],
-            )])
-            fig.update_layout(
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=["DSO", "DIO", "DPO", "CCC"],
+                values=[dso, result.dio, result.dpo, ccc if ccc else 0],
+                colors=["#636EFA", "#EF553B", "#00CC96", "#AB63FA"],
                 title="Cash Conversion Cycle Components (Days)",
-                yaxis_title="Days",
-                height=350,
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                y_title="Days",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 
@@ -6638,33 +6648,12 @@ class FinancialInsightsPage:
 
         st.caption(result.summary)
 
-    def _render_dupont_analysis(self, df: pd.DataFrame):
-        """Render Phase 119: DuPont Analysis."""
-        data = self.analyzer._dataframe_to_financial_data(df)
-        result = self.analyzer.dupont_analysis(data)
-
-        grade_colors = {"Excellent": "green", "Good": "blue", "Adequate": "orange", "Weak": "red"}
-        color = grade_colors.get(result.da_grade, "gray")
-        st.markdown(f"**DuPont Analysis Grade:** :{color}[{result.da_grade}] ({result.da_score}/10)")
-
-        c1, c2, c3, c4 = st.columns(4)
-        _pct = lambda v: f"{v:.1%}" if v is not None else "N/A"
-        _r2 = lambda v: f"{v:.2f}" if v is not None else "N/A"
-        c1.metric("ROE (DuPont)", _pct(result.roe_dupont))
-        c2.metric("Net Profit Margin", _pct(result.net_profit_margin))
-        c3.metric("Asset Turnover", _r2(result.asset_turnover))
-        c4.metric("Equity Multiplier", _r2(result.equity_multiplier))
-
-        detail = {
-            "Metric": ["ROE (DuPont)", "Net Profit Margin", "Asset Turnover",
-                        "Equity Multiplier", "ROA", "Leverage Effect"],
-            "Value": [_pct(result.roe_dupont), _pct(result.net_profit_margin),
-                      _r2(result.asset_turnover), _r2(result.equity_multiplier),
-                      _pct(result.roa), _pct(result.leverage_effect)],
-        }
-        st.dataframe(pd.DataFrame(detail), use_container_width=True, hide_index=True)
-
-        st.caption(result.summary)
+    # _render_dupont_analysis is defined above at its canonical location (around line 3830).
+    # The duplicate Phase-119 stub previously here used non-existent fields
+    # (da_grade, da_score, roe_dupont, net_profit_margin, roa, leverage_effect, summary)
+    # and has been removed.  The canonical implementation above uses the actual
+    # DuPontAnalysis fields: roe, net_margin, asset_turnover, equity_multiplier,
+    # tax_burden, interest_burden, primary_driver, interpretation.
 
     def _render_receivables_management(self, df: pd.DataFrame):
         """Render Phase 114: Receivables Management Analysis."""
@@ -7245,15 +7234,13 @@ class FinancialInsightsPage:
             colors.append("#2196F3")
 
         if labels:
-            fig = go.Figure()
-            fig.add_trace(go.Bar(x=labels, y=vals, marker_color=colors))
-            fig.update_layout(
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=labels,
+                values=vals,
+                colors=colors,
                 title="ROA Comparison",
-                yaxis_title="Return (%)",
-                height=350,
-                showlegend=False,
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                y_title="Return (%)",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 
@@ -7322,17 +7309,13 @@ class FinancialInsightsPage:
             colors.append("#2196F3")
 
         if components:
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=components, y=values, marker_color=colors,
-            ))
-            fig.update_layout(
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=components,
+                values=values,
+                colors=colors,
                 title="DuPont Decomposition",
-                yaxis_title="Value",
-                height=350,
-                showlegend=False,
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                y_title="Value",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 
@@ -7381,23 +7364,16 @@ class FinancialInsightsPage:
         details["Value"].append(result.npm_grade)
         st.table(details)
 
-        # Waterfall: EBITDA -> EBIT -> EBT -> NI
-        import plotly.graph_objects as go
+        # Margin waterfall: EBITDA -> EBIT -> Net
         if (result.ebitda_margin_pct is not None and result.ebit_margin_pct is not None
                 and result.net_margin_pct is not None):
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=["EBITDA Margin", "EBIT Margin", "Net Margin"],
-                y=[result.ebitda_margin_pct, result.ebit_margin_pct, result.net_margin_pct],
-                marker_color=["#4CAF50", "#FF9800", "#2196F3"],
-            ))
-            fig.update_layout(
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=["EBITDA Margin", "EBIT Margin", "Net Margin"],
+                values=[result.ebitda_margin_pct, result.ebit_margin_pct, result.net_margin_pct],
+                colors=["#4CAF50", "#FF9800", "#2196F3"],
                 title="Margin Waterfall: EBITDA to Net",
-                yaxis_title="Margin (%)",
-                height=350,
-                showlegend=False,
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                y_title="Margin (%)",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 
@@ -7446,21 +7422,14 @@ class FinancialInsightsPage:
         st.table(details)
 
         # Bar chart: EBITDA vs Operating margin
-        import plotly.graph_objects as go
         if result.ebitda_margin_pct is not None and result.operating_margin_pct is not None:
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=["EBITDA Margin", "Operating Margin"],
-                y=[result.ebitda_margin_pct, result.operating_margin_pct],
-                marker_color=["#FF9800", "#2196F3"],
-            ))
-            fig.update_layout(
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=["EBITDA Margin", "Operating Margin"],
+                values=[result.ebitda_margin_pct, result.operating_margin_pct],
+                colors=["#FF9800", "#2196F3"],
                 title="EBITDA vs Operating Margin",
-                yaxis_title="Margin (%)",
-                height=350,
-                showlegend=False,
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                y_title="Margin (%)",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 
@@ -7510,21 +7479,14 @@ class FinancialInsightsPage:
         st.table(details)
 
         # Bar chart: Gross Margin vs Operating Margin
-        import plotly.graph_objects as go
         if result.gross_margin_pct is not None and result.operating_margin_pct is not None:
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=["Gross Margin", "Operating Margin"],
-                y=[result.gross_margin_pct, result.operating_margin_pct],
-                marker_color=["#4CAF50", "#2196F3"],
-            ))
-            fig.update_layout(
+            st.plotly_chart(self.viz.create_simple_bar(
+                labels=["Gross Margin", "Operating Margin"],
+                values=[result.gross_margin_pct, result.operating_margin_pct],
+                colors=["#4CAF50", "#2196F3"],
                 title="Margin Comparison",
-                yaxis_title="Margin (%)",
-                height=350,
-                showlegend=False,
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                y_title="Margin (%)",
+            ), use_container_width=True)
 
         st.caption(result.summary)
 

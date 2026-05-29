@@ -736,3 +736,58 @@ class FinancialVizUtils:
         fig.add_vline(x=0, line_width=2, line_color="gray")
 
         return fig
+
+    @classmethod
+    def create_simple_bar(
+        cls,
+        labels: List[str],
+        values: List[float],
+        colors: Optional[List[str]],
+        title: str,
+        y_title: str = "",
+        height: int = 350,
+        show_legend: bool = False,
+    ) -> go.Figure:
+        """
+        Create a single-series vertical bar chart.
+
+        This is the shared helper for the high-frequency inline pattern:
+            fig = go.Figure(data=[go.Bar(x=labels, y=values, marker_color=colors)])
+            fig.update_layout(title=title, yaxis_title=y_title,
+                              height=height, showlegend=False)
+
+        Used in place of that boilerplate across profitability, returns,
+        coverage, and working-capital render methods.
+
+        Args:
+            labels: X-axis bar labels.
+            values: Y-axis bar heights.
+            colors: Per-bar colour strings (len must match labels). If None,
+                    the class PALETTE is used cyclically.
+            title:  Chart title.
+            y_title: Y-axis label.
+            height: Chart height in pixels (default 350).
+            show_legend: Whether to show the Plotly legend (default False).
+
+        Returns:
+            go.Figure with a single Bar trace.
+        """
+        bar_colors = colors if colors is not None else [
+            cls.PALETTE[i % len(cls.PALETTE)] for i in range(len(labels))
+        ]
+        fig = go.Figure(data=[go.Bar(
+            x=labels,
+            y=values,
+            marker_color=bar_colors,
+        )])
+        fig.update_layout(
+            title=title,
+            yaxis_title=y_title,
+            height=height,
+            showlegend=show_legend,
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+            margin=dict(l=50, r=50, t=60, b=50),
+        )
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=cls.GRID_COLOR)
+        return fig
