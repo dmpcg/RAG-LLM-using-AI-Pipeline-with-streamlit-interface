@@ -33,6 +33,9 @@ class LoanStructure:
     term_years: int = 5
     amortization_years: int = 5
     loan_type: str = "term"  # term, revolver, bridge
+    # P0-6: borrower existing annual debt service (interest + scheduled principal).
+    # When None, debt_capacity() estimates from FinancialData fields.
+    existing_debt_service: Optional[float] = None
 
 
 @dataclass
@@ -41,7 +44,9 @@ class CreditScorecard:
 
     total_score: int = 0
     grade: str = "F"  # A, B, C, D, F
-    category_scores: Dict[str, int] = field(default_factory=dict)
+    # WP-7b: a value may be None when that category is "not evaluable"
+    # (all underlying inputs missing) rather than a measured score.
+    category_scores: Dict[str, Optional[int]] = field(default_factory=dict)
     # 5 categories x 20 points each = 100 max
     recommendation: str = "decline"  # approve, conditional, decline
     conditions: List[str] = field(default_factory=list)
@@ -118,7 +123,9 @@ class UnderwritingAnalyzer:
     def credit_scorecard(self, data: FinancialData) -> CreditScorecard:
         """Score the borrower across five categories (each 0-20, total 0-100)."""
 
-        scores: Dict[str, int] = {}
+        # WP-7b: a category score may be None ("not evaluable") when the
+        # underlying inputs are all missing -- distinct from a measured 0.
+        scores: Dict[str, Optional[int]] = {}
 
         # --- Profitability (20 pts) ---
         net_margin = safe_divide(data.net_income, data.revenue)
@@ -149,12 +156,15 @@ class UnderwritingAnalyzer:
         ebitda_margin = safe_divide(data.ebitda, data.revenue)
         scores["stability"] = self._score_stability(ic, ebitda_margin)
 
-        total = sum(scores.values())
+        # WP-7b: sum only evaluable categories; a None category contributes
+        # nothing (we cannot award points without data) and is excluded from
+        # strengths/weaknesses (missing data is neither).
+        total = sum(pts for pts in scores.values() if pts is not None)
         grade = _score_to_grade(total)
         recommendation = _grade_to_recommendation(grade)
 
-        strengths = [cat for cat, pts in scores.items() if pts >= 15]
-        weaknesses = [cat for cat, pts in scores.items() if pts <= 5]
+        strengths = [cat for cat, pts in scores.items() if pts is not None and pts >= 15]
+        weaknesses = [cat for cat, pts in scores.items() if pts is not None and pts <= 5]
 
         conditions: List[str] = []
         if recommendation == "conditional":
@@ -182,7 +192,12 @@ class UnderwritingAnalyzer:
     @staticmethod
     def _score_profitability(
         net_margin: Optional[float], roa: Optional[float]
-    ) -> int:
+    ) -> Optional[int]:
+        # WP-7b: all-None inputs are "not evaluable" -- return None, NOT a
+        # misleading 0 (which would be indistinguishable from a measured 0
+        # and silently penalize a borrower whose data is merely missing).
+        if net_margin is None and roa is None:
+            return None
         nm = net_margin or 0
         r = roa or 0
         if nm > 0.10 and r > 0.08:
@@ -217,7 +232,10 @@ class UnderwritingAnalyzer:
     @staticmethod
     def _score_liquidity(
         current_ratio: Optional[float], cash_ratio: Optional[float]
-    ) -> int:
+    ) -> Optional[int]:
+        # WP-7b: not evaluable when no liquidity input is present.
+        if current_ratio is None and cash_ratio is None:
+            return None
         cr = current_ratio or 0
         cashr = cash_ratio or 0
         if cr > 2.0 and cashr > 0.5:
@@ -233,7 +251,10 @@ class UnderwritingAnalyzer:
     @staticmethod
     def _score_cash_flow(
         ocf_debt: Optional[float], fcf_margin: Optional[float]
-    ) -> int:
+    ) -> Optional[int]:
+        # WP-7b: not evaluable when no cash-flow input is present.
+        if ocf_debt is None and fcf_margin is None:
+            return None
         od = ocf_debt or 0
         fm = fcf_margin or 0
         if od > 0.4 and fm > 0.10:
@@ -249,7 +270,10 @@ class UnderwritingAnalyzer:
     @staticmethod
     def _score_stability(
         interest_coverage: Optional[float], ebitda_margin: Optional[float]
-    ) -> int:
+    ) -> Optional[int]:
+        # WP-7b: not evaluable when no stability input is present.
+        if interest_coverage is None and ebitda_margin is None:
+            return None
         ic = interest_coverage or 0
         em = ebitda_margin or 0
         if ic > 6.0 and em > 0.20:
@@ -271,16 +295,33 @@ class UnderwritingAnalyzer:
         data: FinancialData,
         proposed_loan: Optional[LoanStructure] = None,
     ) -> DebtCapacityResult:
-        """Estimate how much additional debt the company can support."""
+        """Estimate how much additional debt the company can support.
+
+        P0-7: When EBITDA is not strictly positive, leverage-based capacity is
+        undefined; max_additional_debt is returned as None (not 0)
+        with an explicit assessment string.
+
+        P0-6: Pro-forma DSCR includes the borrower existing annual debt
+        service in addition to service on the proposed loan. The existing
+        service is taken from LoanStructure.existing_debt_service when
+        provided, otherwise estimated from
+        FinancialData.interest_expense + total_debt / term_years.
+        """
 
         target = 3.5  # max debt/EBITDA
 
         current_debt = data.total_debt or 0
-        ebitda = data.ebitda or 0
+        ebitda_raw = data.ebitda
 
         current_leverage = safe_divide(data.total_debt, data.ebitda)
-        max_capacity = target * ebitda
-        max_additional = max(0.0, max_capacity - current_debt)
+
+        # P0-7: short-circuit on non-positive EBITDA -- leverage-based
+        # capacity is undefined for borrowers with no/negative cash earnings.
+        if ebitda_raw is None or ebitda_raw <= 0:
+            max_additional: Optional[float] = None
+        else:
+            max_capacity = target * ebitda_raw
+            max_additional = max(0.0, max_capacity - current_debt)
 
         result = DebtCapacityResult(
             current_total_debt=data.total_debt,
@@ -295,23 +336,61 @@ class UnderwritingAnalyzer:
             result.pro_forma_debt = pro_forma_debt
             result.pro_forma_leverage = safe_divide(pro_forma_debt, data.ebitda)
 
-            # Simplified annual debt service: principal repayment + interest
+            # Annual debt service on the *proposed* loan
             term = proposed_loan.term_years if proposed_loan.term_years > 0 else 1
             annual_repayment = safe_divide(proposed_loan.principal, term, default=0.0) or 0.0
             annual_interest = proposed_loan.principal * proposed_loan.annual_rate
-            annual_debt_service = annual_repayment + annual_interest
+            new_loan_service = annual_repayment + annual_interest
 
-            result.pro_forma_dscr = safe_divide(ebitda, annual_debt_service)
+            # P0-6: include borrower existing debt service so DSCR reflects
+            # total burden, not just the new loan.
+            existing_service = self._estimate_existing_debt_service(data, proposed_loan)
 
-            if max_additional > 0:
+            total_debt_service = new_loan_service + (existing_service or 0.0)
+            result.pro_forma_dscr = safe_divide(ebitda_raw, total_debt_service)
+
+            if max_additional is not None and max_additional > 0:
                 remaining = max_additional - proposed_loan.principal
                 result.headroom_pct = safe_divide(remaining, max_additional)
-            else:
+            elif max_additional == 0:
                 result.headroom_pct = 0.0
+            else:
+                # Capacity undefined (non-positive EBITDA)
+                result.headroom_pct = None
 
         # Build assessment text
         result.assessment = self._build_capacity_assessment(result)
         return result
+
+    @staticmethod
+    def _estimate_existing_debt_service(
+        data: FinancialData,
+        proposed_loan: LoanStructure,
+    ) -> Optional[float]:
+        """Return the borrower annual existing debt service.
+
+        Order of precedence:
+        1. proposed_loan.existing_debt_service if explicitly set (>=0).
+        2. interest_expense + total_debt / term_years estimate.
+        3. None when neither path has data.
+        """
+        explicit = getattr(proposed_loan, "existing_debt_service", None)
+        if explicit is not None and explicit >= 0:
+            return float(explicit)
+
+        interest = data.interest_expense
+        existing_debt = data.total_debt
+        term = proposed_loan.term_years if proposed_loan.term_years > 0 else 1
+
+        if interest is None and (existing_debt is None or existing_debt <= 0):
+            return None
+
+        principal_amort = (
+            (existing_debt / term) if existing_debt and existing_debt > 0 else 0.0
+        )
+        interest_part = float(interest) if interest is not None else 0.0
+        return interest_part + principal_amort
+
 
     @staticmethod
     def _build_capacity_assessment(r: DebtCapacityResult) -> str:
@@ -326,17 +405,24 @@ class UnderwritingAnalyzer:
         else:
             parts.append("Insufficient data to calculate current leverage.")
 
-        if r.max_additional_debt is not None:
-            if r.max_additional_debt > 0:
-                parts.append(
-                    f"Estimated additional debt capacity: "
-                    f"${r.max_additional_debt:,.0f}."
-                )
-            else:
-                parts.append(
-                    "Company appears fully leveraged relative to the "
-                    f"{r.max_leverage_target:.1f}x target."
-                )
+        if r.max_additional_debt is None:
+            # P0-7: explicit message for non-positive EBITDA borrowers
+            parts.append(
+                "Additional debt capacity is undefined: EBITDA is not "
+                "positive, so leverage-based capacity cannot be calculated. "
+                "Underwriting must rely on collateral and alternative "
+                "coverage measures."
+            )
+        elif r.max_additional_debt > 0:
+            parts.append(
+                f"Estimated additional debt capacity: "
+                f"${r.max_additional_debt:,.0f}."
+            )
+        else:
+            parts.append(
+                "Company appears fully leveraged relative to the "
+                f"{r.max_leverage_target:.1f}x target."
+            )
 
         if r.pro_forma_dscr is not None:
             if r.pro_forma_dscr >= 1.5:

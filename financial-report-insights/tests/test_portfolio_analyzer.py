@@ -262,6 +262,41 @@ class TestDiversificationScore:
         div = analyzer.diversification_score(three_company_portfolio)
         assert "HHI" in div.interpretation
 
+    @pytest.mark.parametrize(
+        "avg_corr, expected_score",
+        [
+            (-1.0, 40),  # perfect negative correlation -> max corr points
+            (0.0, 20),   # zero correlation -> mid corr points
+            (1.0, 0),    # perfect positive correlation -> zero corr points
+        ],
+    )
+    def test_correlation_component_mapping_isolated(
+        self, analyzer, avg_corr, expected_score
+    ):
+        """Regression (P1-E1): correlation component maps [-1, 1] -> [40, 0].
+
+        Isolate corr_pts by using a maximally-concentrated portfolio: one
+        company holds all revenue/assets, the other holds zero, so the HHI
+        helper sees a single non-zero entry and returns 1.0 for both revenue
+        and assets. With hhi_rev == hhi_ast == 1.0, rev_pts == ast_pts == 0,
+        so overall_score == corr_pts and reads the correlation component
+        directly off the public DiversificationScore (corr_pts is not
+        otherwise exposed).
+        """
+        companies = {
+            "All": FinancialData(revenue=10_000_000, total_assets=20_000_000),
+            "None": FinancialData(revenue=0.0, total_assets=0.0),
+        }
+        # Confirm the fixture zeroes the HHI components so total == corr_pts.
+        assert _hhi([10_000_000, 0.0]) == 1.0
+
+        correlation = CorrelationMatrix(avg_correlation=avg_corr)
+        div = analyzer.diversification_score(companies, correlation=correlation)
+
+        assert div.hhi_revenue == 1.0
+        assert div.hhi_assets == 1.0
+        assert div.overall_score == expected_score
+
 
 # ---------------------------------------------------------------------------
 # Portfolio Risk Summary

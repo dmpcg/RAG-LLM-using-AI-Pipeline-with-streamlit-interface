@@ -3518,48 +3518,58 @@ class CharlieAnalyzer:
             if len(series) < 3:
                 continue
 
+            # Use the underlying numpy array directly (avoids copy from to_numpy)
+            arr: np.ndarray = series.values.astype(float, copy=False)
+
             if method == 'iqr':
-                q1 = series.quantile(0.25)
-                q3 = series.quantile(0.75)
+                q1, q3 = np.percentile(arr, [25, 75])  # single pass
                 iqr = q3 - q1
                 if iqr == 0:
                     continue
                 iqr_multiplier = threshold if threshold != 2.0 else 1.5
-                lower = q1 - iqr_multiplier * iqr
-                upper = q3 + iqr_multiplier * iqr
+                lower = float(q1) - iqr_multiplier * float(iqr)
+                upper = float(q3) + iqr_multiplier * float(iqr)
 
-                mean = series.mean()
-                std = series.std() or 1.0  # avoid div by zero for z_score calc
+                mean = float(arr.mean())
+                # ddof=1 matches pandas Series.std() default; 'or 1.0' avoids div-by-zero
+                std = float(np.std(arr, ddof=1)) or 1.0
 
-                for idx, value in series.items():
-                    if value < lower or value > upper:
-                        z = (value - mean) / std
-                        anomalies.append(Anomaly(
-                            metric_name=col,
-                            value=value,
-                            expected_range=(lower, upper),
-                            z_score=z,
-                            description=(f"IQR anomaly in {col}: {value:.2f} outside "
-                                         f"[{lower:.2f}, {upper:.2f}]")
-                        ))
+                mask = (arr < lower) | (arr > upper)
+                outlier_vals = arr[mask]
+                z_scores = (outlier_vals - mean) / std
+
+                for value, z in zip(outlier_vals.tolist(), z_scores.tolist()):
+                    anomalies.append(Anomaly(
+                        metric_name=col,
+                        value=value,
+                        expected_range=(lower, upper),
+                        z_score=z,
+                        description=(f"IQR anomaly in {col}: {value:.2f} outside "
+                                     f"[{lower:.2f}, {upper:.2f}]")
+                    ))
             else:
                 # Default z-score method
-                mean = series.mean()
-                std = series.std()
+                mean = float(arr.mean())
+                std = float(np.std(arr, ddof=1))
                 if std == 0:
                     continue
 
-                for idx, value in series.items():
-                    z_score = (value - mean) / std
-                    if abs(z_score) > threshold:
-                        anomalies.append(Anomaly(
-                            metric_name=col,
-                            value=value,
-                            expected_range=(mean - threshold*std, mean + threshold*std),
-                            z_score=z_score,
-                            description=(f"Unusual value in {col}: {value:.2f} is "
-                                         f"{abs(z_score):.1f} standard deviations from mean")
-                        ))
+                z_scores = (arr - mean) / std
+                mask = np.abs(z_scores) > threshold
+                outlier_vals = arr[mask]
+                outlier_zs = z_scores[mask]
+                lower_bound = mean - threshold * std
+                upper_bound = mean + threshold * std
+
+                for value, z_score in zip(outlier_vals.tolist(), outlier_zs.tolist()):
+                    anomalies.append(Anomaly(
+                        metric_name=col,
+                        value=value,
+                        expected_range=(lower_bound, upper_bound),
+                        z_score=z_score,
+                        description=(f"Unusual value in {col}: {value:.2f} is "
+                                     f"{abs(z_score):.1f} standard deviations from mean")
+                    ))
 
         return anomalies
 
@@ -3851,6 +3861,36 @@ class CharlieAnalyzer:
 
         rng = np.random.default_rng(seed=seed)
 
+        # --- WP-D optimizations (P1-A2) ---
+        # 1. Cache dataclasses.fields() once rather than re-calling inside
+        #    _apply_adjustments on every iteration.
+        from dataclasses import fields as _dc_fields
+        _base_field_values: Dict[str, Any] = {
+            f.name: getattr(data, f.name) for f in _dc_fields(data)
+        }
+        # Pre-compute assumption keys and per-field draw parameters (once).
+        _assumption_keys: List[str] = list(assumptions.keys())
+        _k = len(_assumption_keys)
+        _mean_mults = np.array(
+            [1.0 + assumptions[fld].get('mean_pct', 0.0) / 100.0
+             for fld in _assumption_keys],
+            dtype=float,
+        )
+        _std_mults = np.array(
+            [assumptions[fld].get('std_pct', 10.0) / 100.0
+             for fld in _assumption_keys],
+            dtype=float,
+        )
+        # 2. Batch-draw all random samples in one call.
+        #    size=(n_simulations, k) draws in C (row-major) order:
+        #      row=sim_index, col=field_index
+        #    This is identical to the original nested-loop draw order
+        #    (outer=sim, inner=field), so the same seed produces the same values.
+        _all_samples = np.maximum(
+            rng.normal(_mean_mults, _std_mults, size=(n_simulations, _k)),
+            0.001,  # floor at 0.1% — allows near-total loss modeling
+        )
+
         metrics_collected: Dict[str, List[float]] = {
             'health_score': [],
             'z_score': [],
@@ -3860,16 +3900,25 @@ class CharlieAnalyzer:
             'roe': [],
         }
 
-        for _ in range(n_simulations):
-            adjustments: Dict[str, float] = {}
-            for fld, params in assumptions.items():
-                mean_mult = 1.0 + params.get('mean_pct', 0.0) / 100.0
-                std_mult = params.get('std_pct', 10.0) / 100.0
-                sample = rng.normal(mean_mult, std_mult)
-                sample = max(sample, 0.001)  # Floor at 0.1% — allows near-total loss modeling
-                adjustments[fld] = sample
+        for _sim_idx in range(n_simulations):
+            # Build adjustments dict from pre-drawn row
+            adjustments: Dict[str, float] = {
+                _assumption_keys[_j]: float(_all_samples[_sim_idx, _j])
+                for _j in range(_k)
+            }
 
-            adjusted = self._apply_adjustments(data, adjustments)
+            # Apply adjustments using the cached field-values dict
+            _field_values = _base_field_values.copy()
+            _skipped: List[str] = []
+            for _fld_name, _multiplier in adjustments.items():
+                _cur = _field_values.get(_fld_name)
+                if _cur is not None:
+                    _field_values[_fld_name] = _cur * _multiplier
+                else:
+                    _skipped.append(_fld_name)
+            adjusted = FinancialData(**_field_values)
+            adjusted._skipped_adjustments = _skipped  # type: ignore[attr-defined]
+
             health = self.composite_health_score(adjusted)
             z = self.altman_z_score(adjusted)
             f = self.piotroski_f_score(adjusted)
@@ -3943,6 +3992,13 @@ class CharlieAnalyzer:
         """
         base_revenue = data.revenue or 0.0
         if base_revenue <= 0:
+            return CashFlowForecast(periods=[])
+
+        # A discount rate at or below -100% makes (1 + discount_rate) ** i
+        # zero or negative, leaving the DCF undefined. Return an empty
+        # forecast (dcf_value/terminal_value None) rather than dividing by
+        # zero or producing inf/nan.
+        if discount_rate <= -1.0:
             return CashFlowForecast(periods=[])
 
         # Derive expense ratio from current data if not provided
@@ -4366,7 +4422,7 @@ class CharlieAnalyzer:
         if dso is not None and dio is not None and dpo is not None:
             ccc = round(dso + dio - dpo, 1)
             if ccc < 0:
-                insights.append(f"Negative CCC of {ccc:.0f} days: company generates cash before paying suppliers. Excellent.")
+                insights.append(f"CCC of {ccc:.0f} days (negative): company collects cash before paying suppliers -- favorable.")
             elif ccc < 30:
                 insights.append(f"CCC of {ccc:.0f} days is efficient.")
             elif ccc < 60:
@@ -5220,6 +5276,10 @@ class CharlieAnalyzer:
         adjustments: Optional[List[Tuple]] = None,
         derived: Optional[List[Tuple]] = None,
         label: str = "",
+        mode: str = "default",
+        derive_primary_fn=None,
+        primary_result_field: Optional[str] = None,
+        band_thresholds: Optional[List[Tuple[float, float, float]]] = None,
     ):
         """Generic scored ratio analysis engine.
 
@@ -5234,11 +5294,47 @@ class CharlieAnalyzer:
         score_field : attribute name for the score on result
         grade_field : attribute name for the grade on result
         primary : field_name of the primary ratio used for scoring
-        higher_is_better : True = higher ratio -> higher score
+        higher_is_better : True = higher ratio -> higher score (ignored in
+            band mode)
         thresholds : list of (threshold, base_score) DESCENDING by threshold
+            (ignored in band mode)
         adjustments : list of (condition_fn(ratios, data) -> bool, delta)
         derived : list of (field_name, compute_fn(ratios, data) -> value)
         label : analysis label for summary string
+        mode : scoring mode — one of:
+
+            ``'default'``
+                Standard monotonic threshold scoring (existing behaviour,
+                unchanged).  ``higher_is_better`` and ``thresholds``
+                control the scoring direction.
+
+            ``'derived_primary'``
+                **Additive, opt-in.**  The primary metric is not read from a
+                pre-computed ratio field; instead it is computed by
+                ``derive_primary_fn(ratios, data) -> Optional[float]``.
+                The result is stored on the result object under
+                ``primary_result_field`` (defaults to ``primary`` if not
+                given) and registered in ``ratios`` before scoring proceeds
+                with the normal threshold logic.
+
+            ``'band'``
+                **Additive, opt-in.**  Mid-band-optimal scoring: the score
+                peaks when the primary value falls inside a target band and
+                falls off both above *and* below.  Pass ``band_thresholds``
+                as a list of ``(low, high, score)`` tuples ordered from
+                narrowest (highest score) to widest (lowest score); the first
+                band whose ``low <= value <= high`` is used.  Adjustments are
+                applied on top of the band score as usual.
+
+        derive_primary_fn : callable(ratios, data) -> Optional[float]
+            Required when ``mode='derived_primary'``.
+        primary_result_field : str, optional
+            Field name on the result to store the derived primary value.
+            Defaults to ``primary`` when not supplied.
+        band_thresholds : list of (low, high, score)
+            Required when ``mode='band'``.  Each entry is
+            ``(lower_bound, upper_bound, base_score)``; the entry with the
+            smallest range that contains the primary value wins.
         """
         result = result_class()
         ratios: Dict[str, Optional[float]] = {}
@@ -5258,6 +5354,13 @@ class CharlieAnalyzer:
             setattr(result, field_name, val)
             ratios[field_name] = val
 
+        # Step 2b (derived_primary mode): compute primary via user-supplied fn
+        if mode == "derived_primary":
+            dp_val = derive_primary_fn(ratios, data) if derive_primary_fn else None
+            store_field = primary_result_field if primary_result_field else primary
+            setattr(result, store_field, dp_val)
+            ratios[primary] = dp_val
+
         # Step 3: Check primary ratio
         primary_val = ratios.get(primary)
         if primary_val is None:
@@ -5265,22 +5368,30 @@ class CharlieAnalyzer:
             result.summary = f"{label}: Insufficient data for analysis."
             return result
 
-        # Step 4: Score from thresholds (callers MUST pass pre-sorted tuples)
-        if higher_is_better:
-            # Descending: find first threshold where value >= threshold
-            base = max(thresholds[-1][1] - 1.0, 0.0)
-            for thresh, sc in thresholds:
-                if primary_val >= thresh:
-                    base = sc
-                    break
+        # Step 4: Score
+        if mode == "band":
+            # Mid-band-optimal: first band whose [low, high] contains the value
+            base = 1.0  # fallback when no band matches
+            if band_thresholds:
+                for band_low, band_high, band_sc in band_thresholds:
+                    if band_low <= primary_val <= band_high:
+                        base = band_sc
+                        break
         else:
-            # Ascending: find first threshold where value <= threshold
-            sorted_t = thresholds
-            base = max(sorted_t[-1][1] - 1.0, 0.0)
-            for thresh, sc in sorted_t:
-                if primary_val <= thresh:
-                    base = sc
-                    break
+            # Standard monotonic threshold scoring (default + derived_primary)
+            if higher_is_better:
+                base = max(thresholds[-1][1] - 1.0, 0.0)
+                for thresh, sc in thresholds:
+                    if primary_val >= thresh:
+                        base = sc
+                        break
+            else:
+                sorted_t = thresholds
+                base = max(sorted_t[-1][1] - 1.0, 0.0)
+                for thresh, sc in sorted_t:
+                    if primary_val <= thresh:
+                        base = sc
+                        break
 
         # Step 5: Apply adjustments
         adj = 0.0
@@ -5320,6 +5431,16 @@ class CharlieAnalyzer:
         - Leverage (20%)
         - Efficiency (20%)
         - Cash Flow (15%)
+
+        .. deprecated::
+            This method is retained for backward compatibility.  Prefer the
+            canonical ``comprehensive_health_score`` method, which aggregates
+            7 dimensions on a 0-100 scale with richer detail.
+
+            Migration: replace ``financial_rating(data)`` with
+            ``comprehensive_health_score(data)``.  The canonical method
+            returns a ``ComprehensiveHealthResult`` with ``overall_score``
+            (0-100), ``grade`` (letter), and per-dimension breakdown.
 
         Parameters
         ----------
@@ -5919,6 +6040,11 @@ class CharlieAnalyzer:
 
     def comprehensive_health_score(self, data: FinancialData) -> ComprehensiveHealthResult:
         """Compute a comprehensive financial health score (0-100).
+
+        **This is the canonical composite health-score method.**
+        ``financial_rating`` and ``financial_health_score_analysis`` are
+        legacy alternatives retained for backward compatibility; new callers
+        should use this method.
 
         Aggregates 7 dimensions with configurable weights:
         - Profitability (20%)
@@ -8737,27 +8863,57 @@ class CharlieAnalyzer:
         Lightness Ratio = CA / TA. Higher means more current/liquid assets
         vs fixed assets, indicating an asset-light business model.
         Complemented by Revenue/TA (asset turnover) for efficiency.
-        """
-        result = AssetLightnessResult()
 
+        Uses ``_scored_analysis`` with ``mode='derived_primary'``:
+        the primary metric (CA/TA lightness) is computed as a derived
+        expression and stored on the result before monotonic threshold
+        scoring proceeds.
+        """
         ca = data.current_assets
         ta = data.total_assets
 
-        # Primary: CA / TA
-        lightness = safe_divide(ca, ta)
-        result.lightness_ratio = lightness
+        result = self._scored_analysis(
+            data=data,
+            result_class=AssetLightnessResult,
+            ratio_defs=[
+                ("revenue_to_assets", "revenue", "total_assets"),
+            ],
+            score_field="alt_score",
+            grade_field="alt_grade",
+            primary="lightness_ratio",
+            higher_is_better=True,
+            thresholds=[
+                (0.70, 10.0), (0.60, 8.5), (0.50, 7.0),
+                (0.40, 5.5), (0.30, 4.0), (0.15, 2.5), (0.0, 1.0),
+            ],
+            adjustments=[
+                # revenue/TA >= 0.50 (+0.5)
+                (lambda r, d: r.get("revenue_to_assets") is not None and r["revenue_to_assets"] >= 0.50, 0.5),
+                # lightness > 0 and TA > 0 (+0.5)
+                (lambda r, d: r.get("lightness_ratio") is not None and r["lightness_ratio"] > 0 and d.total_assets is not None and d.total_assets > 0, 0.5),
+            ],
+            derived=[],
+            mode="derived_primary",
+            derive_primary_fn=lambda r, d: safe_divide(
+                d.current_assets, d.total_assets
+            ),
+            primary_result_field="lightness_ratio",
+            label="Asset Lightness",
+        )
+
+        # Derive remaining fields that require conditional logic not expressible
+        # in ratio_defs / derived list above (3-way guard for intangible_intensity).
+        lightness = result.lightness_ratio
+
+        # ca_to_ta is an alias for lightness_ratio
         result.ca_to_ta = lightness
 
-        # Revenue to assets (asset turnover)
-        result.revenue_to_assets = safe_divide(data.revenue, ta)
-
-        # Fixed asset ratio = (TA - CA) / TA = 1 - lightness
         if lightness is not None:
             result.fixed_asset_ratio = 1.0 - lightness
+            result.lightness_spread = lightness - 0.50
         else:
             result.fixed_asset_ratio = None
 
-        # Intangible intensity proxy: (TA - CA - Inventory) / TA
         if ca is not None and ta is not None and ta > 0:
             inv = data.inventory or 0
             tangible_current = ca - inv
@@ -8765,60 +8921,22 @@ class CharlieAnalyzer:
         else:
             result.intangible_intensity = None
 
-        # Lightness spread: lightness - 0.50 benchmark
-        if lightness is not None:
-            result.lightness_spread = lightness - 0.50
-
-        # Scoring
+        # Override with the method's canonical summary format (not the generic one).
         if lightness is None:
-            result.alt_score = 0.0
             result.alt_grade = ""
             result.summary = "Asset Lightness: Insufficient data."
-            return result
-
-        # CA/TA ranges: higher = more asset-light
-        if lightness >= 0.70:
-            score = 10.0
-        elif lightness >= 0.60:
-            score = 8.5
-        elif lightness >= 0.50:
-            score = 7.0
-        elif lightness >= 0.40:
-            score = 5.5
-        elif lightness >= 0.30:
-            score = 4.0
-        elif lightness >= 0.15:
-            score = 2.5
         else:
-            score = 1.0
+            rat_str = (
+                f"{result.revenue_to_assets:.4f}"
+                if result.revenue_to_assets is not None
+                else "N/A"
+            )
+            result.summary = (
+                f"Asset Lightness: CA/TA={lightness:.4f}, "
+                f"Revenue/TA={rat_str}, "
+                f"Score={result.alt_score:.1f}/10 ({result.alt_grade})."
+            )
 
-        # Adj: revenue/TA >= 0.50 (+0.5) — efficient asset use
-        rat = result.revenue_to_assets
-        if rat is not None and rat >= 0.50:
-            score += 0.5
-
-        # Adj: both > 0 (+0.5)
-        if lightness > 0 and ta is not None and ta > 0:
-            score += 0.5
-
-        score = max(0.0, min(10.0, score))
-        result.alt_score = score
-
-        if score >= 8:
-            result.alt_grade = "Excellent"
-        elif score >= 6:
-            result.alt_grade = "Good"
-        elif score >= 4:
-            result.alt_grade = "Adequate"
-        else:
-            result.alt_grade = "Weak"
-
-        rat_str = f"{result.revenue_to_assets:.4f}" if result.revenue_to_assets is not None else "N/A"
-        result.summary = (
-            f"Asset Lightness: CA/TA={lightness:.4f}, "
-            f"Revenue/TA={rat_str}, "
-            f"Score={score:.1f}/10 ({result.alt_grade})."
-        )
         return result
 
     def internal_growth_rate_analysis(self, data: FinancialData) -> InternalGrowthRateResult:
@@ -8845,11 +8963,7 @@ class CharlieAnalyzer:
         if roa is not None and b is not None:
             roa_b = roa * b
             result.roa_times_b = roa_b
-            denom = 1.0 - roa_b
-            if abs(denom) > 1e-9:
-                result.igr = roa_b / denom
-            else:
-                result.igr = None
+            result.igr = safe_divide(roa_b, 1.0 - roa_b)
         else:
             result.roa_times_b = None
             result.igr = None
@@ -9005,79 +9119,79 @@ class CharlieAnalyzer:
 
         Measures sustainability of dividend payments from earnings and cash flow.
         Primary metric: Div/NI payout ratio (moderate 0.20-0.50 is ideal).
-        """
-        result = PayoutResilienceResult()
 
+        Uses ``_scored_analysis`` with ``mode='band'``:
+        the Div/NI payout ratio scores highest in the target band [0.20, 0.50]
+        and falls off both above (unsustainable) and below (minimal payouts),
+        expressed as nested band_thresholds from narrowest to widest.
+        """
         div = data.dividends_paid
         ni = data.net_income
-        ocf = data.operating_cash_flow
-        revenue = data.revenue
-        ebitda = data.ebitda
 
+        # Guard: early-exit conditions (no change in behaviour)
         if not div or div <= 0:
-            return result
+            return PayoutResilienceResult()
         if not ni or ni <= 0:
-            return result
+            return PayoutResilienceResult()
 
-        # Ratios
-        result.div_to_ni = safe_divide(div, ni)
-        result.div_to_ocf = safe_divide(div, ocf)
-        result.div_to_revenue = safe_divide(div, revenue)
-        result.div_to_ebitda = safe_divide(div, ebitda)
-
-        # Primary: Div/NI
-        primary = result.div_to_ni
-        if primary is None:
-            return result
-
-        result.payout_ratio = primary
-
-        # Resilience buffer = 1 - payout ratio (how much earnings retained)
-        result.resilience_buffer = 1.0 - primary if primary <= 1.0 else 0.0
-
-        # Scoring: moderate payout [0.20, 0.50] is ideal
-        if 0.20 <= primary <= 0.50:
-            score = 10.0
-        elif (0.10 <= primary < 0.20) or (0.50 < primary <= 0.60):
-            score = 8.5
-        elif (0.05 <= primary < 0.10) or (0.60 < primary <= 0.70):
-            score = 7.0
-        elif 0.70 < primary <= 0.80:
-            score = 5.5
-        elif 0.80 < primary <= 0.90:
-            score = 4.0
-        elif 0.90 < primary <= 1.0:
-            score = 2.5
-        elif primary < 0.05:
-            score = 5.5
-        else:
-            score = 1.0
-
-        # Adjustments
-        if result.div_to_ocf is not None and result.div_to_ocf <= 0.40:
-            score += 0.5
-        if div > 0 and ni > 0:
-            score += 0.5
-
-        result.prs_score = min(score, 10.0)
-
-        # Grade
-        if result.prs_score >= 8:
-            result.prs_grade = "Excellent"
-        elif result.prs_score >= 6:
-            result.prs_grade = "Good"
-        elif result.prs_score >= 4:
-            result.prs_grade = "Adequate"
-        else:
-            result.prs_grade = "Weak"
-
-        primary_str = f"{primary:.4f}" if primary is not None else "N/A"
-        ocf_str = f"{result.div_to_ocf:.4f}" if result.div_to_ocf is not None else "N/A"
-        result.summary = (
-            f"Payout Resilience Analysis: Div/NI={primary_str}, "
-            f"Div/OCF={ocf_str}, "
-            f"Score={result.prs_score:.1f}/10 ({result.prs_grade})"
+        result = self._scored_analysis(
+            data=data,
+            result_class=PayoutResilienceResult,
+            ratio_defs=[
+                ("div_to_ni", "dividends_paid", "net_income"),
+                ("div_to_ocf", "dividends_paid", "operating_cash_flow"),
+                ("div_to_revenue", "dividends_paid", "revenue"),
+                ("div_to_ebitda", "dividends_paid", "ebitda"),
+            ],
+            score_field="prs_score",
+            grade_field="prs_grade",
+            primary="div_to_ni",
+            higher_is_better=True,  # ignored in band mode
+            thresholds=[],           # ignored in band mode
+            adjustments=[
+                # Div/OCF <= 0.40: cash-backed payout (+0.5)
+                (lambda r, d: r.get("div_to_ocf") is not None and r["div_to_ocf"] <= 0.40, 0.5),
+                # Both div and NI positive (+0.5)
+                (lambda r, d: (d.dividends_paid or 0) > 0 and (d.net_income or 0) > 0, 0.5),
+            ],
+            derived=[
+                # payout_ratio alias for div_to_ni
+                ("payout_ratio", lambda r, d: r.get("div_to_ni")),
+                # resilience_buffer: how much earnings retained
+                ("resilience_buffer", lambda r, d: (
+                    (1.0 - r["div_to_ni"]) if r.get("div_to_ni") is not None and r["div_to_ni"] <= 1.0 else 0.0
+                )),
+            ],
+            mode="band",
+            # Band thresholds: narrowest (highest-score) first.
+            # Nested symmetrically around the ideal [0.20, 0.50] band;
+            # asymmetric upper tail handled by bands anchored at low=0.0.
+            # Values > 1.0 fall through all bands -> fallback score 1.0.
+            band_thresholds=[
+                (0.20, 0.50, 10.0),  # ideal
+                (0.10, 0.60, 8.5),   # one notch out (either side)
+                (0.05, 0.70, 7.0),   # two notches out
+                (0.00, 0.80, 5.5),   # <0.05 minimal payout OR 0.70-0.80 high
+                (0.00, 0.90, 4.0),   # 0.80-0.90 very high
+                (0.00, 1.00, 2.5),   # 0.90-1.00 near-full payout
+            ],
+            label="Payout Resilience Analysis",
         )
+
+        # Override summary with the canonical format (not the generic framework one).
+        primary_val = result.div_to_ni
+        if primary_val is not None:
+            primary_str = f"{primary_val:.4f}"
+            ocf_str = (
+                f"{result.div_to_ocf:.4f}"
+                if result.div_to_ocf is not None
+                else "N/A"
+            )
+            result.summary = (
+                f"Payout Resilience Analysis: Div/NI={primary_str}, "
+                f"Div/OCF={ocf_str}, "
+                f"Score={result.prs_score:.1f}/10 ({result.prs_grade})"
+            )
 
         return result
 
@@ -12209,7 +12323,20 @@ class CharlieAnalyzer:
         return result
 
     def financial_health_score_analysis(self, data: FinancialData) -> FinancialHealthScoreResult:
-        """Phase 90: Financial Health Score Analysis — composite of 5 pillars."""
+        """Phase 90: Financial Health Score Analysis — composite of 5 pillars.
+
+        .. deprecated::
+            This method is retained for backward compatibility.  Prefer the
+            canonical ``comprehensive_health_score`` method, which aggregates
+            7 dimensions on a 0-100 scale with more nuanced thresholds and a
+            richer result structure.
+
+            Migration: replace ``financial_health_score_analysis(data)`` with
+            ``comprehensive_health_score(data)``.  The canonical method
+            returns a ``ComprehensiveHealthResult`` with ``overall_score``
+            (0-100), ``grade`` (letter A+/A/B/C/D/F), and
+            per-dimension ``HealthDimension`` entries.
+        """
         result = FinancialHealthScoreResult()
         rev = data.revenue or 0
         ta = data.total_assets or 0
@@ -13783,8 +13910,9 @@ class CharlieAnalyzer:
             composite_health=self.composite_health_score(financial_data),
         )
 
-        # Generate insights — pass dict format for backward compat with generate_insights
-        results.insights = self.generate_insights(results.to_dict())
+        # Generate insights — build dict directly without seeding the cache so
+        # the cache is populated only after insights are assigned.
+        results.insights = self.generate_insights(results._build_dict())
 
         return results
 

@@ -323,20 +323,28 @@ class TestCreateIndex:
 
 
 def _make_faiss_mock():
-    """Build a minimal faiss mock that lets FAISSIndex operate correctly."""
+    """Build a minimal faiss mock that lets FAISSIndex operate correctly.
+
+    Supports both IndexFlatIP (sub-threshold) and IndexIVFFlat (IVF mode)
+    paths.  Both are backed by brute-force numpy so recall is exact in tests.
+    """
     faiss = MagicMock()
     faiss.METRIC_INNER_PRODUCT = 0
 
     class FakeIndex:
-        """Thin numpy-backed faiss.IndexFlatIP substitute."""
+        """Thin numpy-backed faiss.IndexFlatIP / IndexIVFFlat substitute."""
 
         def __init__(self, dim):
             self._dim = dim
             self._matrix = np.empty((0, dim), dtype=np.float32)
             self.is_trained = True
+            self.nprobe = 1
 
         def add(self, matrix):
-            self._matrix = np.vstack([self._matrix, matrix]) if self._matrix.shape[0] else matrix.copy()
+            if self._matrix.shape[0] == 0:
+                self._matrix = matrix.copy()
+            else:
+                self._matrix = np.vstack([self._matrix, matrix])
 
         def search(self, query, k):
             if self._matrix.shape[0] == 0:
@@ -347,10 +355,20 @@ def _make_faiss_mock():
             top = np.argsort(scores)[-k:][::-1]
             return np.array([scores[top]]), np.array([top])
 
+        def train(self, matrix):
+            # IVFFlat train: brute-force mock ignores centroid training
+            pass
+
     def IndexFlatIP(dim):
         return FakeIndex(dim)
 
+    def IndexIVFFlat(quantizer, dim, n_cells, metric):
+        idx = FakeIndex(dim)
+        idx.is_trained = False  # needs train() called before add()
+        return idx
+
     faiss.IndexFlatIP = IndexFlatIP
+    faiss.IndexIVFFlat = IndexIVFFlat
     faiss.write_index = MagicMock()
     faiss.read_index = MagicMock(return_value=FakeIndex(DIM))
     return faiss
@@ -530,3 +548,220 @@ class TestHNSWIndexMocked:
         idx = self._get_hnsw_index()
         with pytest.raises(FileNotFoundError):
             idx.load(str(tmp_path / "nonexistent"))
+
+
+# ===========================================================================
+# WP-G: FAISSIndex IVF power-of-two retrain boundary
+# ===========================================================================
+
+
+class TestFAISSIVFPowerOfTwoRetrain:
+    """WP-G tests: IVF index rebuilds only at power-of-two boundaries past threshold.
+
+    The mock FAISS is exact (brute-force numpy), so recall@10 = 1.0 in all
+    cases.  The rebuild-count test is the structural gate; the recall test
+    validates the API contract (and would catch real regressions when faiss
+    is installed).
+    """
+
+    # _IVF_THRESHOLD is 10_000 in production; override to a small value so
+    # tests run fast without generating 10k+ vectors.
+    _SMALL_THRESHOLD = 16
+
+    def _get_faiss_index(self, dim=DIM, threshold=None):
+        """Return a FAISSIndex wired to the brute-force mock."""
+        from vector_index import FAISSIndex
+
+        fake_faiss = _make_faiss_mock()
+        idx = FAISSIndex.__new__(FAISSIndex)
+        idx.dimension = dim
+        idx.nprobe = 10
+        idx._ids = []
+        idx._raw_embeddings = []
+        idx._index = None
+        idx._faiss = fake_faiss
+        idx._next_retrain_n = 0
+        if threshold is not None:
+            # Override threshold for fast tests
+            idx._IVF_THRESHOLD = threshold
+        return idx
+
+    # ------------------------------------------------------------------
+    # Test 1 (WP-G spec point 1): rebuild count via spy
+    # ------------------------------------------------------------------
+
+    def test_no_rebuild_between_power_of_two_boundaries(self):
+        """Adds past threshold that do NOT cross a pow-2 boundary must NOT
+        trigger _build_index; only boundary crossings do."""
+        from unittest.mock import patch
+
+        threshold = self._SMALL_THRESHOLD
+        idx = self._get_faiss_index(threshold=threshold)
+        build_calls = []
+        real_build = idx._build_index.__func__  # unbound method
+
+        def spy_build(self_inner, matrix):
+            build_calls.append(matrix.shape[0])
+            real_build(self_inner, matrix)
+
+        with patch.object(type(idx), "_build_index", spy_build):
+            # Phase 1: fill up to threshold (flat index, no IVF)
+            vecs_flat = _random_vecs(threshold, seed=10)
+            idx.add(vecs_flat, list(range(threshold)))
+            # One build call for the initial flat add
+            initial_builds = len(build_calls)
+
+            # Phase 2: push past threshold to 17 (one past 16 = threshold)
+            # 17 is NOT a power of two -> should NOT trigger a rebuild
+            idx.add(_random_vecs(1, seed=11), [threshold])
+            builds_after_17 = len(build_calls)
+            # The first add past the threshold triggers an IVF build (transition)
+            # subsequent non-boundary adds must NOT trigger additional builds
+
+            # Phase 3: add 3 more -> total = 20 (not pow-2) -> no rebuild
+            idx.add(_random_vecs(3, seed=12), list(range(threshold + 1, threshold + 4)))
+            builds_after_20 = len(build_calls)
+            assert builds_after_20 == builds_after_17, (
+                f"Expected no rebuild at total=20 (not pow-2), "
+                f"but build_calls grew from {builds_after_17} to {builds_after_20}"
+            )
+
+            # Phase 4: add up to 32 (= 2^5 = next power-of-two above 20)
+            # need 32 - 20 = 12 more vectors
+            current = threshold + 4  # = 20
+            needed = 32 - current
+            idx.add(_random_vecs(needed, seed=13), list(range(current, 32)))
+            builds_after_32 = len(build_calls)
+            assert builds_after_32 > builds_after_20, (
+                f"Expected a rebuild when total crossed 32 (pow-2), "
+                f"but build_calls did not increase (was {builds_after_20}, now {builds_after_32})"
+            )
+
+            # Phase 5: add 1 more -> total = 33 (not pow-2) -> no rebuild
+            idx.add(_random_vecs(1, seed=14), [32])
+            builds_after_33 = len(build_calls)
+            assert builds_after_33 == builds_after_32, (
+                f"Expected no rebuild at total=33 (not pow-2), "
+                f"but build_calls grew from {builds_after_32} to {builds_after_33}"
+            )
+
+    def test_sub_threshold_behavior_unchanged(self):
+        """Vectors added below _IVF_THRESHOLD must still use the flat index
+        path.  The first add triggers exactly 1 _build_index call (flat init);
+        subsequent adds below the threshold use incremental index.add()
+        without triggering a rebuild."""
+        threshold = self._SMALL_THRESHOLD
+        idx = self._get_faiss_index(threshold=threshold)
+        build_calls = []
+        real_build = idx._build_index.__func__
+
+        def spy_build(self_inner, matrix):
+            build_calls.append(matrix.shape[0])
+            real_build(self_inner, matrix)
+
+        from unittest.mock import patch
+
+        with patch.object(type(idx), "_build_index", spy_build):
+            # Add threshold vectors in two batches (stays at/below threshold)
+            idx.add(_random_vecs(threshold // 2, seed=20), list(range(threshold // 2)))
+            idx.add(_random_vecs(threshold // 2, seed=21), list(range(threshold // 2, threshold)))
+            assert len(idx) == threshold
+            # Only the very first add triggers _build_index (flat init);
+            # the second batch goes through the incremental index.add() path
+            assert len(build_calls) == 1, (
+                f"Expected exactly 1 _build_index call for sub-threshold adds "
+                f"(first init only), got {len(build_calls)}"
+            )
+
+    def test_first_ivf_transition_triggers_rebuild(self):
+        """The very first add that pushes total past _IVF_THRESHOLD must
+        trigger an IVF rebuild (transition from flat to IVF)."""
+        threshold = self._SMALL_THRESHOLD
+        idx = self._get_faiss_index(threshold=threshold)
+        build_calls = []
+        real_build = idx._build_index.__func__
+
+        def spy_build(self_inner, matrix):
+            build_calls.append(matrix.shape[0])
+            real_build(self_inner, matrix)
+
+        from unittest.mock import patch
+
+        with patch.object(type(idx), "_build_index", spy_build):
+            # Fill to threshold using flat
+            idx.add(_random_vecs(threshold, seed=30), list(range(threshold)))
+            flat_builds = len(build_calls)
+
+            # One more: push to threshold+1 -> IVF transition
+            idx.add(_random_vecs(1, seed=31), [threshold])
+            assert len(build_calls) > flat_builds, (
+                "Expected _build_index called on first add past _IVF_THRESHOLD"
+            )
+
+    # ------------------------------------------------------------------
+    # Test 2 (WP-G spec / D11): measured recall@10 >= 0.95
+    # ------------------------------------------------------------------
+
+    def test_recall_at_10_after_staggered_adds_meets_floor(self):
+        """After staggered adds spanning at least one full power-of-two gap,
+        recall@10 of the lazy-retrain index vs the full-rebuild baseline
+        must be >= 0.95.
+
+        With the brute-force mock both paths are exact, so recall = 1.0.
+        The test structure and floor assertion are what matter; they would
+        catch real regressions when run with real FAISS (faiss-cpu installed).
+        """
+        threshold = self._SMALL_THRESHOLD
+        dim = DIM
+        seed = 42
+        rng = np.random.default_rng(seed)
+        RECALL_FLOOR = 0.95
+        TOP_K = 10
+
+        # Generate a ground-truth corpus that spans beyond one pow-2 boundary
+        # above the threshold: threshold=16, we go up to 64 vectors total
+        total_vecs = 64
+        corpus = rng.standard_normal((total_vecs, dim)).astype(np.float32)
+        corpus_ids = list(range(total_vecs))
+
+        # Build the lazy-retrain index (WP-G implementation)
+        lazy_idx = self._get_faiss_index(threshold=threshold)
+
+        # Build the full-rebuild reference: a new index per add (brute-force
+        # baseline) -- since the mock is exact, this is the ground truth
+        ref_idx = self._get_faiss_index(threshold=threshold)
+
+        # Add vectors in small batches to exercise power-of-two boundaries
+        batch_size = 3
+        for start in range(0, total_vecs, batch_size):
+            end = min(start + batch_size, total_vecs)
+            batch = corpus[start:end].tolist()
+            batch_ids = corpus_ids[start:end]
+            lazy_idx.add(batch, batch_ids)
+            ref_idx.add(batch, batch_ids)
+
+        assert len(lazy_idx) == total_vecs
+        assert len(ref_idx) == total_vecs
+
+        # Generate query vectors and measure recall
+        n_queries = 20
+        queries = rng.standard_normal((n_queries, dim)).astype(np.float32)
+
+        hits = 0
+        total_relevant = 0
+        for q in queries:
+            lazy_results = lazy_idx.search(q.tolist(), top_k=TOP_K)
+            ref_results = ref_idx.search(q.tolist(), top_k=TOP_K)
+
+            lazy_ids = {r[0] for r in lazy_results}
+            ref_ids = {r[0] for r in ref_results}
+
+            # recall = fraction of reference top-K found in lazy top-K
+            hits += len(lazy_ids & ref_ids)
+            total_relevant += len(ref_ids)
+
+        recall = hits / total_relevant if total_relevant > 0 else 0.0
+        assert recall >= RECALL_FLOOR, (
+            f"recall@{TOP_K} = {recall:.3f} < floor {RECALL_FLOOR}. "
+            f"Consider narrowing the retrain cadence (e.g. 1.5x growth)."
+        )

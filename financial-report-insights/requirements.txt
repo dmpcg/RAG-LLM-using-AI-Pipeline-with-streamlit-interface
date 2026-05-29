@@ -17,8 +17,8 @@ pandas>=2.0.0,<3.0.0
 xlrd>=2.0.1,<3.0.0
 tabulate>=0.9.0,<1.0.0
 
-# Financial Analysis
-numpy>=1.24.0,<2.0.0
+# Financial Analysis (numpy 2.x wheels required on Python 3.13+)
+numpy>=2.0.0,<3.0.0
 
 # Search & Retrieval
 rank-bm25>=0.2.2,<1.0.0

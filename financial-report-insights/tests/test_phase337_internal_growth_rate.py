@@ -155,3 +155,67 @@ class TestPhase337EdgeCases:
         data = FinancialData(total_assets=2_000_000)
         result = analyzer.internal_growth_rate_analysis(data)
         assert result.igr_score == 0.0
+
+
+# ===== WP-B / P0-13: safe_divide threshold band tests =====
+
+class TestIGRSafeDivideThreshold:
+    """Pin the INTENTIONAL threshold change from the hand-rolled 1e-9 guard
+    to safe_divide's 1e-12 guard (D5 in WS2-ANALYTICS-PERF-PLAN.md).
+
+    safe_divide returns default (None) only when abs(denom) < 1e-12.
+    The old hand-rolled guard returned None when abs(denom) <= 1e-9.
+    Band [1e-12, 1e-9) now yields a large finite IGR (accepted change).
+    """
+
+    def _make_data_for_roa_b(self, roa_b: float):
+        """Construct FinancialData so that roa*b == roa_b exactly.
+
+        We set NI = roa_b * TA (no dividends so b=1) which gives:
+            ROA = NI / TA = roa_b
+            b   = (NI - 0) / NI = 1.0
+            roa_b_product = roa_b * 1.0 = roa_b
+        """
+        ta = 1_000_000.0
+        ni = roa_b * ta
+        return FinancialData(
+            net_income=ni,
+            total_assets=ta,
+            total_equity=ta,
+            dividends_paid=0.0,
+        )
+
+    def test_denom_below_1e12_returns_none(self, analyzer):
+        """abs(1 - roa_b) < 1e-12 => safe_divide returns None."""
+        # roa_b = 1.0 - 5e-13  =>  denom = 5e-13  <  1e-12  =>  None
+        roa_b = 1.0 - 5e-13
+        data = self._make_data_for_roa_b(roa_b)
+        result = analyzer.internal_growth_rate_analysis(data)
+        assert result.igr is None
+
+    def test_denom_in_band_1e12_to_1e9_returns_finite(self, analyzer):
+        """abs(1 - roa_b) in [1e-12, 1e-9) => large finite IGR (new behavior, was None).
+
+        This documents the INTENTIONAL threshold relaxation (D5): the old
+        hand-rolled guard treated this band as None; safe_divide does not.
+        """
+        # roa_b = 1.0 - 5e-11  =>  denom = 5e-11  in [1e-12, 1e-9)
+        roa_b = 1.0 - 5e-11
+        data = self._make_data_for_roa_b(roa_b)
+        result = analyzer.internal_growth_rate_analysis(data)
+        # Must be a large finite number, not None
+        assert result.igr is not None
+        assert result.igr > 1e6  # ~1/5e-11 = 2e10
+
+    def test_normal_denom_value_unchanged(self, analyzer):
+        """Normal denominator: IGR formula gives expected value."""
+        # Use sample_data values: ROA=0.075, b=0.7333, roa_b~0.055
+        # denom = 1 - 0.055 = 0.945, IGR ~ 0.0582
+        data = FinancialData(
+            net_income=150_000,
+            total_assets=2_000_000,
+            total_equity=1_200_000,
+            dividends_paid=40_000,
+        )
+        result = analyzer.internal_growth_rate_analysis(data)
+        assert result.igr == pytest.approx(0.0582, abs=0.005)

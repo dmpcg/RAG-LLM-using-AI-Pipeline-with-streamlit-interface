@@ -586,3 +586,102 @@ class TestComputeCategory:
         assert results["debt_to_equity"].value == pytest.approx(0.5, abs=0.01)
         # interest_coverage = 200k/30k ≈ 6.67
         assert results["interest_coverage"].value == pytest.approx(6.667, abs=0.01)
+
+
+# ---------------------------------------------------------------------------
+# WP-7(f): ratio threshold provenance docs (docs-only, no scoring change)
+# ---------------------------------------------------------------------------
+
+
+class TestThresholdProvenance:
+    """RatioDefinition exposes a threshold_source provenance field, populated
+    for catalog entries; threshold VALUES are invariant (snapshot)."""
+
+    def test_field_exists_with_empty_default(self):
+        from ratio_framework import RatioDefinition
+
+        definition = RatioDefinition(
+            name="X",
+            description="x",
+            numerator_field="net_income",
+            denominator_field="total_assets",
+        )
+        # New optional field defaults to empty string (no behavior change).
+        assert definition.threshold_source == ""
+
+    def test_catalog_entries_have_nonempty_threshold_source(self):
+        from ratio_framework import RATIO_CATALOG
+
+        # Every catalog entry that defines scoring_thresholds must document
+        # their provenance/rationale.
+        documented = 0
+        for key, definition in RATIO_CATALOG.items():
+            if definition.scoring_thresholds:
+                assert isinstance(definition.threshold_source, str)
+                assert definition.threshold_source.strip(), (
+                    f"{key} has scoring_thresholds but empty threshold_source"
+                )
+                documented += 1
+        assert documented == len(RATIO_CATALOG)
+
+    def test_threshold_values_unchanged_snapshot(self):
+        """Snapshot of every catalog entry's scoring_thresholds tuples; the
+        docs-only change must not alter any threshold or score value."""
+        from ratio_framework import RATIO_CATALOG
+
+        expected = {
+            "roa": [(0.15, 10.0), (0.10, 8.0), (0.05, 6.0), (0.02, 4.0)],
+            "roe": [(0.20, 10.0), (0.15, 8.0), (0.10, 6.0), (0.05, 4.0)],
+            "ebit_to_total_assets": [(0.15, 10.0), (0.10, 8.0), (0.07, 6.0), (0.05, 4.0)],
+            "gross_margin": [(0.50, 10.0), (0.35, 8.0), (0.25, 6.0), (0.15, 4.0)],
+            "operating_margin": [(0.20, 10.0), (0.15, 8.0), (0.10, 6.0), (0.05, 4.0)],
+            "net_margin": [(0.15, 10.0), (0.10, 8.0), (0.05, 6.0), (0.02, 4.0)],
+            "current_ratio": [(2.0, 10.0), (1.5, 8.0), (1.0, 6.0), (0.75, 4.0)],
+            "cash_ratio": [(0.75, 10.0), (0.50, 8.0), (0.30, 6.0), (0.15, 4.0)],
+            "debt_to_equity": [(0.3, 10.0), (0.5, 8.0), (1.0, 6.0), (2.0, 4.0)],
+            "debt_to_ebitda": [(2.0, 10.0), (3.0, 8.0), (4.0, 6.0), (5.0, 4.0)],
+            "interest_coverage": [(8.0, 10.0), (5.0, 8.0), (2.5, 6.0), (1.5, 4.0)],
+            "asset_turnover": [(2.0, 10.0), (1.5, 8.0), (1.0, 6.0), (0.5, 4.0)],
+            "inventory_turnover": [(12.0, 10.0), (8.0, 8.0), (6.0, 6.0), (4.0, 4.0)],
+            "receivables_turnover": [(12.0, 10.0), (10.0, 8.0), (8.0, 6.0), (6.0, 4.0)],
+            "fcf_yield": [(0.10, 10.0), (0.07, 8.0), (0.05, 6.0), (0.03, 4.0)],
+            "ocf_to_ni": [(1.2, 10.0), (1.0, 8.0), (0.8, 6.0), (0.6, 4.0)],
+            "cash_conversion_cycle": [(0.05, 10.0), (0.10, 8.0), (0.15, 6.0), (0.20, 4.0)],
+        }
+        actual = {
+            key: list(definition.scoring_thresholds)
+            for key, definition in RATIO_CATALOG.items()
+        }
+        assert actual == expected
+
+    def test_computed_scores_unchanged_snapshot(self, sample_financial_data):
+        """Computed scores for a fixed FinancialData are invariant: thresholds
+        and adjustments are unchanged by the docs-only edit."""
+        from ratio_framework import run_all_ratios
+
+        results = run_all_ratios(sample_financial_data)
+        scores = {key: result.score for key, result in results.items()}
+
+        # Locked baseline of computed scores for the fixed fixture. Captured
+        # pre-edit; the docs-only threshold_source change must not alter any
+        # of these (thresholds and adjustments are untouched).
+        expected_scores = {
+            "roa": 6.5,
+            "roe": 7.5,
+            "ebit_to_total_assets": 8.0,
+            "gross_margin": 8.0,
+            "operating_margin": 10.0,
+            "net_margin": 10.0,
+            "current_ratio": 10.0,
+            "cash_ratio": 10.0,
+            "debt_to_equity": 8.5,
+            "debt_to_ebitda": 10.0,
+            "interest_coverage": 8.0,
+            "asset_turnover": 4.0,
+            "inventory_turnover": 6.0,
+            "receivables_turnover": 4.0,
+            "fcf_yield": 8.0,
+            "ocf_to_ni": 10.0,
+            "cash_conversion_cycle": 8.0,
+        }
+        assert scores == expected_scores

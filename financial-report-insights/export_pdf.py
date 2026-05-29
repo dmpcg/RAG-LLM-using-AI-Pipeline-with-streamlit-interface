@@ -26,10 +26,48 @@ from export_utils import (
     _PERCENT_KEYWORDS,
     _DOLLAR_KEYWORDS,
     _is_percent_key,
+    _is_ratio_key,
     _is_dollar_key,
     _CATEGORY_MAP,
     _categorize,
 )
+
+
+# ---------------------------------------------------------------------------
+# Unicode sanitization (P1-E3)
+# ---------------------------------------------------------------------------
+
+# fpdf2's core "Helvetica" font is latin-1 only; emitting non-latin-1 glyphs
+# either crashes (FPDFUnicodeEncodingException) or renders a corrupt glyph.
+# Map the common offenders to ASCII, then backstop with a latin-1 round-trip
+# so any remaining out-of-range char becomes "?" instead of surviving.
+_SANITIZE_MAP = {
+    "—": "-",   # em dash
+    "–": "-",   # en dash
+    "µ": "u",   # micro sign
+    "μ": "u",   # Greek small letter mu
+    "‘": "'",   # left single quote
+    "’": "'",   # right single quote
+    "“": '"',   # left double quote
+    "”": '"',   # right double quote
+    "≥": ">=",  # greater-than or equal
+    "≤": "<=",  # less-than or equal
+    "…": "...",  # horizontal ellipsis
+}
+
+_SANITIZE_TRANSLATION = str.maketrans(_SANITIZE_MAP)
+
+
+def _sanitize_text(s: Any) -> str:
+    """Map common non-latin-1 characters to ASCII and backstop with latin-1.
+
+    Idempotent: applying it twice yields the same result. Every string sink in
+    the PDF exporter funnels through this so the latin-1 core font never sees
+    an unsupported glyph.
+    """
+    text = s if isinstance(s, str) else str(s)
+    text = text.translate(_SANITIZE_TRANSLATION)
+    return text.encode("latin-1", "replace").decode("latin-1")
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +123,7 @@ class FinancialPDFExporter:
             pdf.add_page()
             self._add_header(pdf, "Executive Summary")
             pdf.set_font("Helvetica", "", self.body_size)
-            pdf.multi_cell(0, 6, report.executive_summary)
+            pdf.multi_cell(0, 6, _sanitize_text(report.executive_summary))
 
         # Key financial data page
         pdf.add_page()
@@ -164,7 +202,7 @@ class FinancialPDFExporter:
 
         # Summary text
         pdf.set_font("Helvetica", "", self.body_size)
-        pdf.multi_cell(0, 6, report.executive_summary or "No summary available.")
+        pdf.multi_cell(0, 6, _sanitize_text(report.executive_summary or "No summary available."))
         pdf.ln(6)
 
         # Health gauge
@@ -187,7 +225,7 @@ class FinancialPDFExporter:
             if health.interpretation:
                 pdf.ln(4)
                 pdf.set_font("Helvetica", "I", self.body_size)
-                pdf.multi_cell(0, 6, health.interpretation)
+                pdf.multi_cell(0, 6, _sanitize_text(health.interpretation))
 
         buf = io.BytesIO()
         buf.write(pdf.output())
@@ -225,37 +263,78 @@ class FinancialPDFExporter:
         rows: List[List[str]],
         col_widths: Optional[List[int]] = None,
     ) -> None:
-        """Render a table with alternating row colors and a dark header."""
+        """Render a table with alternating row colors and a dark header.
+
+        Tables that overflow the page repeat the header row at the top of each
+        new page. `_add_table` owns page breaks for its OWN rows: it disables
+        the global auto-page-break on entry (so fpdf does not insert an
+        unmanaged break mid-row) and restores the caller's original setting on
+        exit, leaving callers that rely on auto-break unaffected.
+        """
         if col_widths is None:
             n_cols = len(headers)
             available = 210 - 2 * self.margin
             col_widths = [available // n_cols] * n_cols
 
-        # Header row
+        row_height = 6
+
+        # Save the caller's auto-page-break state and take manual control so a
+        # mid-row break never fires; restore in the finally block below.
+        original_auto = pdf.auto_page_break
+        original_b_margin = pdf.b_margin
+        pdf.set_auto_page_break(False)
+        try:
+            # The page-break trigger is the bottom of the printable area
+            # (page height minus the original bottom margin).
+            page_break_trigger = pdf.h - original_b_margin
+
+            self._draw_table_header(pdf, headers, col_widths)
+
+            # Data rows
+            pdf.set_text_color(*_BLACK)
+            pdf.set_font("Helvetica", "", self.body_size)
+            for row_idx, row in enumerate(rows):
+                # Break before drawing the row if it would overflow the page,
+                # then redraw the header at the top of the new page.
+                if pdf.get_y() + row_height > page_break_trigger:
+                    pdf.add_page()
+                    self._draw_table_header(pdf, headers, col_widths)
+                    pdf.set_text_color(*_BLACK)
+                    pdf.set_font("Helvetica", "", self.body_size)
+
+                if row_idx % 2 == 1:
+                    pdf.set_fill_color(*_LIGHT_GRAY)
+                    fill = True
+                else:
+                    pdf.set_fill_color(*_WHITE)
+                    fill = True  # always fill for clean look
+
+                for i, cell_val in enumerate(row):
+                    w = col_widths[i] if i < len(col_widths) else (col_widths[-1] if col_widths else 30)
+                    # Sanitize BEFORE truncation so the latin-1 font never sees
+                    # an unsupported glyph and substitutions stay within 50 chars.
+                    text = _sanitize_text(cell_val)
+                    display = text[:50] if len(text) > 50 else text
+                    pdf.cell(w, row_height, display, border=1, fill=fill)
+                pdf.ln()
+        finally:
+            # Restore the caller's auto-page-break setting unconditionally.
+            pdf.set_auto_page_break(original_auto, margin=original_b_margin)
+
+    def _draw_table_header(
+        self,
+        pdf: FPDF,
+        headers: List[str],
+        col_widths: List[int],
+    ) -> None:
+        """Draw the dark header row for a table at the current position."""
         pdf.set_fill_color(*_DARK_BLUE)
         pdf.set_text_color(*_WHITE)
         pdf.set_font("Helvetica", "B", self.body_size)
         for i, header in enumerate(headers):
-            pdf.cell(col_widths[i], 7, header, border=1, fill=True)
+            w = col_widths[i] if i < len(col_widths) else (col_widths[-1] if col_widths else 30)
+            pdf.cell(w, 7, _sanitize_text(header), border=1, fill=True)
         pdf.ln()
-
-        # Data rows
-        pdf.set_text_color(*_BLACK)
-        pdf.set_font("Helvetica", "", self.body_size)
-        for row_idx, row in enumerate(rows):
-            if row_idx % 2 == 1:
-                pdf.set_fill_color(*_LIGHT_GRAY)
-                fill = True
-            else:
-                pdf.set_fill_color(*_WHITE)
-                fill = True  # always fill for clean look
-
-            for i, cell_val in enumerate(row):
-                w = col_widths[i] if i < len(col_widths) else (col_widths[-1] if col_widths else 30)
-                # Truncate long values to fit cell
-                display = str(cell_val)[:50] if len(str(cell_val)) > 50 else str(cell_val)
-                pdf.cell(w, 6, display, border=1, fill=fill)
-            pdf.ln()
 
     def _format_value(self, key: str, value: Any) -> str:
         """Format a value based on the key name."""
@@ -264,8 +343,11 @@ class FinancialPDFExporter:
         if isinstance(value, bool):
             return "Yes" if value else "No"
         if not isinstance(value, (int, float)):
-            return str(value)
+            return _sanitize_text(value)
 
+        # Check ratio BEFORE percent -- multiplier (1.5x) vs percentage (150%).
+        if _is_ratio_key(key):
+            return f"{value:.2f}x"
         if _is_percent_key(key):
             return f"{value:.2%}"
         if _is_dollar_key(key):
@@ -311,7 +393,7 @@ class FinancialPDFExporter:
                 info_lines.append(f"Net Income: {self._format_value('net_income', data.net_income)}")
 
             for line in info_lines:
-                pdf.cell(0, 7, line, align="C", new_x="LMARGIN", new_y="NEXT")
+                pdf.cell(0, 7, _sanitize_text(line), align="C", new_x="LMARGIN", new_y="NEXT")
 
         # Separator
         pdf.ln(20)
@@ -323,13 +405,13 @@ class FinancialPDFExporter:
             period_str = str(data.period)[:100] if data.period else "N/A"
             pdf.ln(5)
             pdf.set_font("Helvetica", "I", 10)
-            pdf.cell(0, 7, f"Period: {period_str}", align="C", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 7, _sanitize_text(f"Period: {period_str}"), align="C", new_x="LMARGIN", new_y="NEXT")
 
         if report and report.generated_at:
             generated_str = str(report.generated_at)[:100]
             pdf.ln(2)
             pdf.set_font("Helvetica", "I", 9)
-            pdf.cell(0, 7, f"Report generated: {generated_str}", align="C", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 7, _sanitize_text(f"Report generated: {generated_str}"), align="C", new_x="LMARGIN", new_y="NEXT")
 
     def _add_scoring_section(
         self,
@@ -450,4 +532,4 @@ class FinancialPDFExporter:
         if interpretation:
             pdf.ln(4)
             pdf.set_font("Helvetica", "I", self.body_size)
-            pdf.multi_cell(0, 6, interpretation)
+            pdf.multi_cell(0, 6, _sanitize_text(interpretation))

@@ -689,7 +689,9 @@ class TestStreamingLLM:
         chunks = [{"response": "OK"}]
 
         with patch("local_llm.ollama.generate", return_value=iter(chunks)):
-            with patch.object(llm._circuit_breaker, "_on_success") as mock_success:
+            # WS-4 P1-C2: generate_stream now calls the PUBLIC record_success
+            # (the private _on_success is a thin alias).
+            with patch.object(llm._circuit_breaker, "record_success") as mock_success:
                 list(llm.generate_stream("Test"))
                 mock_success.assert_called_once()
 
@@ -698,7 +700,8 @@ class TestStreamingLLM:
         llm = LocalLLM(model="test-model", circuit_breaker_failure_threshold=3)
 
         with patch("local_llm.ollama.generate", side_effect=ConnectionError("fail")):
-            with patch.object(llm._circuit_breaker, "_on_failure") as mock_failure:
+            # WS-4 P1-C2: generate_stream now calls the PUBLIC record_failure.
+            with patch.object(llm._circuit_breaker, "record_failure") as mock_failure:
                 with pytest.raises(LLMConnectionError):
                     list(llm.generate_stream("Test"))
                 mock_failure.assert_called_once()
@@ -710,11 +713,14 @@ class TestStreamingLLM:
         with patch("local_llm.ollama.generate", return_value=iter([])) as mock_gen:
             list(llm.generate_stream("Test prompt"))
 
-            mock_gen.assert_called_once_with(
-                model="test-model",
-                prompt="Test prompt",
-                stream=True,
-            )
+            # WS-4 P1-C1-stream-timeout adds a finite timeout kwarg, so assert the
+            # key args individually rather than an exact-kwargs match.
+            mock_gen.assert_called_once()
+            kwargs = mock_gen.call_args.kwargs
+            assert kwargs.get("model") == "test-model"
+            assert kwargs.get("prompt") == "Test prompt"
+            assert kwargs.get("stream") is True
+            assert kwargs.get("timeout") is not None
 
 
 # ============================================================

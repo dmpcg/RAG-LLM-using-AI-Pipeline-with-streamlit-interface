@@ -314,23 +314,49 @@ def _detect_tables_in_section(content: str) -> List[str]:
     return tables
 
 
+def _empty_parsed_document(file_path: Path) -> ParsedDocument:
+    """Return a zero-content ParsedDocument for unreadable/corrupt PDFs."""
+    return ParsedDocument(
+        source_path=str(file_path),
+        title=file_path.stem,
+        company=None,
+        period=None,
+        total_pages=0,
+        sections=[],
+        raw_markdown="",
+    )
+
+
 def parse_pdf(file_path: Path) -> ParsedDocument:
     """Parse a PDF file into structured sections with metadata.
 
     Attempts pymupdf4llm first for high-quality markdown output,
     falls back to raw PyMuPDF text extraction.
 
+    Returns an empty ParsedDocument (no raise) when the file is corrupt
+    or unreadable (fitz.FileDataError, RuntimeError).
+
     Args:
         file_path: Path to the PDF file.
 
     Returns:
         ParsedDocument with sections, metadata, and raw markdown.
+        An empty ParsedDocument is returned for corrupt/unreadable files.
     """
     file_path = Path(file_path)
     markdown = ""
     total_pages = 0
 
     _MAX_PDF_PAGES = 500
+
+    # Resolve fitz.FileDataError once so we can reference it in except clauses
+    # without re-importing inside every branch.
+    try:
+        import fitz as _fitz_mod
+        _fitz_file_data_error: type = _fitz_mod.FileDataError
+    except ImportError:
+        # fitz not installed; define a dummy so the except clause compiles safely
+        _fitz_file_data_error = type("_FitzFileDataErrorStub", (Exception,), {})
 
     # Try pymupdf4llm first (best quality)
     try:
@@ -370,6 +396,18 @@ def parse_pdf(file_path: Path) -> ParsedDocument:
                 "Neither pymupdf4llm nor PyMuPDF (fitz) is installed. "
                 "Install with: pip install pymupdf4llm"
             )
+        except (_fitz_file_data_error, RuntimeError) as exc:
+            logger.warning(
+                "PDF '%s' is corrupt or unreadable (fitz fallback): %s",
+                file_path.name, exc, exc_info=True,
+            )
+            return _empty_parsed_document(file_path)
+    except (_fitz_file_data_error, RuntimeError) as exc:
+        logger.warning(
+            "PDF '%s' is corrupt or unreadable (pymupdf4llm path): %s",
+            file_path.name, exc, exc_info=True,
+        )
+        return _empty_parsed_document(file_path)
 
     # Extract metadata
     meta = _extract_metadata(markdown, str(file_path))
