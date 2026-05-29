@@ -91,7 +91,14 @@ jobs:
         # same file the Docker image installs from. NOTE: the hand-maintained
         # requirements.lock has drifted (stale/fabricated pins) and should be
         # regenerated with `pip-compile --generate-hashes` before it is re-adopted.
-        run: pip-audit --requirement requirements.txt --strict --output json --desc > pip-audit-report.json
+        #
+        # Accepted/ignored advisory (documented risk-acceptance, revisit when FastAPI
+        # officially supports Starlette 1.0):
+        #   PYSEC-2026-161 (starlette <1.0.1): Host-header path-injection. The only fix
+        #   is starlette 1.0.1 (a major bump outside the current FastAPI-compatible
+        #   range). Low applicability here — routing is path-based (per the advisory),
+        #   and CORS is enforced via a config allow-list, not Host reflection.
+        run: pip-audit --requirement requirements.txt --strict --desc --ignore-vuln PYSEC-2026-161 --format json --output pip-audit-report.json
 
       - name: Upload security reports
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
