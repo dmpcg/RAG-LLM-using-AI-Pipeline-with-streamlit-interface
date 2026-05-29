@@ -6,6 +6,7 @@ Tests for local_llm.py resilience fixes:
   P1-C4  Terminal RuntimeError after _send_embedding_batch loop; empty data warning
   P1-C1-stream-timeout  Streaming ollama.generate carries a finite read timeout
 """
+
 # ruff: noqa: I001  -- stub modules must be registered before local_llm is imported
 import threading
 import unittest
@@ -35,6 +36,7 @@ sys.modules.setdefault("ollama", _ollama_mod)
 
 # Stub 'httpx'
 import httpx as _real_httpx  # noqa: E402  (may or may not exist)
+
 sys.modules.setdefault("httpx", _real_httpx)
 
 import local_llm  # noqa: E402 – imported after stubs
@@ -43,6 +45,7 @@ import local_llm  # noqa: E402 – imported after stubs
 # ===========================================================================
 # P0-11: LocalEmbedder.close() + atexit + idempotent
 # ===========================================================================
+
 
 class TestLocalEmbedderClose(unittest.TestCase):
     """close() must close the underlying httpx.Client exactly once."""
@@ -82,13 +85,16 @@ class TestLocalEmbedderClose(unittest.TestCase):
 
     def test_atexit_registered(self):
         """LocalEmbedder must register an atexit handler that calls close()."""
-        with patch("atexit.register") as mock_register, \
-             patch("httpx.Client") as mock_client_cls, \
-             patch.dict("os.environ", {"OLLAMA_HOST": "http://localhost:11434"}):
+        with (
+            patch("atexit.register") as mock_register,
+            patch("httpx.Client") as mock_client_cls,
+            patch.dict("os.environ", {"OLLAMA_HOST": "http://localhost:11434"}),
+        ):
             mock_client_cls.return_value = MagicMock()
             # Patch _request_embeddings to avoid real network calls on dimension probe
             with patch.object(
-                local_llm.LocalEmbedder, "_request_embeddings",
+                local_llm.LocalEmbedder,
+                "_request_embeddings",
                 return_value=[[0.0] * 1024],
             ):
                 local_llm.LocalEmbedder()
@@ -97,9 +103,7 @@ class TestLocalEmbedderClose(unittest.TestCase):
         # At least one registered callable should be close or wrap close
         registered_callables = [c[0][0] for c in mock_register.call_args_list]
         self.assertTrue(
-            any(
-                callable(fn) for fn in registered_callables
-            ),
+            any(callable(fn) for fn in registered_callables),
             "atexit.register must have been called with a callable",
         )
 
@@ -107,6 +111,7 @@ class TestLocalEmbedderClose(unittest.TestCase):
 # ===========================================================================
 # P0-14: Jittered retry backoff
 # ===========================================================================
+
 
 class TestRetryJitter(unittest.TestCase):
     """Retry sleeps must include random jitter in [wait, wait*1.25)."""
@@ -148,13 +153,15 @@ class TestRetryJitter(unittest.TestCase):
             embedder._send_embedding_batch(["hello"], max_retries=3)
 
         self.assertEqual(len(sleep_calls), 1)
-        wait_base = 2 ** 1  # attempt=1 -> wait=2
+        wait_base = 2**1  # attempt=1 -> wait=2
         self.assertGreaterEqual(
-            sleep_calls[0], wait_base,
+            sleep_calls[0],
+            wait_base,
             f"sleep({sleep_calls[0]}) must be >= base wait {wait_base}",
         )
         self.assertLess(
-            sleep_calls[0], wait_base * 1.25,
+            sleep_calls[0],
+            wait_base * 1.25,
             f"sleep({sleep_calls[0]}) must be < wait*1.25 ({wait_base * 1.25})",
         )
 
@@ -170,9 +177,7 @@ class TestRetryJitter(unittest.TestCase):
             if call_count[0] == 1:
                 mock_response = MagicMock()
                 mock_response.status_code = 503
-                raise httpx.HTTPStatusError(
-                    "503", request=MagicMock(), response=mock_response
-                )
+                raise httpx.HTTPStatusError("503", request=MagicMock(), response=mock_response)
             resp = MagicMock()
             resp.raise_for_status = MagicMock()
             resp.json.return_value = {"data": [{"embedding": [0.2] * 1024}]}
@@ -185,7 +190,7 @@ class TestRetryJitter(unittest.TestCase):
             embedder._send_embedding_batch(["hi"], max_retries=3)
 
         self.assertEqual(len(sleep_calls), 1)
-        wait_base = 2 ** 1
+        wait_base = 2**1
         self.assertGreaterEqual(sleep_calls[0], wait_base)
         self.assertLess(sleep_calls[0], wait_base * 1.25)
 
@@ -209,13 +214,15 @@ class TestRetryJitter(unittest.TestCase):
 
         sleep_calls = []
 
-        with patch.object(llm, "_call_with_timeout", side_effect=side_effect), \
-             patch("time.sleep", side_effect=lambda s: sleep_calls.append(s)):
+        with (
+            patch.object(llm, "_call_with_timeout", side_effect=side_effect),
+            patch("time.sleep", side_effect=lambda s: sleep_calls.append(s)),
+        ):
             result = llm._generate_with_retry("test prompt")
 
         self.assertEqual(result, "ok")
         self.assertEqual(len(sleep_calls), 1)
-        wait_base = 2 ** 1  # attempt=1 -> wait=2
+        wait_base = 2**1  # attempt=1 -> wait=2
         self.assertGreaterEqual(sleep_calls[0], wait_base)
         self.assertLess(sleep_calls[0], wait_base * 1.25)
 
@@ -223,6 +230,7 @@ class TestRetryJitter(unittest.TestCase):
 # ===========================================================================
 # P1-C2: CircuitBreaker public record_success / record_failure — no deadlock
 # ===========================================================================
+
 
 class TestCircuitBreakerPublicAPI(unittest.TestCase):
     """Public record_success/record_failure must update state; no deadlock."""
@@ -314,8 +322,10 @@ class TestCircuitBreakerPublicAPI(unittest.TestCase):
             yield "chunk1"
             yield "chunk2"
 
-        with patch.object(llm, "_raw_generate_stream", side_effect=fake_raw_stream), \
-             patch.object(llm._circuit_breaker, "allow_request"):
+        with (
+            patch.object(llm, "_raw_generate_stream", side_effect=fake_raw_stream),
+            patch.object(llm._circuit_breaker, "allow_request"),
+        ):
             chunks = list(llm.generate_stream("hello"))
 
         self.assertEqual(chunks, ["chunk1", "chunk2"])
@@ -339,8 +349,10 @@ class TestCircuitBreakerPublicAPI(unittest.TestCase):
             raise local_llm.LLMConnectionError("oops")
             yield  # make it a generator
 
-        with patch.object(llm, "_raw_generate_stream", side_effect=failing_stream), \
-             patch.object(llm._circuit_breaker, "allow_request"):
+        with (
+            patch.object(llm, "_raw_generate_stream", side_effect=failing_stream),
+            patch.object(llm._circuit_breaker, "allow_request"),
+        ):
             with self.assertRaises(local_llm.LLMConnectionError):
                 list(llm.generate_stream("hi"))
 
@@ -350,6 +362,7 @@ class TestCircuitBreakerPublicAPI(unittest.TestCase):
 # ===========================================================================
 # P1-C4: Terminal RuntimeError + empty data['data'] warning
 # ===========================================================================
+
 
 class TestSendEmbeddingBatchTerminalRaise(unittest.TestCase):
     """_send_embedding_batch must raise RuntimeError when max_retries=0."""
@@ -389,8 +402,7 @@ class TestSendEmbeddingBatchTerminalRaise(unittest.TestCase):
 
         self.assertEqual(result, [], "Return contract: empty list when data is empty")
         self.assertTrue(
-            any("empty" in msg.lower() or "missing" in msg.lower()
-                for msg in log_ctx.output),
+            any("empty" in msg.lower() or "missing" in msg.lower() for msg in log_ctx.output),
             f"Expected a warning about empty embeddings, got: {log_ctx.output}",
         )
 
@@ -398,6 +410,7 @@ class TestSendEmbeddingBatchTerminalRaise(unittest.TestCase):
 # ===========================================================================
 # P1-C1-stream-timeout: streaming generate carries a finite read timeout
 # ===========================================================================
+
 
 class TestStreamingReadTimeout(unittest.TestCase):
     """
@@ -440,15 +453,14 @@ class TestStreamingReadTimeout(unittest.TestCase):
         )
         call_kwargs = chunks_yielded[0]
         self.assertIn(
-            "timeout", call_kwargs,
+            "timeout",
+            call_kwargs,
             "ollama.generate(stream=True) must be called with a 'timeout' kwarg "
             "to enable finite read timeout for thread/connection reclamation",
         )
         timeout_val = call_kwargs["timeout"]
         self.assertIsNotNone(timeout_val, "timeout must not be None")
-        self.assertNotEqual(
-            timeout_val, float("inf"), "timeout must be finite (not inf)"
-        )
+        self.assertNotEqual(timeout_val, float("inf"), "timeout must be finite (not inf)")
         # Should be a positive number
         self.assertGreater(
             float(timeout_val) if not hasattr(timeout_val, "read") else timeout_val.read,
@@ -482,7 +494,8 @@ class TestStreamingReadTimeout(unittest.TestCase):
         else:
             actual = float(timeout_val)
         self.assertEqual(
-            actual, float(expected_timeout),
+            actual,
+            float(expected_timeout),
             f"Expected timeout={expected_timeout}, got {timeout_val}",
         )
 

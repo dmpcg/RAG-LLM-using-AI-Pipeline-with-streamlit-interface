@@ -4,10 +4,11 @@ Tests for capital_adequacy_analysis() and CapitalAdequacyResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    CapitalAdequacyResult,
     CharlieAnalyzer,
     FinancialData,
-    CapitalAdequacyResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCapitalAdequacyDataclass:
     def test_defaults(self):
         r = CapitalAdequacyResult()
@@ -68,6 +70,7 @@ class TestCapitalAdequacyDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCapitalAdequacyAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -105,6 +108,7 @@ class TestCapitalAdequacyAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestCapitalAdequacyScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """ER=0.60>=0.60=>base 10. RE/TE=0.50>=0.50(+0.5). Equity>0&TA>0(+0.5). Score=10 (capped)."""
@@ -139,6 +143,7 @@ class TestCapitalAdequacyScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase279EdgeCases:
     def test_empty_data(self, analyzer):

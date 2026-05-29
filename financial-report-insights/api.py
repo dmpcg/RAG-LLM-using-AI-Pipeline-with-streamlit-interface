@@ -49,14 +49,13 @@ class AnalyzeRequest(BaseModel):
     @classmethod
     def validate_field_count(cls, v: Dict[str, Any]) -> Dict[str, Any]:
         if len(v) > settings.max_financial_fields:
-            raise ValueError(
-                f"Too many fields ({len(v)}); max {settings.max_financial_fields}."
-            )
+            raise ValueError(f"Too many fields ({len(v)}); max {settings.max_financial_fields}.")
         return v
 
 
 class AnalyzeResponse(BaseModel):
     """Typed response for /analyze endpoint."""
+
     executive_summary: str
     sections: Dict[str, str]
     generated_at: str
@@ -97,7 +96,9 @@ def _get_rag():
         with _rag_lock:
             if _rag_instance is None:
                 import os
+
                 from app_local import SimpleRAG
+
                 _rag_instance = SimpleRAG(
                     docs_folder="./documents",
                     llm_model=os.getenv("OLLAMA_MODEL", settings.llm_model),
@@ -112,19 +113,19 @@ async def lifespan(app: FastAPI):
     global FinancialExcelExporter, FinancialPDFExporter
     logger.info("FastAPI starting up")
     from config import validate_settings
+
     errors, warnings = validate_settings()
     for w in warnings:
         logger.warning("[config] %s", w)
     if errors:
         for e in errors:
             logger.error("[config] %s", e)
-        raise RuntimeError(
-            f"Configuration validation failed: {'; '.join(errors)}"
-        )
+        raise RuntimeError(f"Configuration validation failed: {'; '.join(errors)}")
     # Eagerly import exporters at startup so the first export request pays no
     # per-request import overhead and import errors surface immediately (P1-A6).
-    from export_xlsx import FinancialExcelExporter as _FXE
     from export_pdf import FinancialPDFExporter as _FPE
+    from export_xlsx import FinancialExcelExporter as _FXE
+
     FinancialExcelExporter = _FXE
     FinancialPDFExporter = _FPE
     logger.info("Exporter classes loaded: %s, %s", _FXE.__name__, _FPE.__name__)
@@ -153,6 +154,7 @@ app.add_middleware(
 # Prometheus metrics middleware - always added so it is available when the
 # endpoint flag is enabled; it records nothing sensitive and is low-overhead.
 from observability.metrics import MetricsMiddleware  # noqa: E402
+
 app.add_middleware(MetricsMiddleware)
 
 
@@ -269,8 +271,10 @@ async def metrics_endpoint():
     """
     if not settings.enable_metrics_endpoint:
         raise HTTPException(status_code=404, detail="Not found.")
-    from observability.metrics import render_latest
     from fastapi.responses import Response as _Response
+
+    from observability.metrics import render_latest
+
     data, content_type = render_latest()
     return _Response(content=data, media_type=content_type)
 
@@ -370,7 +374,7 @@ async def analyze(req: AnalyzeRequest):
         def _to_ratio_dict(obj):
             if isinstance(obj, dict):
                 return obj or None
-            if obj is not None and hasattr(obj, 'to_dict') and callable(obj.to_dict):
+            if obj is not None and hasattr(obj, "to_dict") and callable(obj.to_dict):
                 try:
                     d = obj.to_dict()
                     return d if isinstance(d, dict) else None
@@ -378,13 +382,13 @@ async def analyze(req: AnalyzeRequest):
                     return None
             return None
 
-        liq = _to_ratio_dict(analysis.get('liquidity_ratios'))
-        prof = _to_ratio_dict(analysis.get('profitability_ratios'))
-        lev = _to_ratio_dict(analysis.get('leverage_ratios'))
-        eff = _to_ratio_dict(analysis.get('efficiency_ratios'))
-        health = analysis.get('composite_health')
-        h_score = getattr(health, 'overall_score', None)
-        h_grade = getattr(health, 'grade', None)
+        liq = _to_ratio_dict(analysis.get("liquidity_ratios"))
+        prof = _to_ratio_dict(analysis.get("profitability_ratios"))
+        lev = _to_ratio_dict(analysis.get("leverage_ratios"))
+        eff = _to_ratio_dict(analysis.get("efficiency_ratios"))
+        health = analysis.get("composite_health")
+        h_score = getattr(health, "overall_score", None)
+        h_grade = getattr(health, "grade", None)
 
         return AnalyzeResponse(
             executive_summary=report.executive_summary,
@@ -418,6 +422,7 @@ async def analyze(req: AnalyzeRequest):
 
 class RatioData(BaseModel):
     """A single ratio from the graph store."""
+
     name: str
     value: Optional[float] = None
     category: str = ""
@@ -425,6 +430,7 @@ class RatioData(BaseModel):
 
 class ScoreData(BaseModel):
     """A single scoring model result from the graph store."""
+
     model: str
     value: Optional[float] = None
     grade: str = ""
@@ -459,13 +465,19 @@ async def graph_context(period_label: str = Path(..., max_length=100)):
     raw_scores = await asyncio.to_thread(store.scores_by_period_label, period_label)
     return PeriodContext(
         period_label=period_label,
-        ratios=[RatioData(name=r.get("name", ""), value=r.get("value"), category=r.get("category", "")) for r in raw_ratios],
-        scores=[ScoreData(model=s.get("model", ""), value=s.get("value"), grade=s.get("grade", "")) for s in raw_scores],
+        ratios=[
+            RatioData(name=r.get("name", ""), value=r.get("value"), category=r.get("category", "")) for r in raw_ratios
+        ],
+        scores=[
+            ScoreData(model=s.get("model", ""), value=s.get("value"), grade=s.get("grade", "")) for s in raw_scores
+        ],
     )
 
 
 @app.get("/graph/ratios/{period_label}", response_model=List[RatioEntry])
-async def graph_ratios(period_label: str = Path(..., max_length=100), category: Optional[str] = Query(default=None, max_length=100)):
+async def graph_ratios(
+    period_label: str = Path(..., max_length=100), category: Optional[str] = Query(default=None, max_length=100)
+):
     """Return ratios for a fiscal period with optional category filter."""
     store = _require_graph_store()
     ratios = await asyncio.to_thread(store.ratios_by_period_label, period_label)
@@ -499,6 +511,7 @@ class PeriodDelta(BaseModel):
 
 class TrendDataPoint(BaseModel):
     """A single ratio value at a specific period."""
+
     ratio_name: str
     period: str
     value: Optional[float] = None
@@ -527,9 +540,7 @@ async def compare_periods(req: CompareRequest):
     # Graph path: query cross-period trends
     if store is not None:
         try:
-            raw_trends = await asyncio.to_thread(
-                store.cross_period_ratio_trend, req.period_labels
-            )
+            raw_trends = await asyncio.to_thread(store.cross_period_ratio_trend, req.period_labels)
             if raw_trends:
                 graph_trend_data = [
                     TrendDataPoint(
@@ -578,10 +589,7 @@ async def compare_periods(req: CompareRequest):
                 deteriorations=[],
                 deltas=[],
                 graph_trend_data=graph_trend_data,
-                summary=(
-                    f"Compared {len(req.period_labels)} periods: "
-                    "0 improvements, 0 deteriorations."
-                ),
+                summary=(f"Compared {len(req.period_labels)} periods: 0 improvements, 0 deteriorations."),
             )
 
         period_data = getattr(rag, "_period_financial_data", {})
@@ -593,6 +601,7 @@ async def compare_periods(req: CompareRequest):
         if period_data and rag.charlie_analyzer:
             try:
                 from ratio_framework import run_all_ratios
+
                 for label in req.period_labels:
                     fd = period_data.get(label)
                     if fd:
@@ -606,10 +615,12 @@ async def compare_periods(req: CompareRequest):
                                         found = True
                                         break
                                 if not found:
-                                    deltas.append(PeriodDelta(
-                                        ratio_name=result.name,
-                                        periods={label: result.value},
-                                    ))
+                                    deltas.append(
+                                        PeriodDelta(
+                                            ratio_name=result.name,
+                                            periods={label: result.value},
+                                        )
+                                    )
 
                 # Compute deltas between first and last period
                 for d in deltas:
@@ -629,8 +640,7 @@ async def compare_periods(req: CompareRequest):
     n_improvements = len(improvements)
     n_deteriorations = len(deteriorations)
     summary = (
-        f"Compared {len(req.period_labels)} periods: "
-        f"{n_improvements} improvements, {n_deteriorations} deteriorations."
+        f"Compared {len(req.period_labels)} periods: {n_improvements} improvements, {n_deteriorations} deteriorations."
     )
 
     return CompareResponse(
@@ -656,9 +666,7 @@ class ExportRequest(BaseModel):
     @classmethod
     def validate_field_count(cls, v: Dict[str, Any]) -> Dict[str, Any]:
         if len(v) > settings.max_financial_fields:
-            raise ValueError(
-                f"Too many fields ({len(v)}); max {settings.max_financial_fields}."
-            )
+            raise ValueError(f"Too many fields ({len(v)}); max {settings.max_financial_fields}.")
         return v
 
 
@@ -742,7 +750,8 @@ _MAX_PORTFOLIO_COMPANIES = 50
 
 class PortfolioRequest(BaseModel):
     companies: Dict[str, Dict[str, Any]] = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description="Map of company_name -> financial_data dict (at least 1)",
     )
 
@@ -750,15 +759,12 @@ class PortfolioRequest(BaseModel):
     @classmethod
     def limit_company_count(cls, v):
         if len(v) > _MAX_PORTFOLIO_COMPANIES:
-            raise ValueError(
-                f"Too many companies ({len(v)}). Maximum is {_MAX_PORTFOLIO_COMPANIES}."
-            )
+            raise ValueError(f"Too many companies ({len(v)}). Maximum is {_MAX_PORTFOLIO_COMPANIES}.")
         # Validate field count per company
         for name, data in v.items():
             if len(data) > settings.max_financial_fields:
                 raise ValueError(
-                    f"Company '{name}' has too many fields ({len(data)}); "
-                    f"max {settings.max_financial_fields}."
+                    f"Company '{name}' has too many fields ({len(data)}); max {settings.max_financial_fields}."
                 )
         return v
 
@@ -792,6 +798,7 @@ def _get_portfolio_analyzer():
         with _portfolio_lock:
             if not hasattr(_get_portfolio_analyzer, "_inst"):
                 from portfolio_analyzer import PortfolioAnalyzer
+
                 _get_portfolio_analyzer._inst = PortfolioAnalyzer()
     return _get_portfolio_analyzer._inst
 
@@ -805,11 +812,12 @@ def _get_compliance_scorer():
         with _compliance_lock:
             if not hasattr(_get_compliance_scorer, "_inst"):
                 from compliance_scorer import ComplianceScorer
+
                 _get_compliance_scorer._inst = ComplianceScorer()
     return _get_compliance_scorer._inst
 
 
-def _parse_financial_data(raw: Dict[str, Any]) -> "FinancialData":
+def _parse_financial_data(raw: Dict[str, Any]) -> "FinancialData":  # noqa: F821 — forward ref; FinancialData imported in-function
     """Parse a raw dict into FinancialData, filtering unknown fields."""
     from financial_analyzer import FinancialData
 
@@ -898,6 +906,7 @@ async def portfolio_correlation(req: PortfolioRequest):
     if store is not None:
         try:
             from portfolio_analyzer import PortfolioRiskSummary
+
             minimal_risk = PortfolioRiskSummary(
                 num_companies=len(corr.company_names),
                 overall_risk_level="unknown",
@@ -1076,12 +1085,14 @@ async def list_documents(
         meta = doc.get("metadata", {})
         if not isinstance(meta, dict):
             meta = {}
-        results.append(DocumentInfo(
-            source=doc_source,
-            type=doc.get("type", "unknown"),
-            content_preview=doc.get("content", "")[:200],
-            section_type=meta.get("section_type"),
-            chunk_level=meta.get("chunk_level"),
-            has_parent=bool(meta.get("parent_id")),
-        ))
-    return results[offset: offset + limit]
+        results.append(
+            DocumentInfo(
+                source=doc_source,
+                type=doc.get("type", "unknown"),
+                content_preview=doc.get("content", "")[:200],
+                section_type=meta.get("section_type"),
+                chunk_level=meta.get("chunk_level"),
+                has_parent=bool(meta.get("parent_id")),
+            )
+        )
+    return results[offset : offset + limit]

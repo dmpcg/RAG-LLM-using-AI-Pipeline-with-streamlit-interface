@@ -3,23 +3,25 @@ Security tests for file upload sanitization and input validation.
 Tests: path traversal, file size limits, query length limits, filename sanitization.
 """
 
-import os
-import pytest
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from config import settings
+import pytest
 
+from config import settings
 
 # ============================================================
 # Filename sanitization logic (mirrors streamlit_app_local._sanitize_and_save)
 # ============================================================
 
+
 def sanitize_filename(raw_name: str) -> str | None:
     """Pure-function version of the sanitization logic for testing."""
-    safe_name = os.path.basename(raw_name).strip()
+    # Cross-platform basename: split on BOTH separators regardless of host OS,
+    # so a Windows-style path-traversal string is sanitized on Linux/CI too.
+    safe_name = raw_name.replace("\\", "/").split("/")[-1].strip()
     if not safe_name or safe_name in (".", ".."):
         return None
     if "/" in safe_name or "\\" in safe_name:
@@ -86,6 +88,7 @@ class TestPathSafety:
 # File size limit tests
 # ============================================================
 
+
 class TestFileSizeLimits:
     def test_max_file_size_setting(self):
         assert settings.max_file_size_mb > 0
@@ -106,6 +109,7 @@ class TestFileSizeLimits:
 # Query length limit tests
 # ============================================================
 
+
 class TestQueryLengthLimits:
     def test_max_query_length_setting(self):
         assert settings.max_query_length > 0
@@ -124,11 +128,11 @@ class TestQueryLengthLimits:
 # Integration: SimpleRAG query length enforcement
 # ============================================================
 
+
 class TestRAGQueryValidation:
     def test_oversized_query_returns_error_message(self):
         """SimpleRAG.answer() should reject queries exceeding max_query_length."""
         from app_local import SimpleRAG
-        from unittest.mock import MagicMock
 
         # Create a RAG instance with mocked LLM/embedder to avoid Ollama dependency
         mock_llm = MagicMock()
@@ -162,6 +166,7 @@ class TestRAGQueryValidation:
 # ============================================================
 # top_k parameter bounds
 # ============================================================
+
 
 class TestTopKValidation:
     def test_top_k_setting(self):

@@ -126,10 +126,12 @@ def setup_logging() -> None:
     if log_format == "json":
         handler.setFormatter(JSONFormatter())
     else:
-        handler.setFormatter(RedactingTextFormatter(
-            "%(asctime)s %(name)s %(levelname)s %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        ))
+        handler.setFormatter(
+            RedactingTextFormatter(
+                "%(asctime)s %(name)s %(levelname)s %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
 
     root.addHandler(handler)
 

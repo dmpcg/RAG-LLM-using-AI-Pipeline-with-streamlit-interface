@@ -4,6 +4,7 @@ Tests for liability_management_analysis() and LiabilityManagementResult dataclas
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestLiabilityManagementDataclass:
     def test_defaults(self):
         r = LiabilityManagementResult()
@@ -68,6 +70,7 @@ class TestLiabilityManagementDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestLiabilityManagementAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestLiabilityManagementAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestLiabilityManagementScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """L/A=0.40 => base 7.0. LC=0.3125 >=0.30 => +0.5. CLR=0.25 <=0.40 => +0.5. Score=8.0."""
@@ -156,6 +160,7 @@ class TestLiabilityManagementScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase146EdgeCases:
     def test_empty_data(self, analyzer):

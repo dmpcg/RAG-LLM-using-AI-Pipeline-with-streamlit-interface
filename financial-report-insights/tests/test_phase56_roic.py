@@ -4,6 +4,7 @@ Tests for roic_analysis() and ROICResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestROICDataclass:
     def test_defaults(self):
         r = ROICResult()
@@ -70,6 +72,7 @@ class TestROICDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestROICAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -110,6 +113,7 @@ class TestROICAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestROICScoring:
     def test_high_roic(self, analyzer):
@@ -164,6 +168,7 @@ class TestROICScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase56EdgeCases:
     def test_empty_data(self, analyzer):

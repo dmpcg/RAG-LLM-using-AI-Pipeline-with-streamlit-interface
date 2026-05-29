@@ -9,15 +9,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from evaluation.golden_qa import GOLDEN_QA_PAIRS, GoldenQA
-from evaluation.retrieval_metrics import mrr, ndcg_at_k, precision_at_k, recall_at_k
 from evaluation.answer_metrics import (
     completeness_score,
     faithfulness_score,
     relevance_score,
 )
 from evaluation.eval_harness import EvalReport, RAGEvalHarness
-
+from evaluation.golden_qa import GOLDEN_QA_PAIRS, GoldenQA
+from evaluation.retrieval_metrics import mrr, ndcg_at_k, precision_at_k, recall_at_k
 
 # ======================================================================
 # Golden QA dataset
@@ -51,9 +50,7 @@ class TestGoldenQA:
         assert isinstance(qa.question, str) and len(qa.question) > 0
         assert isinstance(qa.expected_answer, str) and len(qa.expected_answer) > 0
         assert isinstance(qa.expected_sources, list)
-        assert qa.query_type in {
-            "ratio_lookup", "trend_analysis", "comparison", "explanation", "general"
-        }
+        assert qa.query_type in {"ratio_lookup", "trend_analysis", "comparison", "explanation", "general"}
         assert qa.difficulty in {"easy", "medium", "hard"}
 
     def test_golden_qa_is_frozen(self):

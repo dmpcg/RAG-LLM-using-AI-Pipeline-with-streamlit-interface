@@ -4,6 +4,7 @@ Tests for net_worth_growth_analysis() and NetWorthGrowthResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestNetWorthGrowthDataclass:
     def test_defaults(self):
         r = NetWorthGrowthResult()
@@ -68,6 +70,7 @@ class TestNetWorthGrowthDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestNetWorthGrowthAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestNetWorthGrowthAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestNetWorthGrowthScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -133,6 +137,7 @@ class TestNetWorthGrowthScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase346EdgeCases:
     def test_empty_data(self, analyzer):

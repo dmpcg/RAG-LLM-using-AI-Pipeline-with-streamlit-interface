@@ -4,6 +4,7 @@ Tests for payout_discipline_analysis() and PayoutDisciplineResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestPayoutDisciplineDataclass:
     def test_defaults(self):
         r = PayoutDisciplineResult()
@@ -68,6 +70,7 @@ class TestPayoutDisciplineDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestPayoutDisciplineAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestPayoutDisciplineAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestPayoutDisciplineScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """CDC=5.5 => base 10.0. CPri=0.667 >=0.60 => +0.5. RR=0.733 >=0.60 => +0.5. Score=10.0(clamped)."""
@@ -151,6 +155,7 @@ class TestPayoutDisciplineScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase185EdgeCases:
     def test_empty_data(self, analyzer):

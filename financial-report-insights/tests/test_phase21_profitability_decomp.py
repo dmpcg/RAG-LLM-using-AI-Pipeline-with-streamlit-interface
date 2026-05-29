@@ -4,6 +4,7 @@ Tests for profitability_decomposition() and ProfitabilityDecompResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -46,6 +47,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestProfitabilityDecompDataclass:
     def test_defaults(self):
         r = ProfitabilityDecompResult()
@@ -68,6 +70,7 @@ class TestProfitabilityDecompDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestProfitabilityDecomp:
     def test_returns_result(self, analyzer, sample_data):
@@ -141,6 +144,7 @@ class TestProfitabilityDecomp:
 
 # ===== SCORING TESTS =====
 
+
 class TestProfitabilityScoring:
     def test_elite_company(self, analyzer):
         """High ROE, high ROIC, positive spread = Elite."""
@@ -204,6 +208,7 @@ class TestProfitabilityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase21EdgeCases:
     def test_empty_data(self, analyzer):

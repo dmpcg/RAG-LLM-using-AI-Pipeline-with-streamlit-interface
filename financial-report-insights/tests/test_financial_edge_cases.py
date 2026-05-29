@@ -3,16 +3,15 @@ Edge-case tests for financial ratio calculations.
 Covers: negative values, zero denominators, single data points, extreme values, CAGR guards.
 """
 
-import pytest
 import pandas as pd
-import numpy as np
+import pytest
 
 from financial_analyzer import CharlieAnalyzer, FinancialData, safe_divide
-
 
 # ============================================================
 # safe_divide helper
 # ============================================================
+
 
 class TestSafeDivide:
     def test_normal_division(self):
@@ -45,6 +44,7 @@ class TestSafeDivide:
 # ============================================================
 # Liquidity ratios edge cases
 # ============================================================
+
 
 class TestLiquidityEdgeCases:
     @pytest.fixture
@@ -85,6 +85,7 @@ class TestLiquidityEdgeCases:
 # ============================================================
 # Profitability ratios edge cases
 # ============================================================
+
 
 class TestProfitabilityEdgeCases:
     @pytest.fixture
@@ -131,6 +132,7 @@ class TestProfitabilityEdgeCases:
 # Leverage ratios edge cases
 # ============================================================
 
+
 class TestLeverageEdgeCases:
     @pytest.fixture
     def analyzer(self):
@@ -156,6 +158,7 @@ class TestLeverageEdgeCases:
 # Efficiency ratios edge cases
 # ============================================================
 
+
 class TestEfficiencyEdgeCases:
     @pytest.fixture
     def analyzer(self):
@@ -175,6 +178,7 @@ class TestEfficiencyEdgeCases:
 # ============================================================
 # Trend analysis edge cases
 # ============================================================
+
 
 class TestTrendEdgeCases:
     @pytest.fixture
@@ -221,6 +225,7 @@ class TestTrendEdgeCases:
 # Forecast edge cases
 # ============================================================
 
+
 class TestForecastEdgeCases:
     @pytest.fixture
     def analyzer(self):
@@ -242,6 +247,7 @@ class TestForecastEdgeCases:
 # ============================================================
 # Cash flow / working capital edge cases
 # ============================================================
+
 
 class TestCashFlowEdgeCases:
     @pytest.fixture
@@ -268,6 +274,7 @@ class TestCashFlowEdgeCases:
 # ============================================================
 # Variance calculation edge cases
 # ============================================================
+
 
 class TestVarianceEdgeCases:
     @pytest.fixture

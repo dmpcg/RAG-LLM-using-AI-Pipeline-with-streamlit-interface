@@ -4,6 +4,7 @@ Tests for operational_risk_analysis() and OperationalRiskResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestOperationalRiskDataclass:
     def test_defaults(self):
         r = OperationalRiskResult()
@@ -68,6 +70,7 @@ class TestOperationalRiskDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestOperationalRiskAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -110,6 +113,7 @@ class TestOperationalRiskAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestOperationalRiskScoring:
     def test_low_risk(self, analyzer):
         """MoS >= 0.30 => base 10."""
@@ -150,6 +154,7 @@ class TestOperationalRiskScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase92EdgeCases:
     def test_empty_data(self, analyzer):

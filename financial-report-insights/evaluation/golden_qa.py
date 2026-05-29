@@ -44,8 +44,7 @@ GOLDEN_QA_PAIRS: List[GoldenQA] = [
     GoldenQA(
         question="What is the debt-to-equity ratio?",
         expected_answer=(
-            "The debt-to-equity ratio is 0.62, with total debt of $3.1B and "
-            "shareholders' equity of $5.0B."
+            "The debt-to-equity ratio is 0.62, with total debt of $3.1B and shareholders' equity of $5.0B."
         ),
         expected_sources=["balance_sheet_2025.xlsx"],
         query_type="ratio_lookup",
@@ -54,8 +53,7 @@ GOLDEN_QA_PAIRS: List[GoldenQA] = [
     GoldenQA(
         question="Calculate the return on equity (ROE) using DuPont decomposition.",
         expected_answer=(
-            "ROE is 18.5% via DuPont: net profit margin 12.3% x asset turnover "
-            "0.85 x equity multiplier 1.77 = 18.5%."
+            "ROE is 18.5% via DuPont: net profit margin 12.3% x asset turnover 0.85 x equity multiplier 1.77 = 18.5%."
         ),
         expected_sources=["income_statement_2025.xlsx", "balance_sheet_2025.xlsx"],
         query_type="ratio_lookup",
@@ -63,10 +61,7 @@ GOLDEN_QA_PAIRS: List[GoldenQA] = [
     ),
     GoldenQA(
         question="What is the gross profit margin for Q4 2025?",
-        expected_answer=(
-            "Gross profit margin for Q4 2025 is 42.7%, with gross profit of "
-            "$1.07B on revenue of $2.5B."
-        ),
+        expected_answer=("Gross profit margin for Q4 2025 is 42.7%, with gross profit of $1.07B on revenue of $2.5B."),
         expected_sources=["income_statement_2025.xlsx"],
         query_type="ratio_lookup",
         difficulty="medium",
@@ -87,10 +82,7 @@ GOLDEN_QA_PAIRS: List[GoldenQA] = [
     ),
     GoldenQA(
         question="What is the year-over-year change in operating expenses?",
-        expected_answer=(
-            "Operating expenses increased 7.2% year-over-year, from $5.6B in "
-            "FY2024 to $6.0B in FY2025."
-        ),
+        expected_answer=("Operating expenses increased 7.2% year-over-year, from $5.6B in FY2024 to $6.0B in FY2025."),
         expected_sources=[
             "income_statement_2024.xlsx",
             "income_statement_2025.xlsx",
@@ -140,9 +132,7 @@ GOLDEN_QA_PAIRS: List[GoldenQA] = [
         difficulty="hard",
     ),
     GoldenQA(
-        question=(
-            "Compare operating cash flow to net income for FY2025."
-        ),
+        question=("Compare operating cash flow to net income for FY2025."),
         expected_answer=(
             "Operating cash flow of $2.1B exceeds net income of $1.2B by $900M, "
             "indicating strong cash conversion and quality of earnings."

@@ -4,6 +4,7 @@ Tests for obligation_coverage_analysis() and ObligationCoverageResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestObligationCoverageDataclass:
     def test_defaults(self):
         r = ObligationCoverageResult()
@@ -68,6 +70,7 @@ class TestObligationCoverageDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestObligationCoverageAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestObligationCoverageAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestObligationCoverageScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """EIC=8.333 => base 8.5. DBR=1.60 <=2.0 => +0.5. CIC=7.333 <8.0 => no adj. Score=9.0."""
@@ -153,6 +157,7 @@ class TestObligationCoverageScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase160EdgeCases:
     def test_empty_data(self, analyzer):

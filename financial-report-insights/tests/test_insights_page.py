@@ -18,11 +18,9 @@ and is skipped until caching is implemented in Wave 2.
 from __future__ import annotations
 
 import sys
-import types
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -34,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # ---------------------------------------------------------------------------
 # 1. FakeStreamlit stub
 # ---------------------------------------------------------------------------
+
 
 class _FakeCM:
     """A minimal context manager that also supports common Streamlit widget
@@ -341,6 +340,7 @@ class FakeStreamlit:
 # 2. Rich FinancialData / DataFrame fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def rich_financial_data():
     """
@@ -415,17 +415,19 @@ def rich_df():
     _dataframe_to_financial_data in the page fixture, so this only needs to be
     non-empty for the methods that check df properties directly.
     """
-    return pd.DataFrame({
-        "Revenue": [5_000_000, 4_500_000],
-        "Net Income": [800_000, 700_000],
-        "EBITDA": [1_500_000, 1_350_000],
-        "Total Assets": [10_000_000, 9_000_000],
-        "Operating Income": [1_200_000, 1_080_000],
-        "Total Equity": [6_000_000, 5_400_000],
-        "Operating Cash Flow": [1_100_000, 990_000],
-        "Gross Profit": [3_000_000, 2_700_000],
-        "EBIT": [1_200_000, 1_080_000],
-    })
+    return pd.DataFrame(
+        {
+            "Revenue": [5_000_000, 4_500_000],
+            "Net Income": [800_000, 700_000],
+            "EBITDA": [1_500_000, 1_350_000],
+            "Total Assets": [10_000_000, 9_000_000],
+            "Operating Income": [1_200_000, 1_080_000],
+            "Total Equity": [6_000_000, 5_400_000],
+            "Operating Cash Flow": [1_100_000, 990_000],
+            "Gross Profit": [3_000_000, 2_700_000],
+            "EBIT": [1_200_000, 1_080_000],
+        }
+    )
 
 
 @pytest.fixture
@@ -475,10 +477,14 @@ def page(monkeypatch, fake_st, rich_financial_data):
 
     # Seed session_state with a real analysis result
     real_analysis = p.analyzer.analyze(
-        pd.DataFrame({
-            "revenue": [5_000_000], "net_income": [800_000],
-            "total_assets": [10_000_000], "total_equity": [6_000_000],
-        })
+        pd.DataFrame(
+            {
+                "revenue": [5_000_000],
+                "net_income": [800_000],
+                "total_assets": [10_000_000],
+                "total_equity": [6_000_000],
+            }
+        )
     )
     fake_st.session_state["analysis_results"] = real_analysis
 
@@ -489,11 +495,13 @@ def page(monkeypatch, fake_st, rich_financial_data):
 # 3. CATEGORY_TABS routing map tests
 # ---------------------------------------------------------------------------
 
+
 class TestCategoryTabsRouting:
     """Verify CATEGORY_TABS has required keys and method references are valid."""
 
     def test_all_categories_present(self):
         import insights_page as ip
+
         expected = {
             "Executive & Overview",
             "Profitability",
@@ -516,14 +524,14 @@ class TestCategoryTabsRouting:
 
     def test_each_entry_is_3_tuple(self):
         import insights_page as ip
+
         for cat, entries in ip.FinancialInsightsPage.CATEGORY_TABS.items():
             for entry in entries:
-                assert len(entry) == 3, (
-                    f"{cat}: entry {entry!r} must be 3-tuple (label, method, needs_wb)"
-                )
+                assert len(entry) == 3, f"{cat}: entry {entry!r} must be 3-tuple (label, method, needs_wb)"
 
     def test_method_names_exist_on_class(self):
         import insights_page as ip
+
         missing = []
         for cat, entries in ip.FinancialInsightsPage.CATEGORY_TABS.items():
             for label, method_name, _ in entries:
@@ -533,11 +541,10 @@ class TestCategoryTabsRouting:
 
     def test_needs_workbook_flag_is_bool(self):
         import insights_page as ip
+
         for cat, entries in ip.FinancialInsightsPage.CATEGORY_TABS.items():
             for label, method_name, needs_wb in entries:
-                assert isinstance(needs_wb, bool), (
-                    f"{cat}/{label}: needs_wb must be bool, got {needs_wb!r}"
-                )
+                assert isinstance(needs_wb, bool), f"{cat}/{label}: needs_wb must be bool, got {needs_wb!r}"
 
     def test_tabs_call_returns_sized_list(self, fake_st):
         """FakeStreamlit.tabs() returns a list with correct length."""
@@ -570,6 +577,7 @@ class TestCategoryTabsRouting:
     def test_tabs_in_profitability_category(self):
         """Profitability category has the expected sub-tab methods."""
         import insights_page as ip
+
         entries = ip.FinancialInsightsPage.CATEGORY_TABS["Profitability"]
         method_names = [m for _, m, _ in entries]
         assert "_render_gross_margin_stability" in method_names
@@ -578,6 +586,7 @@ class TestCategoryTabsRouting:
 
     def test_startup_modeling_category_present(self):
         import insights_page as ip
+
         entries = ip.FinancialInsightsPage.CATEGORY_TABS["Startup Modeling"]
         method_names = [m for _, m, _ in entries]
         assert "_render_saas_metrics" in method_names
@@ -587,6 +596,7 @@ class TestCategoryTabsRouting:
 # ---------------------------------------------------------------------------
 # 4. Render method tests — guard-passing, chart-path reached
 # ---------------------------------------------------------------------------
+
 
 def _reset_spy(fake_st):
     """Clear all spy lists before each render test."""
@@ -637,9 +647,7 @@ class TestRenderMethodsReachChartPath:
         assert not any("Insufficient data for EBITDA" in w for w in fake_st.warning_calls), (
             "_render_ebitda_margin_quality triggered early-return warning"
         )
-        assert len(fake_st.plotly_chart_calls) >= 1, (
-            "Expected plotly_chart call in _render_ebitda_margin_quality"
-        )
+        assert len(fake_st.plotly_chart_calls) >= 1, "Expected plotly_chart call in _render_ebitda_margin_quality"
 
     # --- Test 3: _render_gross_margin_stability ---
 
@@ -651,9 +659,7 @@ class TestRenderMethodsReachChartPath:
         assert not any("Insufficient data for Gross Margin" in w for w in fake_st.warning_calls), (
             "_render_gross_margin_stability triggered early-return warning"
         )
-        assert len(fake_st.plotly_chart_calls) >= 1, (
-            "Expected plotly_chart call in _render_gross_margin_stability"
-        )
+        assert len(fake_st.plotly_chart_calls) >= 1, "Expected plotly_chart call in _render_gross_margin_stability"
 
     # --- Test 4: _render_roe_analysis ---
 
@@ -677,9 +683,7 @@ class TestRenderMethodsReachChartPath:
         _reset_spy(fake_st)
         p._render_health_score(rich_df)
         # comprehensive_health_score builds two go.Figure objects (radar + bar)
-        assert len(fake_st.plotly_chart_calls) >= 1, (
-            "Expected at least one plotly_chart call in _render_health_score"
-        )
+        assert len(fake_st.plotly_chart_calls) >= 1, "Expected at least one plotly_chart call in _render_health_score"
 
     # --- Test 6: _render_altman_z_score ---
 
@@ -737,12 +741,12 @@ class TestRenderMethodsReachChartPath:
         _reset_spy(fake_st)
         # Seed with richer analysis that has profitability_ratios
         from financial_analyzer import CharlieAnalyzer
+
         analyzer = CharlieAnalyzer()
-        analyzer._dataframe_to_financial_data = lambda df: fake_st.session_state.get(
-            "_rich_fd"
-        )
+        analyzer._dataframe_to_financial_data = lambda df: fake_st.session_state.get("_rich_fd")
         # Use directly computed analysis from rich_financial_data
         from financial_analyzer import FinancialData
+
         rfd: FinancialData = p.analyzer._dataframe_to_financial_data(rich_df)
         full_analysis = p.analyzer.analyze(rich_df)
         fake_st.session_state["analysis_results"] = full_analysis
@@ -768,8 +772,7 @@ class TestRenderMethodsReachChartPath:
         mrr_found = any("MRR" in str(l) for l in labels)
         arr_found = any("ARR" in str(l) for l in labels)
         assert mrr_found or arr_found, (
-            f"Expected MRR/ARR metrics in _render_saas_metrics via col.metric(); "
-            f"got metric labels: {labels}"
+            f"Expected MRR/ARR metrics in _render_saas_metrics via col.metric(); got metric labels: {labels}"
         )
 
     # --- Test 11: _render_cashflow_dashboard with seeded analysis ---
@@ -789,10 +792,7 @@ class TestRenderMethodsReachChartPath:
             )
         else:
             # Fallback path: info message or columns call means render ran
-            ran = (
-                len(fake_st.info_calls) >= 1
-                or any("columns" == c[0] for c in fake_st.calls)
-            )
+            ran = len(fake_st.info_calls) >= 1 or any("columns" == c[0] for c in fake_st.calls)
             assert ran, "_render_cashflow_dashboard did not render anything"
 
     # --- Test 12: _render_debt_to_equity ---
@@ -802,14 +802,13 @@ class TestRenderMethodsReachChartPath:
         p, fake_st = page
         _reset_spy(fake_st)
         p._render_debt_to_equity(rich_df)
-        assert len(fake_st.metric_calls) >= 1, (
-            "_render_debt_to_equity did not record metric calls"
-        )
+        assert len(fake_st.metric_calls) >= 1, "_render_debt_to_equity did not record metric calls"
 
 
 # ---------------------------------------------------------------------------
 # 5. FakeStreamlit contract tests (widget scripted returns)
 # ---------------------------------------------------------------------------
+
 
 class TestFakeStreamlitContract:
     """Unit tests for the FakeStreamlit stub itself."""
@@ -863,6 +862,7 @@ class TestFakeStreamlitContract:
     def test_plotly_chart_recorded(self):
         fs = FakeStreamlit()
         import plotly.graph_objects as go
+
         fig = go.Figure()
         fs.plotly_chart(fig, use_container_width=True)
         assert len(fs.plotly_chart_calls) == 1
@@ -871,6 +871,7 @@ class TestFakeStreamlitContract:
     def test_column_plotly_chart_forwarded_to_parent(self):
         fs = FakeStreamlit()
         import plotly.graph_objects as go
+
         fig = go.Figure()
         col = fs.columns(1)[0]
         col.plotly_chart(fig)
@@ -913,6 +914,7 @@ class TestFakeStreamlitContract:
 # 6. Data-guard bypass tests (rich fixture drives past None guards)
 # ---------------------------------------------------------------------------
 
+
 class TestRichFixtureDrivesGuards:
     """
     Verifies that the rich FinancialData fixture populates FinancialData well enough
@@ -921,6 +923,7 @@ class TestRichFixtureDrivesGuards:
 
     def test_net_profit_margin_result_has_net_margin_pct(self, rich_financial_data):
         from financial_analyzer import CharlieAnalyzer
+
         analyzer = CharlieAnalyzer()
         result = analyzer.net_profit_margin_analysis(rich_financial_data)
         assert result.net_margin_pct is not None, (
@@ -932,27 +935,24 @@ class TestRichFixtureDrivesGuards:
 
     def test_ebitda_margin_result_has_ebitda_margin_pct(self, rich_financial_data):
         from financial_analyzer import CharlieAnalyzer
+
         analyzer = CharlieAnalyzer()
         result = analyzer.ebitda_margin_quality_analysis(rich_financial_data)
-        assert result.ebitda_margin_pct is not None, (
-            "Rich fixture failed to produce ebitda_margin_pct"
-        )
+        assert result.ebitda_margin_pct is not None, "Rich fixture failed to produce ebitda_margin_pct"
 
     def test_gross_margin_result_has_gross_margin_pct(self, rich_financial_data):
         from financial_analyzer import CharlieAnalyzer
+
         analyzer = CharlieAnalyzer()
         result = analyzer.gross_margin_stability_analysis(rich_financial_data)
-        assert result.gross_margin_pct is not None, (
-            "Rich fixture failed to produce gross_margin_pct"
-        )
+        assert result.gross_margin_pct is not None, "Rich fixture failed to produce gross_margin_pct"
 
     def test_roe_result_has_roe_pct(self, rich_financial_data):
         from financial_analyzer import CharlieAnalyzer
+
         analyzer = CharlieAnalyzer()
         result = analyzer.roe_analysis(rich_financial_data)
-        assert result.roe_pct is not None, (
-            "Rich fixture failed to produce roe_pct"
-        )
+        assert result.roe_pct is not None, "Rich fixture failed to produce roe_pct"
 
     def test_trend_forecast_revenue_is_positive(self, rich_financial_data):
         """The 'Revenue' field from rich_financial_data is > 0."""
@@ -981,6 +981,7 @@ class TestRichFixtureDrivesGuards:
 # 7. Layer 3 placeholder — real-st cache tests (WP-B2/B4, gated)
 # ---------------------------------------------------------------------------
 
+
 class TestRealStreamlitCacheSemantics:
     """
     Real-streamlit memoization tests for WP-B2/B4.
@@ -1005,17 +1006,20 @@ class TestRealStreamlitCacheSemantics:
         digest.  The spy must have been called exactly once.
         """
         import streamlit as real_st
+
         import insights_page as ip
 
         # Clear any pre-existing Streamlit cache so the test starts clean.
         real_st.cache_data.clear()
 
-        df = pd.DataFrame({
-            "Revenue": [5_000_000],
-            "Net Income": [800_000],
-            "Total Assets": [10_000_000],
-            "Total Equity": [6_000_000],
-        })
+        df = pd.DataFrame(
+            {
+                "Revenue": [5_000_000],
+                "Net Income": [800_000],
+                "Total Assets": [10_000_000],
+                "Total Equity": [6_000_000],
+            }
+        )
         df_digest = int(pd.util.hash_pandas_object(df).sum())
 
         call_count = [0]
@@ -1030,15 +1034,12 @@ class TestRealStreamlitCacheSemantics:
         try:
             # First call: cache miss -> _analyze_df (spy) called.
             result1 = ip._cached_analyze_df(df_digest, df)
-            assert call_count[0] == 1, (
-                f"Expected 1 call to _analyze_df after first invocation, got {call_count[0]}"
-            )
+            assert call_count[0] == 1, f"Expected 1 call to _analyze_df after first invocation, got {call_count[0]}"
 
             # Second call with identical digest: cache hit -> _analyze_df NOT called again.
             result2 = ip._cached_analyze_df(df_digest, df)
             assert call_count[0] == 1, (
-                f"_analyze_df was called again on cache hit (count={call_count[0]}); "
-                "memoization is broken"
+                f"_analyze_df was called again on cache hit (count={call_count[0]}); memoization is broken"
             )
 
             # Results must be equivalent (same object from cache).
@@ -1058,17 +1059,20 @@ class TestRealStreamlitCacheSemantics:
         which calls st.cache_data.clear() so stale numbers are never served.
         """
         import streamlit as real_st
+
         import insights_page as ip
 
         # Start clean.
         real_st.cache_data.clear()
 
-        df = pd.DataFrame({
-            "Revenue": [4_000_000],
-            "Net Income": [600_000],
-            "Total Assets": [8_000_000],
-            "Total Equity": [5_000_000],
-        })
+        df = pd.DataFrame(
+            {
+                "Revenue": [4_000_000],
+                "Net Income": [600_000],
+                "Total Assets": [8_000_000],
+                "Total Equity": [5_000_000],
+            }
+        )
         df_digest = int(pd.util.hash_pandas_object(df).sum())
 
         call_count = [0]
@@ -1106,6 +1110,7 @@ class TestRealStreamlitCacheSemantics:
 # 8. Wave 1 targeted behavior tests (WP-B1/B3/B6/B7/B5)
 # ---------------------------------------------------------------------------
 
+
 class TestWave1B3CacheKeys:
     """WP-B3: robust cache keys use pd.util.hash_pandas_object and stable fd hash."""
 
@@ -1127,18 +1132,16 @@ class TestWave1B3CacheKeys:
     def test_financial_data_stable_hash(self, rich_financial_data):
         """Same FinancialData produces same hash across two calls."""
         fd = rich_financial_data
-        h1 = hash(tuple(sorted(
-            (k, v) for k, v in fd.__dict__.items() if not k.startswith("_")
-        )))
-        h2 = hash(tuple(sorted(
-            (k, v) for k, v in fd.__dict__.items() if not k.startswith("_")
-        )))
+        h1 = hash(tuple(sorted((k, v) for k, v in fd.__dict__.items() if not k.startswith("_"))))
+        h2 = hash(tuple(sorted((k, v) for k, v in fd.__dict__.items() if not k.startswith("_"))))
         assert h1 == h2, "FinancialData hash must be stable across calls"
 
     def test_insights_page_uses_pd_hash(self):
         """Verify insights_page.py uses pd.util.hash_pandas_object for the cache key."""
         import inspect
+
         import insights_page as ip
+
         source = inspect.getsource(ip.FinancialInsightsPage.render)
         assert "pd.util.hash_pandas_object" in source, (
             "render() must use pd.util.hash_pandas_object for df cache key (WP-B3)"
@@ -1190,7 +1193,6 @@ class TestWave1B7RefreshClearsKeys:
 
     def test_refresh_calls_cache_data_clear(self, page, monkeypatch):
         """Refresh button logic calls st.cache_data.clear()."""
-        import insights_page as ip
         p, fake_st = page
 
         cache_clear_called = []
@@ -1218,14 +1220,12 @@ class TestWave1B7RefreshClearsKeys:
     def test_insights_page_refresh_has_prefix_sweep(self):
         """Verify the source contains the analysis_/wb_ prefix sweep."""
         import inspect
+
         import insights_page as ip
+
         source = inspect.getsource(ip.FinancialInsightsPage._render_analysis_options)
-        assert 'key.startswith("analysis_")' in source, (
-            "_render_analysis_options must sweep analysis_* keys (WP-B7)"
-        )
-        assert 'key.startswith("_wb_")' in source, (
-            "_render_analysis_options must sweep _wb_* keys (WP-B7)"
-        )
+        assert 'key.startswith("analysis_")' in source, "_render_analysis_options must sweep analysis_* keys (WP-B7)"
+        assert 'key.startswith("_wb_")' in source, "_render_analysis_options must sweep _wb_* keys (WP-B7)"
         assert "st.cache_data.clear()" in source, (
             "_render_analysis_options must call st.cache_data.clear() on Refresh (WP-B7)"
         )
@@ -1236,7 +1236,6 @@ class TestWave1B6Spinner:
 
     def test_spinner_context_entered_during_analyze(self, page, rich_df, monkeypatch):
         """Spinner context manager is entered when analyze(df) is called."""
-        import insights_page as ip
         p, fake_st = page
 
         spinner_entered = []
@@ -1245,6 +1244,7 @@ class TestWave1B6Spinner:
             def __enter__(self_cm):
                 spinner_entered.append(True)
                 return self_cm
+
             def __exit__(self_cm, *_):
                 pass
 
@@ -1276,11 +1276,11 @@ class TestWave1B6Spinner:
     def test_insights_page_has_spinner_in_render(self):
         """Verify render() source wraps analyze(df) in st.spinner."""
         import inspect
+
         import insights_page as ip
+
         source = inspect.getsource(ip.FinancialInsightsPage.render)
-        assert 'st.spinner("Analyzing...")' in source, (
-            "render() must wrap analyze(df) in st.spinner (WP-B6)"
-        )
+        assert 'st.spinner("Analyzing...")' in source, "render() must wrap analyze(df) in st.spinner (WP-B6)"
 
 
 class TestWave1B5EmptyStateInfo:
@@ -1289,6 +1289,7 @@ class TestWave1B5EmptyStateInfo:
     def test_chart_exception_emits_st_info(self, page, rich_df, monkeypatch):
         """When a chart block raises, st.info is called with empty-state message."""
         import insights_page as ip
+
         p, fake_st = page
 
         # _render_ratio_decomposition has a chart except block — force it to raise
@@ -1306,17 +1307,22 @@ class TestWave1B5EmptyStateInfo:
         monkeypatch.setattr(go, "Figure", _BrokenFigure)
 
         from unittest.mock import patch
+
         with patch.object(p.analyzer, "dupont_analysis") as mock_dupont:
             # Return a minimal result object with expected attributes
-            mock_result = type("R", (), {
-                "dupont_grade": "Good",
-                "net_margin": 0.16,
-                "asset_turnover": 0.5,
-                "equity_multiplier": 1.67,
-                "roe_pct": 13.3,
-                "dupont_score": 7.5,
-                "summary": "Good",
-            })()
+            mock_result = type(
+                "R",
+                (),
+                {
+                    "dupont_grade": "Good",
+                    "net_margin": 0.16,
+                    "asset_turnover": 0.5,
+                    "equity_multiplier": 1.67,
+                    "roe_pct": 13.3,
+                    "dupont_score": 7.5,
+                    "summary": "Good",
+                },
+            )()
             mock_dupont.return_value = mock_result
             _reset_spy(fake_st)
             try:
@@ -1329,6 +1335,7 @@ class TestWave1B5EmptyStateInfo:
         # Note: the method may or may not raise depending on where the except is placed
         # We verify the source has the st.info call
         import inspect
+
         source = inspect.getsource(ip.FinancialInsightsPage._render_ratio_decomposition)
         assert 'st.info("Insufficient data to render this chart")' in source, (
             "_render_ratio_decomposition must emit st.info on chart exception (WP-B5)"
@@ -1336,8 +1343,8 @@ class TestWave1B5EmptyStateInfo:
 
     def test_insights_page_has_11_empty_state_infos(self):
         """Verify 11 st.info empty-state messages exist in insights_page.py source."""
-        import inspect
         import insights_page as ip
+
         # Read source directly to count occurrences
         source_path = ip.__file__
         if source_path.endswith(".pyc"):
@@ -1345,9 +1352,7 @@ class TestWave1B5EmptyStateInfo:
         with open(source_path, "r", encoding="utf-8") as f:
             raw = f.read()
         count = raw.count('st.info("Insufficient data to render this chart")')
-        assert count == 11, (
-            f"Expected 11 st.info empty-state messages, found {count} (WP-B5)"
-        )
+        assert count == 11, f"Expected 11 st.info empty-state messages, found {count} (WP-B5)"
 
 
 class TestWave1B1SingleAnalyzerInstance:
@@ -1364,6 +1369,7 @@ class TestWave1B1SingleAnalyzerInstance:
         re-instantiation is permitted (WP-B1).
         """
         import insights_page as ip
+
         source_path = ip.__file__
         if source_path.endswith(".pyc"):
             source_path = source_path[:-1]
@@ -1380,15 +1386,16 @@ class TestWave1B1SingleAnalyzerInstance:
     def test_init_creates_self_analyzer(self):
         """__init__ creates self.analyzer = CharlieAnalyzer()."""
         import inspect
+
         import insights_page as ip
+
         init_source = inspect.getsource(ip.FinancialInsightsPage.__init__)
-        assert "self.analyzer = CharlieAnalyzer()" in init_source, (
-            "__init__ must set self.analyzer = CharlieAnalyzer()"
-        )
+        assert "self.analyzer = CharlieAnalyzer()" in init_source, "__init__ must set self.analyzer = CharlieAnalyzer()"
 
     def test_no_orphaned_charlie_analyzer_imports(self):
         """No local 'from financial_analyzer import CharlieAnalyzer...' inside methods."""
         import insights_page as ip
+
         source_path = ip.__file__
         if source_path.endswith(".pyc"):
             source_path = source_path[:-1]
@@ -1403,15 +1410,13 @@ class TestWave1B1SingleAnalyzerInstance:
                 and line.startswith(" ")  # indented = inside a method
             ):
                 orphaned.append(f"  line {i}: {stripped}")
-        assert orphaned == [], (
-            "Found orphaned local CharlieAnalyzer imports (WP-B1 cleanup):\n"
-            + "\n".join(orphaned)
-        )
+        assert orphaned == [], "Found orphaned local CharlieAnalyzer imports (WP-B1 cleanup):\n" + "\n".join(orphaned)
 
 
 # ---------------------------------------------------------------------------
 # 9. DuPont fix tests (Wave 3 Part 1 — correctness)
 # ---------------------------------------------------------------------------
+
 
 class TestDupontAnalysisFix:
     """
@@ -1460,6 +1465,7 @@ class TestDupontAnalysisFix:
         net_profit_margin, roa, leverage_effect) should be accessed.
         """
         from financial_analyzer import CharlieAnalyzer
+
         analyzer = CharlieAnalyzer()
         result = analyzer.dupont_analysis(rich_financial_data)
         # Real fields must be accessible without AttributeError.
@@ -1473,8 +1479,7 @@ class TestDupontAnalysisFix:
         _ = result.interpretation
         # With rich fixture, roe should be non-None (all inputs present).
         assert result.roe is not None, (
-            "dupont_analysis returned None roe for rich fixture; "
-            "primary driver classification will also be None"
+            "dupont_analysis returned None roe for rich fixture; primary driver classification will also be None"
         )
         assert result.net_margin is not None
         assert result.asset_turnover is not None
@@ -1487,21 +1492,30 @@ class TestDupontAnalysisFix:
         of the phantom fields that caused AttributeError.
         """
         import inspect
+
         import insights_page as ip
+
         source = inspect.getsource(ip.FinancialInsightsPage._render_dupont_analysis)
         # Real fields that must be present.
         assert "result.net_margin" in source, (
             "_render_dupont_analysis must use result.net_margin (not result.net_profit_margin)"
         )
-        assert "result.roe" in source, (
-            "_render_dupont_analysis must use result.roe"
-        )
+        assert "result.roe" in source, "_render_dupont_analysis must use result.roe"
         # Phantom fields that caused AttributeError must be absent.
-        for bad_field in ("result.da_grade", "result.da_score", "result.roe_dupont",
-                          "result.roa", "result.leverage_effect", "result.summary",
-                          "result.dupont_grade", "result.dupont_score",
-                          "result.roe_3factor", "result.roe_5factor",
-                          "result.operating_margin", "result.net_profit_margin"):
+        for bad_field in (
+            "result.da_grade",
+            "result.da_score",
+            "result.roe_dupont",
+            "result.roa",
+            "result.leverage_effect",
+            "result.summary",
+            "result.dupont_grade",
+            "result.dupont_score",
+            "result.roe_3factor",
+            "result.roe_5factor",
+            "result.operating_margin",
+            "result.net_profit_margin",
+        ):
             assert bad_field not in source, (
                 f"_render_dupont_analysis must not reference phantom field {bad_field!r}; "
                 f"it does not exist on DuPontAnalysis"

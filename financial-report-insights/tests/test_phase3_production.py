@@ -7,15 +7,16 @@ Covers:
 - analyze() includes composite_health
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     CompositeHealthScore,
-    PeriodComparison,
+    FinancialData,
     FinancialReport,
+    PeriodComparison,
 )
 
 
@@ -103,8 +104,8 @@ def prior_period():
 
 # ===== Composite Health Score Tests =====
 
-class TestCompositeHealthScore:
 
+class TestCompositeHealthScore:
     def test_returns_dataclass(self, analyzer, healthy_company):
         result = analyzer.composite_health_score(healthy_company)
         assert isinstance(result, CompositeHealthScore)
@@ -115,21 +116,21 @@ class TestCompositeHealthScore:
 
     def test_grade_assignment(self, analyzer, healthy_company):
         result = analyzer.composite_health_score(healthy_company)
-        assert result.grade in ('A', 'B', 'C', 'D', 'F')
+        assert result.grade in ("A", "B", "C", "D", "F")
 
     def test_healthy_company_high_score(self, analyzer, healthy_company):
         result = analyzer.composite_health_score(healthy_company)
         assert result.score >= 50
-        assert result.grade in ('A', 'B', 'C')
+        assert result.grade in ("A", "B", "C")
 
     def test_distressed_company_low_score(self, analyzer, distressed_company):
         result = analyzer.composite_health_score(distressed_company)
         assert result.score <= 35
-        assert result.grade in ('D', 'F')
+        assert result.grade in ("D", "F")
 
     def test_all_components_present(self, analyzer, healthy_company):
         result = analyzer.composite_health_score(healthy_company)
-        expected_components = {'z_score', 'f_score', 'profitability', 'liquidity', 'leverage'}
+        expected_components = {"z_score", "f_score", "profitability", "liquidity", "leverage"}
         assert set(result.component_scores.keys()) == expected_components
 
     def test_components_sum_to_total(self, analyzer, healthy_company):
@@ -138,31 +139,31 @@ class TestCompositeHealthScore:
 
     def test_z_score_component_max_25(self, analyzer, healthy_company):
         result = analyzer.composite_health_score(healthy_company)
-        assert 0 <= result.component_scores['z_score'] <= 25
+        assert 0 <= result.component_scores["z_score"] <= 25
 
     def test_f_score_component_max_25(self, analyzer, healthy_company):
         result = analyzer.composite_health_score(healthy_company)
-        assert 0 <= result.component_scores['f_score'] <= 25
+        assert 0 <= result.component_scores["f_score"] <= 25
 
     def test_profitability_component_max_20(self, analyzer, healthy_company):
         result = analyzer.composite_health_score(healthy_company)
-        assert 0 <= result.component_scores['profitability'] <= 20
+        assert 0 <= result.component_scores["profitability"] <= 20
 
     def test_liquidity_component_max_15(self, analyzer, healthy_company):
         result = analyzer.composite_health_score(healthy_company)
-        assert 0 <= result.component_scores['liquidity'] <= 15
+        assert 0 <= result.component_scores["liquidity"] <= 15
 
     def test_leverage_component_max_15(self, analyzer, healthy_company):
         result = analyzer.composite_health_score(healthy_company)
-        assert 0 <= result.component_scores['leverage'] <= 15
+        assert 0 <= result.component_scores["leverage"] <= 15
 
     def test_interpretation_text(self, analyzer, healthy_company):
         result = analyzer.composite_health_score(healthy_company)
         assert result.interpretation is not None
-        assert 'Composite score' in result.interpretation
-        assert 'Grade' in result.interpretation
-        assert 'Strongest' in result.interpretation
-        assert 'Weakest' in result.interpretation
+        assert "Composite score" in result.interpretation
+        assert "Grade" in result.interpretation
+        assert "Strongest" in result.interpretation
+        assert "Weakest" in result.interpretation
 
     def test_with_prior_data(self, analyzer, healthy_company, prior_period):
         result = analyzer.composite_health_score(healthy_company, prior_period)
@@ -180,21 +181,29 @@ class TestCompositeHealthScore:
         """Verify grade boundaries by checking known ranges."""
         # Very strong company -> A grade
         strong = FinancialData(
-            revenue=15_000_000, cogs=5_000_000, gross_profit=10_000_000,
-            operating_income=5_000_000, ebit=5_000_000, net_income=3_000_000,
-            total_assets=10_000_000, current_assets=6_000_000,
-            current_liabilities=1_500_000, total_liabilities=3_000_000,
-            total_equity=7_000_000, retained_earnings=4_000_000,
-            total_debt=1_000_000, operating_cash_flow=4_000_000,
+            revenue=15_000_000,
+            cogs=5_000_000,
+            gross_profit=10_000_000,
+            operating_income=5_000_000,
+            ebit=5_000_000,
+            net_income=3_000_000,
+            total_assets=10_000_000,
+            current_assets=6_000_000,
+            current_liabilities=1_500_000,
+            total_liabilities=3_000_000,
+            total_equity=7_000_000,
+            retained_earnings=4_000_000,
+            total_debt=1_000_000,
+            operating_cash_flow=4_000_000,
         )
         result = analyzer.composite_health_score(strong)
-        assert result.grade in ('A', 'B')  # Strong company
+        assert result.grade in ("A", "B")  # Strong company
 
 
 # ===== Period Comparison Tests =====
 
-class TestPeriodComparison:
 
+class TestPeriodComparison:
     def test_returns_dataclass(self, analyzer, healthy_company, prior_period):
         result = analyzer.compare_periods(healthy_company, prior_period)
         assert isinstance(result, PeriodComparison)
@@ -225,22 +234,22 @@ class TestPeriodComparison:
         result = analyzer.compare_periods(healthy_company, prior_period)
         categories = set()
         for key in result.current_ratios:
-            categories.add(key.split('_')[0])
+            categories.add(key.split("_")[0])
         # Should have at least liquidity, profitability, leverage
-        assert 'liquidity' in categories
-        assert 'profitability' in categories
-        assert 'leverage' in categories
+        assert "liquidity" in categories
+        assert "profitability" in categories
+        assert "leverage" in categories
 
     def test_includes_scoring_models(self, analyzer, healthy_company, prior_period):
         result = analyzer.compare_periods(healthy_company, prior_period)
-        assert 'altman_z_score' in result.current_ratios
-        assert 'piotroski_f_score' in result.current_ratios
+        assert "altman_z_score" in result.current_ratios
+        assert "piotroski_f_score" in result.current_ratios
 
     def test_leverage_lower_is_better(self, analyzer, healthy_company, prior_period):
         """Decreasing leverage should be classified as improvement."""
         result = analyzer.compare_periods(healthy_company, prior_period)
         for key in result.improvements:
-            if 'leverage_debt' in key:
+            if "leverage_debt" in key:
                 # If leverage decreased, delta should be negative
                 assert result.deltas[key] < 0
 
@@ -255,8 +264,8 @@ class TestPeriodComparison:
 
 # ===== Financial Report Tests =====
 
-class TestFinancialReport:
 
+class TestFinancialReport:
     def test_returns_dataclass(self, analyzer, healthy_company):
         result = analyzer.generate_report(healthy_company)
         assert isinstance(result, FinancialReport)
@@ -264,13 +273,16 @@ class TestFinancialReport:
     def test_has_executive_summary(self, analyzer, healthy_company):
         result = analyzer.generate_report(healthy_company)
         assert result.executive_summary != ""
-        assert 'Overall Financial Health' in result.executive_summary
+        assert "Overall Financial Health" in result.executive_summary
 
     def test_has_required_sections(self, analyzer, healthy_company):
         result = analyzer.generate_report(healthy_company)
         expected_sections = [
-            'executive_summary', 'ratio_analysis', 'scoring_models',
-            'risk_assessment', 'recommendations',
+            "executive_summary",
+            "ratio_analysis",
+            "scoring_models",
+            "risk_assessment",
+            "recommendations",
         ]
         for section in expected_sections:
             assert section in result.sections, f"Missing section: {section}"
@@ -283,35 +295,34 @@ class TestFinancialReport:
 
     def test_scoring_models_section(self, analyzer, healthy_company):
         result = analyzer.generate_report(healthy_company)
-        scoring = result.sections['scoring_models']
-        assert 'Composite Health' in scoring
-        assert 'F-Score' in scoring
+        scoring = result.sections["scoring_models"]
+        assert "Composite Health" in scoring
+        assert "F-Score" in scoring
 
     def test_with_prior_data(self, analyzer, healthy_company, prior_period):
         result = analyzer.generate_report(healthy_company, prior_period)
-        assert 'period_comparison' in result.sections
+        assert "period_comparison" in result.sections
 
     def test_without_prior_data(self, analyzer, healthy_company):
         result = analyzer.generate_report(healthy_company)
-        assert 'period_comparison' not in result.sections
+        assert "period_comparison" not in result.sections
 
     def test_period_comparison_content(self, analyzer, healthy_company, prior_period):
         result = analyzer.generate_report(healthy_company, prior_period)
-        comp = result.sections['period_comparison']
+        comp = result.sections["period_comparison"]
         # Should have Improvements or Deteriorations or "No significant changes"
-        assert ('Improvements' in comp or 'Deteriorations' in comp
-                or 'No significant changes' in comp)
+        assert "Improvements" in comp or "Deteriorations" in comp or "No significant changes" in comp
 
     def test_risk_assessment_section(self, analyzer, healthy_company):
         result = analyzer.generate_report(healthy_company)
-        assert result.sections['risk_assessment'] != ""
+        assert result.sections["risk_assessment"] != ""
 
     def test_distressed_report(self, analyzer, distressed_company):
         result = analyzer.generate_report(distressed_company)
-        assert 'Grade' in result.executive_summary or 'Health' in result.executive_summary
+        assert "Grade" in result.executive_summary or "Health" in result.executive_summary
         # Distressed company should have warnings
-        risk = result.sections['risk_assessment']
-        assert 'WARNING' in risk or 'CRITICAL' in risk or 'No significant' in risk
+        risk = result.sections["risk_assessment"]
+        assert "WARNING" in risk or "CRITICAL" in risk or "No significant" in risk
 
     def test_empty_data_report(self, analyzer):
         data = FinancialData()
@@ -322,40 +333,50 @@ class TestFinancialReport:
 
 # ===== analyze() Integration Tests =====
 
-class TestAnalyzeIncludesHealth:
 
+class TestAnalyzeIncludesHealth:
     def test_composite_health_in_results(self, analyzer, healthy_company):
         results = analyzer.analyze(healthy_company)
-        assert 'composite_health' in results
-        assert isinstance(results['composite_health'], CompositeHealthScore)
+        assert "composite_health" in results
+        assert isinstance(results["composite_health"], CompositeHealthScore)
 
     def test_composite_health_score_value(self, analyzer, healthy_company):
         results = analyzer.analyze(healthy_company)
-        health = results['composite_health']
+        health = results["composite_health"]
         assert 0 <= health.score <= 100
-        assert health.grade in ('A', 'B', 'C', 'D', 'F')
+        assert health.grade in ("A", "B", "C", "D", "F")
 
     def test_all_analyze_keys_present(self, analyzer, healthy_company):
         results = analyzer.analyze(healthy_company)
         expected_keys = [
-            'liquidity_ratios', 'profitability_ratios', 'leverage_ratios',
-            'efficiency_ratios', 'cash_flow', 'working_capital',
-            'dupont', 'altman_z_score', 'piotroski_f_score',
-            'composite_health', 'insights',
+            "liquidity_ratios",
+            "profitability_ratios",
+            "leverage_ratios",
+            "efficiency_ratios",
+            "cash_flow",
+            "working_capital",
+            "dupont",
+            "altman_z_score",
+            "piotroski_f_score",
+            "composite_health",
+            "insights",
         ]
         for key in expected_keys:
             assert key in results, f"Missing key: {key}"
 
     def test_dataframe_input_includes_health(self, analyzer):
         import pandas as pd
-        df = pd.DataFrame({
-            'Revenue': [10_000_000],
-            'Net Income': [1_000_000],
-            'Total Assets': [20_000_000],
-            'Total Equity': [10_000_000],
-            'Current Assets': [5_000_000],
-            'Current Liabilities': [3_000_000],
-        })
+
+        df = pd.DataFrame(
+            {
+                "Revenue": [10_000_000],
+                "Net Income": [1_000_000],
+                "Total Assets": [20_000_000],
+                "Total Equity": [10_000_000],
+                "Current Assets": [5_000_000],
+                "Current Liabilities": [3_000_000],
+            }
+        )
         results = analyzer.analyze(df)
-        assert 'composite_health' in results
-        assert results['composite_health'].score >= 0
+        assert "composite_health" in results
+        assert results["composite_health"].score >= 0

@@ -13,9 +13,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import List
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 # ---------------------------------------------------------------------------
 # Path setup
@@ -47,7 +45,6 @@ from agents.tools import (
     tool_format_section,
     tool_search_documents,
 )
-
 
 # ===========================================================================
 # Helpers / fixtures
@@ -227,40 +224,28 @@ class TestToolRegistration:
 
 class TestToolCalculateRatio:
     def test_current_ratio_valid(self):
-        result = tool_calculate_ratio(
-            "current_ratio", current_assets=800_000, current_liabilities=400_000
-        )
+        result = tool_calculate_ratio("current_ratio", current_assets=800_000, current_liabilities=400_000)
         assert "2.0000" in result
         assert "current_ratio" in result.lower()
 
     def test_debt_to_equity_valid(self):
-        result = tool_calculate_ratio(
-            "debt_to_equity", total_debt=600_000, total_equity=1_000_000
-        )
+        result = tool_calculate_ratio("debt_to_equity", total_debt=600_000, total_equity=1_000_000)
         assert "0.6000" in result
 
     def test_roe_valid(self):
-        result = tool_calculate_ratio(
-            "roe", net_income=200_000, total_equity=1_000_000
-        )
+        result = tool_calculate_ratio("roe", net_income=200_000, total_equity=1_000_000)
         assert "0.2000" in result
 
     def test_roa_valid(self):
-        result = tool_calculate_ratio(
-            "roa", net_income=100_000, total_assets=2_000_000
-        )
+        result = tool_calculate_ratio("roa", net_income=100_000, total_assets=2_000_000)
         assert "0.0500" in result
 
     def test_gross_margin_valid(self):
-        result = tool_calculate_ratio(
-            "gross_margin", gross_profit=600_000, revenue=1_000_000
-        )
+        result = tool_calculate_ratio("gross_margin", gross_profit=600_000, revenue=1_000_000)
         assert "0.6000" in result
 
     def test_net_margin_valid(self):
-        result = tool_calculate_ratio(
-            "net_margin", net_income=100_000, revenue=1_000_000
-        )
+        result = tool_calculate_ratio("net_margin", net_income=100_000, revenue=1_000_000)
         assert "0.1000" in result
 
     def test_unknown_ratio_returns_error_message(self):
@@ -272,9 +257,7 @@ class TestToolCalculateRatio:
         assert "missing" in result.lower() or "Cannot compute" in result
 
     def test_zero_denominator_handled_gracefully(self):
-        result = tool_calculate_ratio(
-            "current_ratio", current_assets=800_000, current_liabilities=0
-        )
+        result = tool_calculate_ratio("current_ratio", current_assets=800_000, current_liabilities=0)
         # Should not raise; value is 0 due to safe_div
         assert isinstance(result, str)
 
@@ -297,9 +280,7 @@ class TestToolCalculateRatio:
         assert "2.0000" in result
 
     def test_result_contains_formula(self):
-        result = tool_calculate_ratio(
-            "roe", net_income=50_000, total_equity=500_000
-        )
+        result = tool_calculate_ratio("roe", net_income=50_000, total_equity=500_000)
         assert "formula" in result.lower() or "/" in result
 
 
@@ -443,15 +424,11 @@ class TestToolCheckAnomalies:
 
 class TestToolEvaluateLeverage:
     def test_high_leverage_detected(self):
-        result = tool_evaluate_leverage(
-            total_debt=2_000_000, total_equity=500_000
-        )
+        result = tool_evaluate_leverage(total_debt=2_000_000, total_equity=500_000)
         assert "high" in result.lower() or "HIGH" in result
 
     def test_low_leverage_normal(self):
-        result = tool_evaluate_leverage(
-            total_debt=200_000, total_equity=1_000_000
-        )
+        result = tool_evaluate_leverage(total_debt=200_000, total_equity=1_000_000)
         assert isinstance(result, str)
         assert "0.2" in result
 
@@ -607,9 +584,7 @@ class TestToolSearchDocuments:
 
     def test_with_mock_rag_returning_results(self):
         mock_rag = MagicMock()
-        mock_rag.retrieve.return_value = [
-            {"content": "Revenue grew 12%", "source": "report.pdf", "score": 0.95}
-        ]
+        mock_rag.retrieve.return_value = [{"content": "Revenue grew 12%", "source": "report.pdf", "score": 0.95}]
         result = tool_search_documents("revenue growth", rag_instance=mock_rag)
         assert "Revenue grew 12%" in result
         assert "report.pdf" in result

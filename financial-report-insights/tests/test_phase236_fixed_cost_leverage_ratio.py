@@ -4,6 +4,7 @@ Tests for fixed_cost_leverage_ratio_analysis() and FixedCostLeverageRatioResult 
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestFixedCostLeverageRatioDataclass:
     def test_defaults(self):
         r = FixedCostLeverageRatioResult()
@@ -68,6 +70,7 @@ class TestFixedCostLeverageRatioDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestFixedCostLeverageRatioAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -104,6 +107,7 @@ class TestFixedCostLeverageRatioAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestFixedCostLeverageRatioScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -142,6 +146,7 @@ class TestFixedCostLeverageRatioScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase236EdgeCases:
     def test_empty_data(self, analyzer):

@@ -35,9 +35,7 @@ def _content_key(doc: dict[str, Any]) -> str:
 class RerankerProtocol(Protocol):
     """Protocol for document rerankers."""
 
-    def rerank(
-        self, query: str, documents: List[Dict[str, Any]], top_k: int
-    ) -> List[Dict[str, Any]]:
+    def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int) -> List[Dict[str, Any]]:
         """Rerank documents by relevance to query."""
         ...
 
@@ -70,6 +68,7 @@ class EmbeddingReranker:
         if cache_maxsize is None:
             try:
                 from config import settings as _settings
+
                 cache_maxsize = _settings.reranker_cache_maxsize
             except Exception:
                 cache_maxsize = _DEFAULT_CACHE_MAXSIZE
@@ -149,9 +148,7 @@ class EmbeddingReranker:
                     hit_vecs[keys[idx]] = vec
 
             # Assemble full doc_vecs in original document order
-            doc_vecs = np.asarray(
-                [hit_vecs[k] for k in keys], dtype=np.float32
-            )
+            doc_vecs = np.asarray([hit_vecs[k] for k in keys], dtype=np.float32)
 
             # Compute cosine similarities
             query_norm = np.linalg.norm(query_vec)
@@ -286,15 +283,13 @@ def add_citations(documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             if "chunk_index" in metadata:
                 parts.append(f"Section: {metadata['chunk_index'] + 1}")
             if metadata.get("period_columns"):
-                parts.append(
-                    f"Periods: {', '.join(metadata['period_columns'][:3])}"
-                )
+                parts.append(f"Periods: {', '.join(metadata['period_columns'][:3])}")
 
         # Table structure info
         table_struct = doc.get("table_structure", {})
         if isinstance(table_struct, dict) and "row_range" in table_struct:
             row_range = table_struct["row_range"]
-            parts.append(f"Rows: {row_range[0]+1}-{row_range[1]}")
+            parts.append(f"Rows: {row_range[0] + 1}-{row_range[1]}")
 
         # Cell references
         cell_ref = doc.get("cell_references")

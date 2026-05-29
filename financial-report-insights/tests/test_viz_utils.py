@@ -1,11 +1,7 @@
 """Tests for viz_utils.py financial visualization utilities."""
 
-import math
-
 import pandas as pd
 import plotly.graph_objects as go
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # format_currency
@@ -137,17 +133,13 @@ class TestCreateKpiCard:
     def test_currency_format(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_kpi_card(
-            500_000, title="Revenue", format_type="currency"
-        )
+        fig = FinancialVizUtils.create_kpi_card(500_000, title="Revenue", format_type="currency")
         assert fig.data[0].value == 500_000
 
     def test_percent_format(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_kpi_card(
-            0.125, title="Margin", format_type="percent"
-        )
+        fig = FinancialVizUtils.create_kpi_card(0.125, title="Margin", format_type="percent")
         # Value should be multiplied by 100 for percent display
         assert fig.data[0].value == 12.5
 
@@ -160,9 +152,7 @@ class TestCreateKpiCard:
     def test_with_delta(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_kpi_card(
-            1_000_000, delta=100_000, format_type="currency"
-        )
+        fig = FinancialVizUtils.create_kpi_card(1_000_000, delta=100_000, format_type="currency")
         assert "delta" in fig.data[0].mode
 
 
@@ -181,9 +171,7 @@ class TestCreateGaugeChart:
     def test_custom_thresholds(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_gauge_chart(
-            50, thresholds={"warning": 30, "good": 70}
-        )
+        fig = FinancialVizUtils.create_gauge_chart(50, thresholds={"warning": 30, "good": 70})
         assert fig.data[0].value == 50
 
     def test_default_thresholds(self):
@@ -202,26 +190,20 @@ class TestCreateWaterfall:
     def test_returns_figure(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_waterfall(
-            ["Revenue", "COGS"], [1000, -600]
-        )
+        fig = FinancialVizUtils.create_waterfall(["Revenue", "COGS"], [1000, -600])
         assert isinstance(fig, go.Figure)
 
     def test_with_total(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_waterfall(
-            ["A", "B"], [100, -30], show_total=True
-        )
+        fig = FinancialVizUtils.create_waterfall(["A", "B"], [100, -30], show_total=True)
         # Should have 3 entries (A, B, Total)
         assert len(fig.data[0].x) == 3
 
     def test_without_total(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_waterfall(
-            ["A", "B"], [100, -30], show_total=False
-        )
+        fig = FinancialVizUtils.create_waterfall(["A", "B"], [100, -30], show_total=False)
         assert len(fig.data[0].x) == 2
 
 
@@ -234,17 +216,13 @@ class TestCreateBulletChart:
     def test_returns_figure(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_bullet_chart(
-            actual=80, target=100, ranges=[50, 75, 100], title="Sales"
-        )
+        fig = FinancialVizUtils.create_bullet_chart(actual=80, target=100, ranges=[50, 75, 100], title="Sales")
         assert isinstance(fig, go.Figure)
 
     def test_has_target_shape(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_bullet_chart(
-            actual=80, target=100, ranges=[50, 75, 100]
-        )
+        fig = FinancialVizUtils.create_bullet_chart(actual=80, target=100, ranges=[50, 75, 100])
         # Should have a line shape for the target
         assert len(fig.layout.shapes) >= 1
 
@@ -271,17 +249,13 @@ class TestCreateSparkline:
     def test_without_area(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_sparkline(
-            [1, 2, 3], show_area=False, highlight_last=False
-        )
+        fig = FinancialVizUtils.create_sparkline([1, 2, 3], show_area=False, highlight_last=False)
         assert len(fig.data) == 1  # Just the line
 
     def test_highlight_positive_trend(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_sparkline(
-            [1, 2, 3], highlight_last=True, show_area=False
-        )
+        fig = FinancialVizUtils.create_sparkline([1, 2, 3], highlight_last=True, show_area=False)
         # Last trace is the highlight marker
         marker = fig.data[-1]
         assert marker.marker.color == FinancialVizUtils.POSITIVE_COLOR
@@ -289,9 +263,7 @@ class TestCreateSparkline:
     def test_highlight_negative_trend(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_sparkline(
-            [3, 2, 1], highlight_last=True, show_area=False
-        )
+        fig = FinancialVizUtils.create_sparkline([3, 2, 1], highlight_last=True, show_area=False)
         marker = fig.data[-1]
         assert marker.marker.color == FinancialVizUtils.NEGATIVE_COLOR
 
@@ -311,9 +283,7 @@ class TestCreateHeatmap:
     def test_returns_figure(self):
         from viz_utils import FinancialVizUtils
 
-        df = pd.DataFrame(
-            {"A": [1.0, 0.5], "B": [0.5, 1.0]}, index=["X", "Y"]
-        )
+        df = pd.DataFrame({"A": [1.0, 0.5], "B": [0.5, 1.0]}, index=["X", "Y"])
         fig = FinancialVizUtils.create_heatmap(df, title="Correlation")
         assert isinstance(fig, go.Figure)
 
@@ -334,14 +304,14 @@ class TestCreateTimeSeries:
     def test_returns_figure(self):
         from viz_utils import FinancialVizUtils
 
-        df = pd.DataFrame({
-            "Period": ["Q1", "Q2", "Q3"],
-            "Revenue": [100, 110, 120],
-            "Profit": [20, 25, 30],
-        })
-        fig = FinancialVizUtils.create_time_series(
-            df, x_col="Period", y_cols=["Revenue", "Profit"]
+        df = pd.DataFrame(
+            {
+                "Period": ["Q1", "Q2", "Q3"],
+                "Revenue": [100, 110, 120],
+                "Profit": [20, 25, 30],
+            }
         )
+        fig = FinancialVizUtils.create_time_series(df, x_col="Period", y_cols=["Revenue", "Profit"])
         assert isinstance(fig, go.Figure)
         assert len(fig.data) == 2  # Two y_cols
 
@@ -349,9 +319,7 @@ class TestCreateTimeSeries:
         from viz_utils import FinancialVizUtils
 
         df = pd.DataFrame({"Period": ["Q1", "Q2"], "Revenue": [100, 110]})
-        fig = FinancialVizUtils.create_time_series(
-            df, x_col="Period", y_cols=["Revenue"]
-        )
+        fig = FinancialVizUtils.create_time_series(df, x_col="Period", y_cols=["Revenue"])
         assert len(fig.data) == 1
 
 
@@ -364,18 +332,14 @@ class TestCreateComparisonBar:
     def test_returns_figure(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_comparison_bar(
-            ["Sales", "Marketing"], [100, 80], [90, 85]
-        )
+        fig = FinancialVizUtils.create_comparison_bar(["Sales", "Marketing"], [100, 80], [90, 85])
         assert isinstance(fig, go.Figure)
         assert len(fig.data) == 2  # Two bar traces
 
     def test_horizontal(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_comparison_bar(
-            ["A", "B"], [10, 20], [15, 25], horizontal=True
-        )
+        fig = FinancialVizUtils.create_comparison_bar(["A", "B"], [10, 20], [15, 25], horizontal=True)
         assert fig.data[0].orientation == "h"
 
 
@@ -388,18 +352,14 @@ class TestCreateDonutChart:
     def test_returns_figure(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_donut_chart(
-            ["Revenue", "Expenses"], [700, 300]
-        )
+        fig = FinancialVizUtils.create_donut_chart(["Revenue", "Expenses"], [700, 300])
         assert isinstance(fig, go.Figure)
         assert fig.data[0].hole == 0.4
 
     def test_custom_hole_size(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_donut_chart(
-            ["A", "B"], [50, 50], hole_size=0.6
-        )
+        fig = FinancialVizUtils.create_donut_chart(["A", "B"], [50, 50], hole_size=0.6)
         assert fig.data[0].hole == 0.6
 
 
@@ -412,9 +372,7 @@ class TestCreateRatioDashboard:
     def test_returns_figure(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_ratio_dashboard(
-            {"ROA": 0.08, "ROE": 0.15, "Current": 1.5}
-        )
+        fig = FinancialVizUtils.create_ratio_dashboard({"ROA": 0.08, "ROE": 0.15, "Current": 1.5})
         assert isinstance(fig, go.Figure)
 
     def test_with_benchmarks(self):
@@ -429,9 +387,7 @@ class TestCreateRatioDashboard:
     def test_handles_none_values(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_ratio_dashboard(
-            {"ROA": 0.08, "ROE": None}
-        )
+        fig = FinancialVizUtils.create_ratio_dashboard({"ROA": 0.08, "ROE": None})
         # Should not crash on None values
         assert isinstance(fig, go.Figure)
 
@@ -445,9 +401,7 @@ class TestCreateTrendChart:
     def test_without_forecast(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_trend_chart(
-            ["Q1", "Q2", "Q3"], [100, 110, 120]
-        )
+        fig = FinancialVizUtils.create_trend_chart(["Q1", "Q2", "Q3"], [100, 110, 120])
         assert isinstance(fig, go.Figure)
         assert len(fig.data) == 1  # Just historical
 
@@ -500,8 +454,8 @@ class TestCreateVarianceTableChart:
 
         fig = FinancialVizUtils.create_variance_table_chart(
             ["Item"],
-            [110],   # actual
-            [100],   # budget
+            [110],  # actual
+            [100],  # budget
         )
         # Variance = 110 - 100 = 10
         assert fig.data[0].x == (10,)
@@ -509,9 +463,7 @@ class TestCreateVarianceTableChart:
     def test_zero_budget_no_crash(self):
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_variance_table_chart(
-            ["Item"], [100], [0]
-        )
+        fig = FinancialVizUtils.create_variance_table_chart(["Item"], [100], [0])
         assert isinstance(fig, go.Figure)
 
 
@@ -695,6 +647,7 @@ class TestCreateSimpleBar:
         Assert: same trace type, same x/y data, same title, same y-axis title, same height.
         """
         import plotly.graph_objects as _go
+
         from viz_utils import FinancialVizUtils
 
         labels = ["EV/EBITDA", "EV/Revenue", "EV/EBIT"]
@@ -702,11 +655,15 @@ class TestCreateSimpleBar:
         colors = ["#3498db", "#2ecc71", "#e67e22"]
 
         # PRE-migration reference figure
-        ref = _go.Figure(data=[_go.Bar(
-            x=labels,
-            y=values,
-            marker_color=colors,
-        )])
+        ref = _go.Figure(
+            data=[
+                _go.Bar(
+                    x=labels,
+                    y=values,
+                    marker_color=colors,
+                )
+            ]
+        )
         ref.update_layout(title="Valuation Multiples", yaxis_title="Multiple", height=350)
 
         # POST-migration helper figure

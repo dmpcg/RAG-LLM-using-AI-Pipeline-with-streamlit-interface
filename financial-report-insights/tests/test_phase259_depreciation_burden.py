@@ -4,10 +4,11 @@ Tests for depreciation_burden_analysis() and DepreciationBurdenResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DepreciationBurdenResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDepreciationBurdenDataclass:
     def test_defaults(self):
         r = DepreciationBurdenResult()
@@ -68,6 +70,7 @@ class TestDepreciationBurdenDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDepreciationBurdenAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -110,6 +113,7 @@ class TestDepreciationBurdenAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestDepreciationBurdenScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """DTR=0.05 in (0.03,0.05]=>base 8.5. D&A/EBITDA=0.20<=0.20(+0.5). D&A/TA=0.025<=0.03(+0.5). Score=9.5."""
@@ -147,6 +151,7 @@ class TestDepreciationBurdenScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase259EdgeCases:
     def test_empty_data(self, analyzer):

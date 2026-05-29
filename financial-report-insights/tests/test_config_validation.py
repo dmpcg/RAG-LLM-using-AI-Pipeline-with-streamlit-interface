@@ -3,11 +3,8 @@
 import os
 from unittest.mock import patch
 
-import pytest
-
 from config import Settings, validate_settings
 from healthcheck import check_config_valid
-
 
 # ---------------------------------------------------------------------------
 # validate_settings() tests
@@ -67,9 +64,7 @@ class TestValidateSettings:
         for dim in (0, 384, 768, 1024):
             s = Settings(embedding_dimension=dim)
             _, warnings = validate_settings(s)
-            assert not any("embedding_dimension" in w for w in warnings), (
-                f"Unexpected warning for dim={dim}"
-            )
+            assert not any("embedding_dimension" in w for w in warnings), f"Unexpected warning for dim={dim}"
 
     def test_large_file_size_warns(self):
         s = Settings(max_file_size_mb=600)

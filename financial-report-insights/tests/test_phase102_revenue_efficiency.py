@@ -4,6 +4,7 @@ Tests for revenue_efficiency_analysis() and RevenueEfficiencyResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestRevenueEfficiencyDataclass:
     def test_defaults(self):
         r = RevenueEfficiencyResult()
@@ -68,6 +70,7 @@ class TestRevenueEfficiencyDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestRevenueEfficiencyAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestRevenueEfficiencyAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestRevenueEfficiencyScoring:
     def test_good_conversion(self, analyzer, sample_data):
         """CCE=0.22 >= 0.20 => base 8.5. OLR=0.50 >= 0.50 => +0.5. Score=9.0."""
@@ -157,6 +161,7 @@ class TestRevenueEfficiencyScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase102EdgeCases:
     def test_empty_data(self, analyzer):

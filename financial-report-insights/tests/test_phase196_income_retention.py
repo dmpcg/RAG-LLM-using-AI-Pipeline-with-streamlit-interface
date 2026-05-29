@@ -4,6 +4,7 @@ Tests for income_retention_analysis() and IncomeRetentionResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestIncomeRetentionDataclass:
     def test_defaults(self):
         r = IncomeRetentionResult()
@@ -68,6 +70,7 @@ class TestIncomeRetentionDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestIncomeRetentionAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestIncomeRetentionAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestIncomeRetentionScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """NtGR=0.375 => base 8.5. NtOR=0.75 no adj (<0.80). ATM=0.15 >=0.15 => +0.5. Score=9.0."""
@@ -155,6 +159,7 @@ class TestIncomeRetentionScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase196EdgeCases:
     def test_empty_data(self, analyzer):

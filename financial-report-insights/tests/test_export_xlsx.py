@@ -3,9 +3,9 @@
 import pytest
 
 from financial_analyzer import (
+    CompositeHealthScore,
     FinancialData,
     FinancialReport,
-    CompositeHealthScore,
     ScenarioResult,
 )
 
@@ -56,31 +56,23 @@ class TestFinancialExcelExporter:
     # export_full_report
     # ------------------------------------------------------------------
 
-    def test_export_full_report_returns_bytes(
-        self, exporter, sample_data, sample_results
-    ):
+    def test_export_full_report_returns_bytes(self, exporter, sample_data, sample_results):
         result = exporter.export_full_report(sample_data, sample_results)
         assert isinstance(result, bytes)
         assert len(result) > 1000  # A real XLSX with content should be at least 1KB
         # XLSX magic bytes (PK zip archive)
         assert result[:2] == b"PK"
 
-    def test_export_full_report_with_report(
-        self, exporter, sample_data, sample_results
-    ):
+    def test_export_full_report_with_report(self, exporter, sample_data, sample_results):
         report = FinancialReport(
             executive_summary="Test summary",
             sections={"Overview": "Test"},
         )
-        result = exporter.export_full_report(
-            sample_data, sample_results, report=report
-        )
+        result = exporter.export_full_report(sample_data, sample_results, report=report)
         assert isinstance(result, bytes)
         assert result[:2] == b"PK"
 
-    def test_export_full_report_with_health_score(
-        self, exporter, sample_data
-    ):
+    def test_export_full_report_with_health_score(self, exporter, sample_data):
         results = {
             "current_ratio": 2.0,
             "composite_health": CompositeHealthScore(
@@ -94,9 +86,7 @@ class TestFinancialExcelExporter:
         assert isinstance(result, bytes)
         assert result[:2] == b"PK"
 
-    def test_export_full_report_with_empty_results(
-        self, exporter, sample_data
-    ):
+    def test_export_full_report_with_empty_results(self, exporter, sample_data):
         result = exporter.export_full_report(sample_data, {})
         assert isinstance(result, bytes)
         assert result[:2] == b"PK"
@@ -200,7 +190,9 @@ class TestFinancialExcelExporter:
 
     def test_scenario_export_caps_at_whole_scenario_boundary(self, exporter):
         import io
+
         import openpyxl
+
         from export_xlsx import _MAX_EXPORT_ROWS
 
         assert _MAX_EXPORT_ROWS == 10_000
@@ -230,15 +222,14 @@ class TestFinancialExcelExporter:
         # The LAST written scenario must have its FULL key set (no partial block).
         last_name = written_names[-1]
         last_scenario = next(s for s in scenarios if s.scenario_name == last_name)
-        expected_labels = {
-            k.replace("_", " ").title() for k in last_scenario.base_ratios
-        }
+        expected_labels = {k.replace("_", " ").title() for k in last_scenario.base_ratios}
         present_labels = set(v for v in col0 if isinstance(v, str))
         missing = expected_labels - present_labels
         assert not missing, f"last scenario block is partial; missing {len(missing)} keys"
 
     def test_scenario_export_small_input_uncapped(self, exporter):
         import io
+
         import openpyxl
 
         scenarios = [
@@ -298,18 +289,21 @@ class TestFinancialExcelExporter:
         assert result[:2] == b"PK"
 
 
-
 # ---------------------------------------------------------------------------
 # WS-3 P0-8: current_ratio renders as multiplier (1.50x), not percent (150.00%)
 # ---------------------------------------------------------------------------
+
 
 class TestRatioFormatting_P0_8:
     """Regression: ratios must NOT be formatted as percentages in XLSX output."""
 
     def test_current_ratio_uses_ratio_format(self):
-        from export_xlsx import _Formats
-        import xlsxwriter
         import io
+
+        import xlsxwriter
+
+        from export_xlsx import _Formats
+
         wb = xlsxwriter.Workbook(io.BytesIO(), {"in_memory": True})
         fmt = _Formats(wb)
         chosen = fmt.value_fmt("current_ratio")
@@ -319,24 +313,36 @@ class TestRatioFormatting_P0_8:
         wb.close()
 
     def test_debt_to_equity_uses_ratio_format(self):
+        import io
+
+        import xlsxwriter
+
         from export_xlsx import _Formats
-        import xlsxwriter, io
+
         wb = xlsxwriter.Workbook(io.BytesIO(), {"in_memory": True})
         fmt = _Formats(wb)
         assert fmt.value_fmt("debt_to_equity") is fmt.ratio
         wb.close()
 
     def test_gross_margin_still_uses_percent_format(self):
+        import io
+
+        import xlsxwriter
+
         from export_xlsx import _Formats
-        import xlsxwriter, io
+
         wb = xlsxwriter.Workbook(io.BytesIO(), {"in_memory": True})
         fmt = _Formats(wb)
         assert fmt.value_fmt("gross_margin") is fmt.pct
         wb.close()
 
     def test_revenue_still_uses_dollar_format(self):
+        import io
+
+        import xlsxwriter
+
         from export_xlsx import _Formats
-        import xlsxwriter, io
+
         wb = xlsxwriter.Workbook(io.BytesIO(), {"in_memory": True})
         fmt = _Formats(wb)
         assert fmt.value_fmt("revenue") is fmt.dollar
@@ -345,6 +351,7 @@ class TestRatioFormatting_P0_8:
     def test_export_ratios_writes_ratio_value_unchanged(self):
         """Sanity check: export runs without exception and current_ratio=1.5 is written."""
         from export_xlsx import FinancialExcelExporter
+
         exporter = FinancialExcelExporter()
         out = exporter.export_ratios({"current_ratio": 1.5, "gross_margin": 0.45})
         assert isinstance(out, bytes)
@@ -356,20 +363,24 @@ class TestRatioFormatting_P0_8:
 # (must now log a warning AND write exactly one truncation-note row).
 # ---------------------------------------------------------------------------
 
+
 class TestRatiosSheetCap_WP8:
     """The Ratios sheet 500-entry cap must no longer be silent."""
 
     @pytest.fixture
     def exporter(self):
         from export_xlsx import FinancialExcelExporter
+
         return FinancialExcelExporter()
 
     def test_ratios_sheet_over_cap_logs_and_writes_one_note(self, exporter, caplog):
         import io
         import logging
+
         import openpyxl
-        from financial_analyzer import FinancialData
+
         from export_xlsx import _MAX_RATIO_ENTRIES
+        from financial_analyzer import FinancialData
 
         assert _MAX_RATIO_ENTRIES == 500
 
@@ -391,15 +402,14 @@ class TestRatiosSheetCap_WP8:
         wb = openpyxl.load_workbook(io.BytesIO(out))
         ws = wb["Ratios"]
         col0 = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
-        notes = [
-            v for v in col0
-            if isinstance(v, str) and "truncated" in v.lower()
-        ]
+        notes = [v for v in col0 if isinstance(v, str) and "truncated" in v.lower()]
         assert len(notes) == 1, f"expected exactly one truncation note, got {notes}"
 
     def test_ratios_sheet_under_cap_no_note(self, exporter):
         import io
+
         import openpyxl
+
         from financial_analyzer import FinancialData
 
         results = {f"metric_{i:05d}": float(i) for i in range(10)}
@@ -409,17 +419,16 @@ class TestRatiosSheetCap_WP8:
         wb = openpyxl.load_workbook(io.BytesIO(out))
         ws = wb["Ratios"]
         col0 = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
-        notes = [
-            v for v in col0
-            if isinstance(v, str) and "truncated" in v.lower()
-        ]
+        notes = [v for v in col0 if isinstance(v, str) and "truncated" in v.lower()]
         assert notes == []
 
     def test_export_ratios_over_cap_logs_and_writes_one_note(self, exporter, caplog):
         """The single-sheet export_ratios path also caps + surfaces."""
         import io
         import logging
+
         import openpyxl
+
         from export_xlsx import _MAX_RATIO_ENTRIES
 
         ratios = {f"metric_{i:05d}": float(i) for i in range(_MAX_RATIO_ENTRIES + 50)}
@@ -434,8 +443,5 @@ class TestRatiosSheetCap_WP8:
         wb = openpyxl.load_workbook(io.BytesIO(out))
         ws = wb["Ratios"]
         col0 = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
-        notes = [
-            v for v in col0
-            if isinstance(v, str) and "truncated" in v.lower()
-        ]
+        notes = [v for v in col0 if isinstance(v, str) and "truncated" in v.lower()]
         assert len(notes) == 1, f"expected exactly one truncation note, got {notes}"

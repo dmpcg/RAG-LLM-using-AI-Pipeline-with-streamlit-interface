@@ -4,10 +4,11 @@ Tests for eva_analysis() and EVAResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     EVAResult,
+    FinancialData,
 )
 
 
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestEVADataclass:
     def test_defaults(self):
         r = EVAResult()
@@ -67,6 +69,7 @@ class TestEVADataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestEVAAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -127,6 +130,7 @@ class TestEVAAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestEVAScoring:
     def test_value_creator(self, analyzer):
         """High positive EVA => Value Creator."""
@@ -167,6 +171,7 @@ class TestEVAScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase38EdgeCases:
     def test_empty_data(self, analyzer):

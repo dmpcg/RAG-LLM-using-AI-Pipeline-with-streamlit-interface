@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -24,7 +24,6 @@ from agents.base import (
     ToolCall,
     ToolRegistry,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -395,16 +394,12 @@ class TestBaseAgentSelectTool:
         self.tools = [Tool("calculator", "does math", lambda x: x, {"x": "expr"})]
 
     def test_parses_tool_name_from_tool_prefix(self):
-        result = self.agent._select_tool(
-            "I need to TOOL: calculator\nARGS: x=2+3", self.tools
-        )
+        result = self.agent._select_tool("I need to TOOL: calculator\nARGS: x=2+3", self.tools)
         assert result is not None
         assert result.tool_name == "calculator"
 
     def test_parses_tool_name_from_action_prefix(self):
-        result = self.agent._select_tool(
-            "Action: calculator\nARGS: x=5*10", self.tools
-        )
+        result = self.agent._select_tool("Action: calculator\nARGS: x=5*10", self.tools)
         assert result is not None
         assert result.tool_name == "calculator"
 
@@ -417,9 +412,7 @@ class TestBaseAgentSelectTool:
         assert result is None
 
     def test_parses_key_value_arguments(self):
-        result = self.agent._select_tool(
-            "TOOL: calculator\nARGS: x=100", self.tools
-        )
+        result = self.agent._select_tool("TOOL: calculator\nARGS: x=100", self.tools)
         assert result is not None
         assert result.arguments.get("x") == "100"
 
@@ -437,20 +430,24 @@ class TestBaseAgentSelectTool:
 class TestBaseAgentRun:
     def test_run_returns_string(self):
         # LLM: plan response + step thought (with final answer)
-        llm = _make_llm([
-            "1. Do the thing",               # plan
-            "Final Answer: The answer is 42",  # step thought
-        ])
+        llm = _make_llm(
+            [
+                "1. Do the thing",  # plan
+                "Final Answer: The answer is 42",  # step thought
+            ]
+        )
         agent = BaseAgent(name="a", llm=llm)
         result = agent.run("What is the answer?")
         assert isinstance(result, str)
         assert "42" in result
 
     def test_run_stores_user_query_in_memory(self):
-        llm = _make_llm([
-            "1. Step one",
-            "Final Answer: done",
-        ])
+        llm = _make_llm(
+            [
+                "1. Step one",
+                "Final Answer: done",
+            ]
+        )
         agent = BaseAgent(name="a", llm=llm)
         agent.run("tell me about ROE")
         msgs = agent.memory.get_recent(10)
@@ -497,11 +494,13 @@ class TestBaseAgentRun:
 
         registry.register(Tool("flaky", "fails always", failing_tool, {}))
 
-        llm = _make_llm([
-            "1. Use the flaky tool",
-            "TOOL: flaky",          # causes error observation
-            "Final Answer: gracefully handled",
-        ])
+        llm = _make_llm(
+            [
+                "1. Use the flaky tool",
+                "TOOL: flaky",  # causes error observation
+                "Final Answer: gracefully handled",
+            ]
+        )
         agent = BaseAgent(name="a", llm=llm, tools=registry)
         result = agent.run("trigger flaky tool")
         # Should not raise; should return the final answer
@@ -509,11 +508,13 @@ class TestBaseAgentRun:
 
     def test_run_synthesises_when_no_final_answer_found(self):
         # All thoughts lack "Final Answer" marker; synth call should be made
-        llm = _make_llm([
-            "1. Only step",
-            "I am thinking deeply about this.",     # step thought - no final answer
-            "The answer is clearly: 99",             # synth response - no marker
-        ])
+        llm = _make_llm(
+            [
+                "1. Only step",
+                "I am thinking deeply about this.",  # step thought - no final answer
+                "The answer is clearly: 99",  # synth response - no marker
+            ]
+        )
         agent = BaseAgent(name="a", llm=llm)
         result = agent.run("tricky question")
         assert isinstance(result, str)
@@ -547,9 +548,7 @@ class TestBaseAgentFullLoop:
             return f"Cannot evaluate: {expression}"
 
         registry.register(Tool("lookup", "look up financial data", lookup, {"key": "field name"}))
-        registry.register(
-            Tool("calculate", "compute subtraction", calculate, {"expression": "a-b"})
-        )
+        registry.register(Tool("calculate", "compute subtraction", calculate, {"expression": "a-b"}))
 
         # Plan: look up revenue, look up costs, compute profit, return answer
         llm_responses = [
@@ -579,12 +578,14 @@ class TestBaseAgentFullLoop:
 
         registry.register(Tool("spy", "records calls", spy_tool, {"msg": "message"}))
 
-        llm = _make_llm([
-            "1. Step one\n2. Step two",
-            "TOOL: spy\nARGS: msg=first",
-            "TOOL: spy\nARGS: msg=second",
-            "Final Answer: done",
-        ])
+        llm = _make_llm(
+            [
+                "1. Step one\n2. Step two",
+                "TOOL: spy\nARGS: msg=first",
+                "TOOL: spy\nARGS: msg=second",
+                "Final Answer: done",
+            ]
+        )
         agent = BaseAgent(name="mem_test", llm=llm, tools=registry)
         agent.run("test memory")
         assert "first" in call_log
@@ -592,22 +593,26 @@ class TestBaseAgentFullLoop:
 
     def test_empty_tool_registry_runs_without_error(self):
         """Agent with no tools still completes a run using just the LLM."""
-        llm = _make_llm([
-            "1. Think",
-            "Final Answer: no tools needed",
-        ])
+        llm = _make_llm(
+            [
+                "1. Think",
+                "Final Answer: no tools needed",
+            ]
+        )
         agent = BaseAgent(name="no_tools", llm=llm)
         result = agent.run("simple question")
         assert "no tools needed" in result
 
     def test_multiple_runs_accumulate_memory(self):
         """Each run appends to memory; facts persist between runs."""
-        llm = _make_llm([
-            "1. First run step",
-            "Final Answer: answer A",
-            "1. Second run step",
-            "Final Answer: answer B",
-        ])
+        llm = _make_llm(
+            [
+                "1. First run step",
+                "Final Answer: answer A",
+                "1. Second run step",
+                "Final Answer: answer B",
+            ]
+        )
         agent = BaseAgent(name="multi", llm=llm)
         r1 = agent.run("first question")
         r2 = agent.run("second question")

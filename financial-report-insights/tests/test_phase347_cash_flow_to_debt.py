@@ -4,10 +4,11 @@ Tests for cash_flow_to_debt_analysis() and CashFlowToDebtResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    CashFlowToDebtResult,
     CharlieAnalyzer,
     FinancialData,
-    CashFlowToDebtResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCashFlowToDebtDataclass:
     def test_defaults(self):
         r = CashFlowToDebtResult()
@@ -68,6 +70,7 @@ class TestCashFlowToDebtDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCashFlowToDebtAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestCashFlowToDebtAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestCashFlowToDebtScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -134,6 +138,7 @@ class TestCashFlowToDebtScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase347EdgeCases:
     def test_empty_data(self, analyzer):

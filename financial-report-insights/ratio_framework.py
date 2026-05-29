@@ -6,14 +6,15 @@ Each ratio is defined once with scoring thresholds and adjustments, then compute
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Tuple
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
 
 from financial_analyzer import FinancialData, safe_divide
 
 
 class Operator(Enum):
     """Comparison operators for ratio adjustments."""
+
     GT = ">"
     GTE = ">="
     LT = "<"
@@ -24,6 +25,7 @@ class Operator(Enum):
 @dataclass
 class Adjustment:
     """Defines a scoring adjustment based on a secondary ratio."""
+
     field: str  # Field name to check (e.g., "current_ratio")
     operator: Operator
     threshold: float
@@ -34,6 +36,7 @@ class Adjustment:
 @dataclass
 class RatioDefinition:
     """Declarative definition of a financial ratio with scoring rules."""
+
     name: str
     description: str
     numerator_field: str  # Field name on FinancialData
@@ -47,12 +50,14 @@ class RatioDefinition:
     # number. Empty string means "undocumented" (acceptable for ad-hoc/test
     # definitions; catalog entries should populate it).
     threshold_source: str = ""
-    grade_map: Dict[Tuple[float, float], str] = field(default_factory=lambda: {
-        (8.0, 10.0): "Excellent",
-        (6.0, 8.0): "Good",
-        (4.0, 6.0): "Adequate",
-        (0.0, 4.0): "Weak"
-    })
+    grade_map: Dict[Tuple[float, float], str] = field(
+        default_factory=lambda: {
+            (8.0, 10.0): "Excellent",
+            (6.0, 8.0): "Good",
+            (4.0, 6.0): "Adequate",
+            (0.0, 4.0): "Weak",
+        }
+    )
     unit: str = ""  # e.g., "%", "x", "days"
 
     def get_grade(self, score: float) -> str:
@@ -69,6 +74,7 @@ class RatioDefinition:
 @dataclass
 class RatioResult:
     """Result of computing a single ratio."""
+
     name: str
     value: Optional[float]
     score: float
@@ -98,9 +104,7 @@ def _apply_operator(value: float, operator: Operator, threshold: float) -> bool:
 
 
 def _compute_base_score(
-    ratio_value: float,
-    scoring_thresholds: List[Tuple[float, float]],
-    higher_is_better: bool
+    ratio_value: float, scoring_thresholds: List[Tuple[float, float]], higher_is_better: bool
 ) -> float:
     """
     Compute base score from ratio value and thresholds.
@@ -136,10 +140,7 @@ def _compute_base_score(
 
 
 def _apply_adjustments(
-    base_score: float,
-    adjustments: List[Adjustment],
-    data: FinancialData,
-    computed_ratios: Dict[str, Optional[float]]
+    base_score: float, adjustments: List[Adjustment], data: FinancialData, computed_ratios: Dict[str, Optional[float]]
 ) -> float:
     """
     Apply scoring adjustments based on secondary ratios.
@@ -168,14 +169,7 @@ def _apply_adjustments(
     return max(0.0, min(10.0, score))
 
 
-def _build_summary(
-    name: str,
-    value: Optional[float],
-    score: float,
-    grade: str,
-    unit: str,
-    description: str
-) -> str:
+def _build_summary(name: str, value: Optional[float], score: float, grade: str, unit: str, description: str) -> str:
     """Build a human-readable summary string."""
     if value is None:
         return f"{name}: Insufficient data for calculation"
@@ -185,9 +179,7 @@ def _build_summary(
 
 
 def compute_ratio(
-    data: FinancialData,
-    definition: RatioDefinition,
-    computed_ratios: Optional[Dict[str, Optional[float]]] = None
+    data: FinancialData, definition: RatioDefinition, computed_ratios: Optional[Dict[str, Optional[float]]] = None
 ) -> RatioResult:
     """
     Generic ratio computation engine.
@@ -224,41 +216,24 @@ def compute_ratio(
             score=0.0,
             grade="Insufficient Data",
             summary=f"{definition.name}: Insufficient data",
-            secondary_ratios={}
+            secondary_ratios={},
         )
 
     # Step 3: Base score from thresholds
-    base_score = _compute_base_score(
-        ratio_value,
-        definition.scoring_thresholds,
-        definition.higher_is_better
-    )
+    base_score = _compute_base_score(ratio_value, definition.scoring_thresholds, definition.higher_is_better)
 
     # Step 4: Apply adjustments
-    final_score = _apply_adjustments(
-        base_score,
-        definition.adjustments,
-        data,
-        computed_ratios
-    )
+    final_score = _apply_adjustments(base_score, definition.adjustments, data, computed_ratios)
 
     # Step 5: Assign grade
     grade = definition.get_grade(final_score)
 
     # Step 6: Build summary
-    summary = _build_summary(
-        definition.name,
-        ratio_value,
-        final_score,
-        grade,
-        definition.unit,
-        definition.description
-    )
+    summary = _build_summary(definition.name, ratio_value, final_score, grade, definition.unit, definition.description)
 
     # Track secondary ratios used in adjustments
     secondary = {
-        adj.field: computed_ratios.get(adj.field) or _get_field_value(data, adj.field)
-        for adj in definition.adjustments
+        adj.field: computed_ratios.get(adj.field) or _get_field_value(data, adj.field) for adj in definition.adjustments
     }
 
     return RatioResult(
@@ -267,7 +242,7 @@ def compute_ratio(
         score=final_score,
         grade=grade,
         summary=summary,
-        secondary_ratios=secondary
+        secondary_ratios=secondary,
     )
 
 
@@ -290,9 +265,9 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
         higher_is_better=True,
         scoring_thresholds=[
             (0.15, 10.0),  # Excellent: >15%
-            (0.10, 8.0),   # Good: 10-15%
-            (0.05, 6.0),   # Adequate: 5-10%
-            (0.02, 4.0),   # Weak: 2-5%
+            (0.10, 8.0),  # Good: 10-15%
+            (0.05, 6.0),  # Adequate: 5-10%
+            (0.02, 4.0),  # Weak: 2-5%
         ],
         adjustments=[
             Adjustment("operating_income", Operator.GT, 0, 0.5, "Positive operating income"),
@@ -300,9 +275,8 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
             # amount, not a ratio, so comparing against 0.5 is always false for
             # real companies (dead code).
         ],
-        unit="%"
+        unit="%",
     ),
-
     "roe": RatioDefinition(
         name="Return on Equity (ROE)",
         description="Measures return generated on shareholders' equity",
@@ -316,16 +290,15 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
         higher_is_better=True,
         scoring_thresholds=[
             (0.20, 10.0),  # Excellent: >20%
-            (0.15, 8.0),   # Good: 15-20%
-            (0.10, 6.0),   # Adequate: 10-15%
-            (0.05, 4.0),   # Weak: 5-10%
+            (0.15, 8.0),  # Good: 15-20%
+            (0.10, 6.0),  # Adequate: 10-15%
+            (0.05, 4.0),  # Weak: 5-10%
         ],
         adjustments=[
             Adjustment("total_debt", Operator.GT, 2.0, -0.5, "High leverage inflates ROE"),
         ],
-        unit="%"
+        unit="%",
     ),
-
     # NOTE: True ROIC = EBIT / Invested Capital (equity + debt - cash).
     # The framework only has total_assets as a denominator field, so this is
     # EBIT/Total Assets, not ROIC.  Renamed to avoid misrepresentation.
@@ -346,9 +319,8 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
             (0.07, 6.0),
             (0.05, 4.0),
         ],
-        unit="%"
+        unit="%",
     ),
-
     "gross_margin": RatioDefinition(
         name="Gross Profit Margin",
         description="Measures profitability after direct costs",
@@ -362,13 +334,12 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
         higher_is_better=True,
         scoring_thresholds=[
             (0.50, 10.0),  # >50%
-            (0.35, 8.0),   # 35-50%
-            (0.25, 6.0),   # 25-35%
-            (0.15, 4.0),   # 15-25%
+            (0.35, 8.0),  # 35-50%
+            (0.25, 6.0),  # 25-35%
+            (0.15, 4.0),  # 15-25%
         ],
-        unit="%"
+        unit="%",
     ),
-
     "operating_margin": RatioDefinition(
         name="Operating Profit Margin",
         description="Measures profitability from operations",
@@ -386,9 +357,8 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
             (0.10, 6.0),
             (0.05, 4.0),
         ],
-        unit="%"
+        unit="%",
     ),
-
     "net_margin": RatioDefinition(
         name="Net Profit Margin",
         description="Measures bottom-line profitability",
@@ -406,9 +376,8 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
             (0.05, 6.0),
             (0.02, 4.0),
         ],
-        unit="%"
+        unit="%",
     ),
-
     # --- LIQUIDITY RATIOS ---
     "current_ratio": RatioDefinition(
         name="Current Ratio",
@@ -422,21 +391,19 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
         denominator_field="current_liabilities",
         higher_is_better=True,
         scoring_thresholds=[
-            (2.0, 10.0),   # Excellent: >2.0
-            (1.5, 8.0),    # Good: 1.5-2.0
-            (1.0, 6.0),    # Adequate: 1.0-1.5
-            (0.75, 4.0),   # Weak: 0.75-1.0
+            (2.0, 10.0),  # Excellent: >2.0
+            (1.5, 8.0),  # Good: 1.5-2.0
+            (1.0, 6.0),  # Adequate: 1.0-1.5
+            (0.75, 4.0),  # Weak: 0.75-1.0
         ],
         adjustments=[
             Adjustment("cash", Operator.GT, 0.3, 0.5, "Strong cash position"),
         ],
-        unit="x"
+        unit="x",
     ),
-
     # NOTE: quick_ratio removed from catalog -- the simple A/B framework cannot
     # express (Current Assets - Inventory) / Current Liabilities.  The correct
     # quick ratio is computed in CharlieAnalyzer.calculate_liquidity_ratios().
-
     "cash_ratio": RatioDefinition(
         name="Cash Ratio",
         description="Most conservative liquidity measure",
@@ -454,9 +421,8 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
             (0.30, 6.0),
             (0.15, 4.0),
         ],
-        unit="x"
+        unit="x",
     ),
-
     # --- LEVERAGE RATIOS ---
     "debt_to_equity": RatioDefinition(
         name="Debt-to-Equity Ratio",
@@ -470,17 +436,16 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
         denominator_field="total_equity",
         higher_is_better=False,  # Lower is better
         scoring_thresholds=[
-            (0.3, 10.0),   # <0.3 Excellent
-            (0.5, 8.0),    # 0.3-0.5 Good
-            (1.0, 6.0),    # 0.5-1.0 Adequate
-            (2.0, 4.0),    # 1.0-2.0 Weak
+            (0.3, 10.0),  # <0.3 Excellent
+            (0.5, 8.0),  # 0.3-0.5 Good
+            (1.0, 6.0),  # 0.5-1.0 Adequate
+            (2.0, 4.0),  # 1.0-2.0 Weak
         ],
         adjustments=[
             Adjustment("ebitda", Operator.GT, 0, 0.5, "Positive cash generation"),
         ],
-        unit="x"
+        unit="x",
     ),
-
     "debt_to_ebitda": RatioDefinition(
         name="Debt-to-EBITDA Ratio",
         description="Measures debt coverage by earnings",
@@ -493,14 +458,13 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
         denominator_field="ebitda",
         higher_is_better=False,
         scoring_thresholds=[
-            (2.0, 10.0),   # <2x Excellent
-            (3.0, 8.0),    # 2-3x Good
-            (4.0, 6.0),    # 3-4x Adequate
-            (5.0, 4.0),    # 4-5x Weak
+            (2.0, 10.0),  # <2x Excellent
+            (3.0, 8.0),  # 2-3x Good
+            (4.0, 6.0),  # 3-4x Adequate
+            (5.0, 4.0),  # 4-5x Weak
         ],
-        unit="x"
+        unit="x",
     ),
-
     "interest_coverage": RatioDefinition(
         name="Interest Coverage Ratio",
         description="Measures ability to pay interest",
@@ -513,14 +477,13 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
         denominator_field="interest_expense",
         higher_is_better=True,
         scoring_thresholds=[
-            (8.0, 10.0),   # >8x Excellent
-            (5.0, 8.0),    # 5-8x Good
-            (2.5, 6.0),    # 2.5-5x Adequate
-            (1.5, 4.0),    # 1.5-2.5x Weak
+            (8.0, 10.0),  # >8x Excellent
+            (5.0, 8.0),  # 5-8x Good
+            (2.5, 6.0),  # 2.5-5x Adequate
+            (1.5, 4.0),  # 1.5-2.5x Weak
         ],
-        unit="x"
+        unit="x",
     ),
-
     # --- EFFICIENCY RATIOS ---
     "asset_turnover": RatioDefinition(
         name="Asset Turnover Ratio",
@@ -534,14 +497,13 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
         denominator_field="total_assets",
         higher_is_better=True,
         scoring_thresholds=[
-            (2.0, 10.0),   # >2x Excellent
+            (2.0, 10.0),  # >2x Excellent
             (1.5, 8.0),
             (1.0, 6.0),
             (0.5, 4.0),
         ],
-        unit="x"
+        unit="x",
     ),
-
     "inventory_turnover": RatioDefinition(
         name="Inventory Turnover",
         description="Measures how quickly inventory is sold",
@@ -559,9 +521,8 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
             (6.0, 6.0),
             (4.0, 4.0),
         ],
-        unit="x"
+        unit="x",
     ),
-
     "receivables_turnover": RatioDefinition(
         name="Receivables Turnover",
         description="Measures collection efficiency",
@@ -579,9 +540,8 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
             (8.0, 6.0),
             (6.0, 4.0),
         ],
-        unit="x"
+        unit="x",
     ),
-
     # --- CASH FLOW RATIOS ---
     "fcf_yield": RatioDefinition(
         name="Free Cash Flow Yield",
@@ -600,9 +560,8 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
             (0.05, 6.0),
             (0.03, 4.0),
         ],
-        unit="%"
+        unit="%",
     ),
-
     "ocf_to_ni": RatioDefinition(
         name="Operating Cash Flow to Net Income",
         description="Measures earnings quality",
@@ -615,14 +574,13 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
         denominator_field="net_income",
         higher_is_better=True,
         scoring_thresholds=[
-            (1.2, 10.0),   # OCF > 120% of NI (excellent quality)
-            (1.0, 8.0),    # OCF = NI
-            (0.8, 6.0),    # OCF < NI (some concerns)
+            (1.2, 10.0),  # OCF > 120% of NI (excellent quality)
+            (1.0, 8.0),  # OCF = NI
+            (0.8, 6.0),  # OCF < NI (some concerns)
             (0.6, 4.0),
         ],
-        unit="x"
+        unit="x",
     ),
-
     "cash_conversion_cycle": RatioDefinition(
         name="Cash Conversion Cycle",
         description="Days to convert operations to cash (simplified)",
@@ -640,7 +598,7 @@ RATIO_CATALOG: Dict[str, RatioDefinition] = {
             (0.15, 6.0),
             (0.20, 4.0),
         ],
-        unit="days"
+        unit="days",
     ),
 }
 

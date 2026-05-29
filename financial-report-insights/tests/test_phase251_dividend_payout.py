@@ -4,10 +4,11 @@ Tests for dividend_payout_analysis() and DividendPayoutResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DividendPayoutResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDividendPayoutDataclass:
     def test_defaults(self):
         r = DividendPayoutResult()
@@ -68,6 +70,7 @@ class TestDividendPayoutDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDividendPayoutAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestDividendPayoutAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestDividendPayoutScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -136,6 +140,7 @@ class TestDividendPayoutScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase251EdgeCases:
     def test_empty_data(self, analyzer):

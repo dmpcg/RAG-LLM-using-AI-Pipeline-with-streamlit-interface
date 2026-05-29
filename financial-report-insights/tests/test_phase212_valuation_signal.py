@@ -4,6 +4,7 @@ Tests for valuation_signal_analysis() and ValuationSignalResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestValuationSignalDataclass:
     def test_defaults(self):
         r = ValuationSignalResult()
@@ -68,6 +70,7 @@ class TestValuationSignalDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestValuationSignalAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestValuationSignalAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestValuationSignalScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """EV/EBITDA=9.40 <=12 => base 7.0. EY=0.075 >=0.03 but <0.10 => no adj. P/B=1.667 >1.0 but <=5.0 => no adj. Score=7.0."""
@@ -160,6 +164,7 @@ class TestValuationSignalScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase212EdgeCases:
     def test_empty_data(self, analyzer):

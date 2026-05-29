@@ -1,4 +1,5 @@
 """Request tracing for RAG pipeline observability."""
+
 import logging
 import threading
 import time
@@ -54,15 +55,10 @@ class Trace:
 
     def add_token_counts(self, prompt_tokens: int, completion_tokens: int):
         """Record token counts from LLM response."""
-        self.metadata["prompt_tokens"] = (
-            self.metadata.get("prompt_tokens", 0) + prompt_tokens
-        )
-        self.metadata["completion_tokens"] = (
-            self.metadata.get("completion_tokens", 0) + completion_tokens
-        )
-        self.metadata["total_tokens"] = (
-            self.metadata.get("prompt_tokens", 0)
-            + self.metadata.get("completion_tokens", 0)
+        self.metadata["prompt_tokens"] = self.metadata.get("prompt_tokens", 0) + prompt_tokens
+        self.metadata["completion_tokens"] = self.metadata.get("completion_tokens", 0) + completion_tokens
+        self.metadata["total_tokens"] = self.metadata.get("prompt_tokens", 0) + self.metadata.get(
+            "completion_tokens", 0
         )
 
     def summary(self) -> Dict:

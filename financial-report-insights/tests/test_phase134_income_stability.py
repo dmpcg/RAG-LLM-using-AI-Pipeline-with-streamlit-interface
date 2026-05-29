@@ -4,6 +4,7 @@ Tests for income_stability_analysis() and IncomeStabilityResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestIncomeStabilityDataclass:
     def test_defaults(self):
         r = IncomeStabilityResult()
@@ -68,6 +70,7 @@ class TestIncomeStabilityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestIncomeStabilityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestIncomeStabilityAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestIncomeStabilityScoring:
     def test_good_stability(self, analyzer, sample_data):
         """OIC=6.667 => base 7.0. NIM=0.15 >=0.15 => +0.5. IR=1.467 >=1.0 => +0.5. Score=8.0."""
@@ -159,6 +163,7 @@ class TestIncomeStabilityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase134EdgeCases:
     def test_empty_data(self, analyzer):

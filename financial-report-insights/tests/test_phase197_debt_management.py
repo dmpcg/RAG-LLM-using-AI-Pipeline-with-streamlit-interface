@@ -4,10 +4,11 @@ Tests for debt_management_analysis() and DebtManagementResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DebtManagementResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDebtManagementDataclass:
     def test_defaults(self):
         r = DebtManagementResult()
@@ -68,6 +70,7 @@ class TestDebtManagementDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDebtManagementAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestDebtManagementAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestDebtManagementScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """DtOI=2.00 => base 8.5. ItR=0.03 <=0.03 => +0.5. DCR=3.571 >=3.0 => +0.5. Score=9.5."""
@@ -159,6 +163,7 @@ class TestDebtManagementScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase197EdgeCases:
     def test_empty_data(self, analyzer):

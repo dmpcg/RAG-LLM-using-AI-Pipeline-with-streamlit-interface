@@ -4,7 +4,9 @@ Tests for valuation_indicators() and ValuationIndicatorsResult dataclass.
 """
 
 import math
+
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -47,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestValuationIndicatorsDataclass:
     def test_defaults(self):
         r = ValuationIndicatorsResult()
@@ -68,6 +71,7 @@ class TestValuationIndicatorsDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestValuationIndicators:
     def test_returns_result(self, analyzer, sample_data):
@@ -152,6 +156,7 @@ class TestValuationIndicators:
 
 # ===== SCORING TESTS =====
 
+
 class TestValuationScoring:
     def test_undervalued(self, analyzer):
         """Low multiples, high yields = Undervalued."""
@@ -229,6 +234,7 @@ class TestValuationScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase24EdgeCases:
     def test_empty_data(self, analyzer):

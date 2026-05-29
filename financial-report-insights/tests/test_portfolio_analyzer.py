@@ -1,6 +1,7 @@
 """Tests for portfolio_analyzer.py -- portfolio & multi-company analysis."""
 
 import math
+
 import pytest
 
 from financial_analyzer import FinancialData
@@ -15,7 +16,6 @@ from portfolio_analyzer import (
     _hhi_label,
     _score_to_grade,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -218,9 +218,14 @@ class TestCorrelationMatrix:
         avg_correlation should exclude NaN pairs, not inflate to 0.0."""
         # Two companies with identical financial data -> corrcoef produces NaN
         identical = FinancialData(
-            revenue=100, net_income=10, total_assets=200,
-            current_assets=50, current_liabilities=25,
-            total_debt=50, ebit=20, interest_expense=5,
+            revenue=100,
+            net_income=10,
+            total_assets=200,
+            current_assets=50,
+            current_liabilities=25,
+            total_debt=50,
+            ebit=20,
+            interest_expense=5,
         )
         companies = {"A": identical, "B": identical}
         corr = analyzer.correlation_matrix(companies)
@@ -266,13 +271,11 @@ class TestDiversificationScore:
         "avg_corr, expected_score",
         [
             (-1.0, 40),  # perfect negative correlation -> max corr points
-            (0.0, 20),   # zero correlation -> mid corr points
-            (1.0, 0),    # perfect positive correlation -> zero corr points
+            (0.0, 20),  # zero correlation -> mid corr points
+            (1.0, 0),  # perfect positive correlation -> zero corr points
         ],
     )
-    def test_correlation_component_mapping_isolated(
-        self, analyzer, avg_corr, expected_score
-    ):
+    def test_correlation_component_mapping_isolated(self, analyzer, avg_corr, expected_score):
         """Regression (P1-E1): correlation component maps [-1, 1] -> [40, 0].
 
         Isolate corr_pts by using a maximally-concentrated portfolio: one
@@ -305,10 +308,7 @@ class TestDiversificationScore:
 
 class TestPortfolioRiskSummary:
     def test_risk_summary_basic(self, analyzer, three_company_portfolio):
-        snapshots = [
-            analyzer.company_snapshot(n, d)
-            for n, d in three_company_portfolio.items()
-        ]
+        snapshots = [analyzer.company_snapshot(n, d) for n, d in three_company_portfolio.items()]
         risk = analyzer.portfolio_risk_summary(snapshots, three_company_portfolio)
         assert isinstance(risk, PortfolioRiskSummary)
         assert risk.num_companies == 3
@@ -440,8 +440,12 @@ class TestPortfolioRiskBoundary:
         assert len(report.risk_summary.risk_flags) > 0
 
 
-class TestHHIEdgeCases:
-    """Coverage gap: _hhi with negative, None, and equal values."""
+class TestHHIEdgeCasesNegativeNoneEqual:
+    """Coverage gap: _hhi with negative, None, and equal values.
+
+    (Renamed from TestHHIEdgeCases: a second class of the same name at line ~490
+    was silently shadowing this one — both now run.)
+    """
 
     def test_hhi_negative_values_use_abs(self):
         # Negative revenue is included via abs(): [100, 50, 200] -> shares sum=350
@@ -513,10 +517,7 @@ class TestPortfolioEdgeCases:
 
     def test_portfolio_all_zero_revenue_companies(self, analyzer):
         """Portfolio with all-zero-revenue companies should not crash."""
-        companies = {
-            f"Co{i}": FinancialData(revenue=0, total_assets=1000 * (i + 1))
-            for i in range(3)
-        }
+        companies = {f"Co{i}": FinancialData(revenue=0, total_assets=1000 * (i + 1)) for i in range(3)}
         report = analyzer.full_portfolio_analysis(companies)
         assert isinstance(report, PortfolioReport)
         assert not math.isnan(report.diversification.overall_score)
@@ -524,9 +525,12 @@ class TestPortfolioEdgeCases:
     def test_portfolio_identical_companies(self, analyzer):
         """All-identical companies should compute without NaN."""
         data = FinancialData(
-            revenue=1_000_000, net_income=100_000,
-            total_assets=5_000_000, current_assets=2_000_000,
-            current_liabilities=1_000_000, total_equity=3_000_000,
+            revenue=1_000_000,
+            net_income=100_000,
+            total_assets=5_000_000,
+            current_assets=2_000_000,
+            current_liabilities=1_000_000,
+            total_equity=3_000_000,
         )
         companies = {f"Co{i}": data for i in range(5)}
         report = analyzer.full_portfolio_analysis(companies)
