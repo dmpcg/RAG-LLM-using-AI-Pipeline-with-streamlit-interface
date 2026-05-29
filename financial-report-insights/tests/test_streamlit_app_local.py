@@ -211,3 +211,74 @@ class TestSampleDataGenerators:
         assert "Actual" in df.columns
         assert "Variance" in df.columns
         assert "Variance %" in df.columns
+
+
+# ---------------------------------------------------------------------------
+# WP-B8: dead UI removed - ollama_model selectbox + submit_query session read
+# ---------------------------------------------------------------------------
+
+
+class TestDeadUIRemoved:
+    """WP-B8: verify the dead ollama_model selectbox and submit_query
+    session read have been removed from streamlit_app_local.py."""
+
+    def _module_source(self) -> str:
+        import inspect
+        import streamlit_app_local
+        return inspect.getsource(streamlit_app_local)
+
+    def test_ollama_model_selectbox_gone(self):
+        """ollama_model variable was never read; selectbox must be removed."""
+        src = self._module_source()
+        assert "ollama_model" not in src, (
+            "Dead UI 'ollama_model' selectbox still present in streamlit_app_local.py"
+        )
+
+    def test_submit_query_session_read_gone(self):
+        """submit_query was never written to session_state; read must be removed."""
+        src = self._module_source()
+        assert "submit_query" not in src, (
+            "Dead UI 'submit_query' session_state read still present in streamlit_app_local.py"
+        )
+
+    def test_module_imports_cleanly(self):
+        """Module must still be importable after the dead-UI removal."""
+        import importlib
+        import streamlit_app_local
+        # Re-importing forces module-level code to be inspectable; no AttributeError.
+        importlib.reload(streamlit_app_local)
+
+    @patch("streamlit_app_local.st")
+    def test_render_sidebar_smoke(self, mock_st):
+        """render_sidebar runs without raising after dead UI removed."""
+        from pathlib import Path
+        from unittest.mock import MagicMock
+
+        # st.radio must return a string so the caller can compare it
+        mock_st.radio.return_value = "Q&A Chat"
+        # st.sidebar is accessed as an attribute context manager
+        mock_st.sidebar.__enter__ = MagicMock(return_value=mock_st.sidebar)
+        mock_st.sidebar.__exit__ = MagicMock(return_value=False)
+        # Path.mkdir and rglob may touch the filesystem; patch at a safe level
+        with patch("streamlit_app_local.Path") as mock_path_cls:
+            mock_docs = MagicMock(spec=Path)
+            mock_docs.resolve.return_value = mock_docs
+            mock_docs.rglob.return_value = []
+            mock_path_cls.return_value = mock_docs
+
+            from streamlit_app_local import render_sidebar
+            result = render_sidebar()
+
+        # render_sidebar returns whatever st.radio returned
+        assert result == "Q&A Chat"
+
+    @patch("streamlit_app_local.st")
+    def test_get_answer_button_condition_no_submit_query(self, mock_st):
+        """The button condition no longer references submit_query."""
+        import inspect
+        import streamlit_app_local
+
+        src = inspect.getsource(streamlit_app_local.render_qa_page)
+        assert "submit_query" not in src, (
+            "render_qa_page still references submit_query after WP-B8 removal"
+        )

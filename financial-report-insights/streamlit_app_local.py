@@ -99,13 +99,6 @@ def render_sidebar():
 
         st.header("⚙️ Settings")
 
-        # Model selection
-        ollama_model = st.selectbox(
-            "LLM Model (Ollama)",
-            ["llama3.2", "llama3.1", "mistral", "phi3", "gemma2"],
-            index=0
-        )
-
         st.divider()
 
         # Documents info
@@ -257,7 +250,7 @@ def render_qa_page():
             """)
 
         # Submit button
-        if st.button("🔍 Get Answer", type="primary") or (user_query and st.session_state.get('submit_query')):
+        if st.button("🔍 Get Answer", type="primary"):
             if user_query:
                 try:
                     # Retrieve documents (fast, with spinner)

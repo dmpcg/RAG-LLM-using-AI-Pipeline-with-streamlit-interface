@@ -22,11 +22,7 @@ from logging_config import setup_logging
 from protocols import LLMProvider, EmbeddingProvider
 
 # Versioned prompt templates (Phase 2.3 – Prompt Engineering)
-try:
-    from prompts import get_prompt_for_query_type, build_prompt, format_context_with_citations
-    _PROMPTS_AVAILABLE = True
-except Exception:  # pragma: no cover – import guard for backward compat
-    _PROMPTS_AVAILABLE = False
+from prompts import get_prompt_for_query_type, build_prompt, format_context_with_citations
 
 # Setup structured logging
 setup_logging()
@@ -1245,24 +1241,12 @@ class SimpleRAG:
         has_graph_context = any(d.get("_graph_context") for d in relevant_docs)
         if is_financial and self.charlie_analyzer and (excel_data or has_graph_context):
             prompt = self._build_financial_prompt(query, context, excel_data, relevant_docs)
-        elif _PROMPTS_AVAILABLE:
+        else:
             # Versioned, query-type-specific prompt (Phase 2.3)
             query_type = self._classify_query(query)
             template = get_prompt_for_query_type(query_type)
             formatted_context = format_context_with_citations(relevant_docs)
             prompt = build_prompt(template, query, formatted_context)
-        else:
-            # Fallback: original hardcoded standard RAG prompt
-            prompt = f"""You are a helpful assistant that answers questions based on the provided context.
-Use ONLY the information from the context to answer. If the answer is not in the context, say so.
-When referencing data, cite the source using the citation numbers provided (e.g., [1], [2]).
-
-Context:
-{context}
-
-Question: {query}
-
-Answer:"""
 
         # Generate answer
         try:
@@ -1556,24 +1540,12 @@ Answer:"""
         has_graph_context = any(d.get("_graph_context") for d in relevant_docs)
         if is_financial and self.charlie_analyzer and (excel_data or has_graph_context):
             prompt = self._build_financial_prompt(query, context, excel_data, relevant_docs)
-        elif _PROMPTS_AVAILABLE:
+        else:
             # Versioned, query-type-specific prompt (Phase 2.3)
             query_type = self._classify_query(query)
             template = get_prompt_for_query_type(query_type)
             formatted_context = format_context_with_citations(relevant_docs)
             prompt = build_prompt(template, query, formatted_context)
-        else:
-            # Fallback: original hardcoded standard RAG prompt
-            prompt = f"""You are a helpful assistant that answers questions based on the provided context.
-Use ONLY the information from the context to answer. If the answer is not in the context, say so.
-When referencing data, cite the source using the citation numbers provided (e.g., [1], [2]).
-
-Context:
-{context}
-
-Question: {query}
-
-Answer:"""
 
         try:
             if hasattr(self.llm, 'generate_stream'):

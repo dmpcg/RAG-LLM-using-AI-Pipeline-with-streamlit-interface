@@ -933,6 +933,98 @@ class TestExpandParentChunks:
         assert result == []
 
 
+# ---------------------------------------------------------------------------
+# WP-B9 -- _PROMPTS_AVAILABLE removed; real prompts always used
+# ---------------------------------------------------------------------------
+
+
+class TestPromptsAvailableRemoved:
+    def test_flag_does_not_exist_in_module(self):
+        import app_local
+
+        assert not hasattr(app_local, "_PROMPTS_AVAILABLE"), (
+            "_PROMPTS_AVAILABLE must be removed from app_local (WP-B9)"
+        )
+
+    def test_prompts_functions_importable(self):
+        # The real prompts subtree must be importable (permanent dependency).
+        from prompts import get_prompt_for_query_type, build_prompt, format_context_with_citations  # noqa: F401
+
+    def test_answer_uses_real_prompt_for_non_financial_query(self, rag_with_docs):
+        """Non-financial query (no charlie_analyzer path) must use the real
+        prompts-module path and produce a string prompt that the LLM sees."""
+        from unittest.mock import patch
+
+        captured_prompts = []
+
+        original_generate = rag_with_docs.llm.generate
+
+        def spy_generate(prompt: str) -> str:
+            captured_prompts.append(prompt)
+            return original_generate(prompt)
+
+        rag_with_docs.llm.generate = spy_generate
+        # charlie_analyzer=None disables the financial path so we fall through
+        # to the prompts-module branch.
+        rag_with_docs._charlie_analyzer = None
+
+        rag_with_docs.answer("What is the weather like?")
+
+        assert len(captured_prompts) >= 1, "LLM generate should have been called"
+        # The real template from prompts/ includes a system/user structure;
+        # none of the calls must use the old hardcoded fallback sentinel phrase.
+        for p in captured_prompts:
+            assert "Use ONLY the information from the context to answer" not in p, (
+                "Hardcoded fallback prompt must not be used after WP-B9 removal"
+            )
+
+    def test_answer_stream_uses_real_prompt_for_non_financial_query(self, rag_with_docs):
+        """answer_stream non-financial path must likewise use the real prompts module.
+
+        Spy on generate_stream (the path taken by MockLLM) to capture the prompt.
+        """
+        captured_prompts = []
+
+        original_generate_stream = rag_with_docs.llm.generate_stream
+
+        def spy_generate_stream(prompt: str):
+            captured_prompts.append(prompt)
+            yield from original_generate_stream(prompt)
+
+        rag_with_docs.llm.generate_stream = spy_generate_stream
+        rag_with_docs._charlie_analyzer = None
+
+        list(rag_with_docs.answer_stream("What color is the sky?"))
+
+        assert len(captured_prompts) >= 1, "LLM generate_stream should have been called"
+        last_prompt = captured_prompts[-1]
+        assert "Use ONLY the information from the context to answer" not in last_prompt, (
+            "Hardcoded fallback prompt must not be used in answer_stream after WP-B9 removal"
+        )
+
+    def test_answer_prompt_contains_query(self, rag_with_docs):
+        """The real-prompts path must embed the user query in the generated prompt."""
+        captured_prompts = []
+
+        original_generate = rag_with_docs.llm.generate
+
+        def spy_generate(prompt: str) -> str:
+            captured_prompts.append(prompt)
+            return original_generate(prompt)
+
+        rag_with_docs.llm.generate = spy_generate
+        rag_with_docs._charlie_analyzer = None
+
+        query = "Tell me about cash flow projections please"
+        rag_with_docs.answer(query)
+
+        assert len(captured_prompts) >= 1, "LLM generate should have been called"
+        # All prompt calls should embed the query (real-prompts path).
+        assert any(query in p for p in captured_prompts), (
+            "The user query must appear in at least one prompt sent to the LLM"
+        )
+
+
 class TestLoadDocumentsFileSizeLimit:
     def test_skips_oversized_file(self, tmp_path):
         from app_local import SimpleRAG
