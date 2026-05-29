@@ -1,4 +1,12 @@
 # Pinned dependency versions for production deployment
+#
+# ⚠️ STALE — DO NOT rely on this file as-is. It is hand-maintained and has drifted
+# (some pins are fabricated/nonexistent, e.g. plotly/neo4j/fastapi patch versions).
+# CI installs and audits `requirements.txt` (resolvable ranges with CVE floors);
+# the Docker image also installs from requirements.txt. Regenerate this lock with
+# `pip-compile --generate-hashes requirements.txt` (needs a build toolchain for
+# numpy/pandas) before re-adopting it as the deploy source of truth.
+#
 # Generated: 2026-03-16
 # Updated: 2026-05-07 (WS-1 P0-1: CVE patches across 9 packages — 50 OSV findings -> 0)
 # Reconciled: 2026-05-29 (WS-1 <- main merge): kept WS-1 CVE pins; bumped numpy-2.x
