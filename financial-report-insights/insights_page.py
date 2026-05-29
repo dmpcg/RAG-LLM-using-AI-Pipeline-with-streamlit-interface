@@ -20,6 +20,41 @@ from viz_utils import FinancialVizUtils
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# WP-B2: module-level @st.cache_data wrapper for the heavy analyze() call.
+#
+# Decision Log D2: `self` is unhashable so caching cannot live on an instance
+# method.  The solution is a MODULE-LEVEL pure function (_analyze_df) that
+# Streamlit can cache by hashing its arguments.  The df_digest (a stable int
+# produced by pd.util.hash_pandas_object(df).sum()) is passed explicitly so
+# the cache key is dominated by a cheap, stable scalar rather than the full
+# DataFrame serialisation cost.
+#
+# _analyze_df is the unwrapped inner computation; it is a separate symbol so
+# tests can spy on its call count without fighting the @st.cache_data layer.
+# ---------------------------------------------------------------------------
+
+
+def _analyze_df(df_digest: int, df: pd.DataFrame):
+    """Pure inner computation: instantiate analyzer and run full analysis."""
+    return CharlieAnalyzer().analyze(df)
+
+
+@st.cache_data
+def _cached_analyze_df(df_digest: int, df: pd.DataFrame):
+    """
+    @st.cache_data wrapper around _analyze_df.
+
+    Keyed by (df_digest, df): Streamlit hashes both, but the digest being a
+    plain int means the key is stable and cheap.  Calling this with the same
+    df produces one computation per unique DataFrame content.
+
+    Call st.cache_data.clear() (or this function's own .clear()) to bust
+    the cache on Refresh.
+    """
+    return _analyze_df(df_digest, df)
+
+
 class FinancialInsightsPage:
     """
     Dynamic financial insights dashboard with:
@@ -255,10 +290,13 @@ class FinancialInsightsPage:
                     # Store in session state for cross-tab access
                     st.session_state['current_df'] = df
                     st.session_state['current_workbook'] = workbook
-                    cache_key = f"analysis_{pd.util.hash_pandas_object(df).sum()}"
+                    df_digest = int(pd.util.hash_pandas_object(df).sum())
+                    cache_key = f"analysis_{df_digest}"
                     if cache_key not in st.session_state:
                         with st.spinner("Analyzing..."):
-                            st.session_state[cache_key] = self.analyzer.analyze(df)
+                            # WP-B2: delegate to module-level @st.cache_data fn so
+                            # repeated reruns with the same data skip re-computation.
+                            st.session_state[cache_key] = _cached_analyze_df(df_digest, df)
                     st.session_state['analysis_results'] = st.session_state[cache_key]
 
                     # Category-based navigation (replaces 132 flat tabs)
