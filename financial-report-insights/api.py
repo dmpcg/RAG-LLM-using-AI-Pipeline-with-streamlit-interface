@@ -818,6 +818,22 @@ async def portfolio_analyze(req: PortfolioRequest):
             detail="LLM service temporarily unavailable.",
         ) from exc
 
+    # D3: best-effort graph-store persist (never fails the request).
+    rag = _get_rag()
+    store = getattr(rag, "_graph_store", None)
+    if store is not None:
+        try:
+            portfolio_name = ", ".join(sorted(companies.keys()))
+            await asyncio.to_thread(
+                store.store_portfolio_analysis,
+                portfolio_name,
+                list(companies.keys()),
+                report.risk_summary,
+                report.diversification.overall_score,
+            )
+        except Exception as _exc:
+            logger.debug("store_portfolio_analysis failed (best-effort): %s", _exc)
+
     return PortfolioResponse(
         num_companies=report.num_companies,
         avg_health_score=report.risk_summary.avg_health_score,
@@ -852,6 +868,27 @@ async def portfolio_correlation(req: PortfolioRequest):
             status_code=503,
             detail="LLM service temporarily unavailable.",
         ) from exc
+
+    # D3: best-effort graph-store persist (never fails the request).
+    rag = _get_rag()
+    store = getattr(rag, "_graph_store", None)
+    if store is not None:
+        try:
+            from portfolio_analyzer import PortfolioRiskSummary
+            minimal_risk = PortfolioRiskSummary(
+                num_companies=len(corr.company_names),
+                overall_risk_level="unknown",
+            )
+            portfolio_name = ", ".join(sorted(companies.keys()))
+            await asyncio.to_thread(
+                store.store_portfolio_analysis,
+                portfolio_name,
+                list(corr.company_names),
+                minimal_risk,
+                0,
+            )
+        except Exception as _exc:
+            logger.debug("store_portfolio_analysis (correlation) failed (best-effort): %s", _exc)
 
     return CorrelationResponse(
         company_names=corr.company_names,
@@ -903,6 +940,20 @@ async def compliance_analyze(req: AnalyzeRequest):
             status_code=503,
             detail="LLM service temporarily unavailable.",
         ) from exc
+
+    # D4: best-effort graph-store persist (never fails the request).
+    rag = _get_rag()
+    store = getattr(rag, "_graph_store", None)
+    if store is not None:
+        try:
+            company_name = str(req.financial_data.get("company_name", "unknown"))
+            await asyncio.to_thread(
+                store.store_compliance_report,
+                company_name,
+                report,
+            )
+        except Exception as _exc:
+            logger.debug("store_compliance_report failed (best-effort): %s", _exc)
 
     return ComplianceResponse(
         sox_risk=report.sox.overall_risk,

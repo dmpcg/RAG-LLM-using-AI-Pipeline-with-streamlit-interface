@@ -1071,3 +1071,292 @@ class TestDocumentsPagination:
         api_module._rate_log.clear()
         assert resp.status_code == 200
         assert resp.json() == []
+
+
+# ---------------------------------------------------------------------------
+# WP-API-WIRE: P1-D3 store_portfolio_analysis + P1-D4 store_compliance_report
+# ---------------------------------------------------------------------------
+
+
+def _make_mock_pa_report(company_names):
+    """Build a minimal PortfolioReport-like mock for portfolio_analyze tests."""
+    from unittest.mock import MagicMock
+    report = MagicMock()
+    report.num_companies = len(company_names)
+    report.risk_summary.avg_health_score = 70.0
+    report.risk_summary.overall_risk_level = "low"
+    report.risk_summary.min_health_score = 60
+    report.risk_summary.max_health_score = 80
+    report.risk_summary.distress_count = 0
+    report.risk_summary.risk_flags = []
+    report.risk_summary.strongest_company = company_names[0] if company_names else ""
+    report.risk_summary.weakest_company = company_names[0] if company_names else ""
+    report.diversification.overall_score = 55
+    report.diversification.grade = "C"
+    report.summary = "Test portfolio summary."
+    return report
+
+
+def _make_mock_corr(company_names):
+    """Build a minimal CorrelationMatrix-like mock for portfolio_correlation tests."""
+    from unittest.mock import MagicMock
+    corr = MagicMock()
+    corr.company_names = list(company_names)
+    corr.ratio_names = ["net_margin"]
+    corr.matrix = [[1.0]]
+    corr.avg_correlation = 0.5
+    corr.interpretation = "Moderate correlation."
+    return corr
+
+
+def _make_mock_compliance_report():
+    """Build a minimal ComplianceReport-like mock for compliance_analyze tests."""
+    from unittest.mock import MagicMock
+    report = MagicMock()
+    report.sox.overall_risk = "low"
+    report.sox.risk_score = 20
+    report.sec.disclosure_score = 80
+    report.sec.grade = "B"
+    report.regulatory.compliance_pct = 90.0
+    report.regulatory.pass_count = 9
+    report.regulatory.fail_count = 1
+    report.audit_risk.risk_level = "low"
+    report.audit_risk.score = 85
+    report.audit_risk.grade = "A"
+    report.audit_risk.going_concern_risk = False
+    report.summary = "Compliance looks good."
+    return report
+
+
+class TestGraphStoreWiringD3D4:
+    """WP-API-WIRE P1-D3 (store_portfolio_analysis) and P1-D4 (store_compliance_report).
+
+    Per-test RAG singleton injection mirrors TestDocumentsPagination pattern:
+    set api_module._rag_instance directly, clear after, avoid reusing the
+    module-level client fixture (which wires a different mock_rag).
+    """
+
+    _PORTFOLIO_PAYLOAD = {"companies": {"AcmeCo": {"revenue": 1_000_000}}}
+    _COMPLIANCE_PAYLOAD = {"financial_data": {"revenue": 1_000_000}}
+
+    def _make_rag_with_store(self, store):
+        """Return a minimal RAG mock with the given _graph_store."""
+        rag = MagicMock()
+        rag.documents = [{"source": "x.pdf", "type": "pdf", "content": "c"}]
+        rag._graph_store = store
+        return rag
+
+    def _setup_rag(self, api_module, store):
+        api_module._rag_instance = self._make_rag_with_store(store)
+        api_module._rate_log.clear()
+
+    def _teardown_rag(self, api_module):
+        api_module._rag_instance = None
+        api_module._rate_log.clear()
+
+    # -----------------------------------------------------------------------
+    # D3 -- /portfolio/analyze
+    # -----------------------------------------------------------------------
+
+    def test_portfolio_analyze_store_called_with_mock_graph(self):
+        """D3: store_portfolio_analysis called once after successful analysis."""
+        import api as api_module
+        from api import app
+        from unittest.mock import MagicMock, patch as _patch
+
+        mock_store = MagicMock()
+        self._setup_rag(api_module, mock_store)
+        report = _make_mock_pa_report(["AcmeCo"])
+
+        with _patch("api._get_portfolio_analyzer") as mock_pa_factory:
+            mock_pa = MagicMock()
+            mock_pa.full_portfolio_analysis.return_value = report
+            mock_pa_factory.return_value = mock_pa
+            with TestClient(app) as c:
+                resp = c.post("/portfolio/analyze", json=self._PORTFOLIO_PAYLOAD)
+
+        self._teardown_rag(api_module)
+        assert resp.status_code == 200
+        mock_store.store_portfolio_analysis.assert_called_once()
+        # Verify the risk_summary argument is the one from the report.
+        call_kwargs = mock_store.store_portfolio_analysis.call_args
+        args = call_kwargs[0] if call_kwargs[0] else []
+        kwargs = call_kwargs[1] if call_kwargs[1] else {}
+        all_args = list(args) + list(kwargs.values())
+        assert report.risk_summary in all_args
+
+    def test_portfolio_analyze_no_store_returns_200(self):
+        """D3: missing _graph_store does not fail /portfolio/analyze."""
+        import api as api_module
+        from api import app
+        from unittest.mock import MagicMock, patch as _patch
+
+        self._setup_rag(api_module, None)
+        report = _make_mock_pa_report(["AcmeCo"])
+
+        with _patch("api._get_portfolio_analyzer") as mock_pa_factory:
+            mock_pa = MagicMock()
+            mock_pa.full_portfolio_analysis.return_value = report
+            mock_pa_factory.return_value = mock_pa
+            with TestClient(app) as c:
+                resp = c.post("/portfolio/analyze", json=self._PORTFOLIO_PAYLOAD)
+
+        self._teardown_rag(api_module)
+        assert resp.status_code == 200
+
+    def test_portfolio_analyze_store_raises_returns_200(self):
+        """D3: raising store_portfolio_analysis does not fail /portfolio/analyze (best-effort)."""
+        import api as api_module
+        from api import app
+        from unittest.mock import MagicMock, patch as _patch
+
+        mock_store = MagicMock()
+        mock_store.store_portfolio_analysis.side_effect = RuntimeError("neo4j down")
+        self._setup_rag(api_module, mock_store)
+        report = _make_mock_pa_report(["AcmeCo"])
+
+        with _patch("api._get_portfolio_analyzer") as mock_pa_factory:
+            mock_pa = MagicMock()
+            mock_pa.full_portfolio_analysis.return_value = report
+            mock_pa_factory.return_value = mock_pa
+            with TestClient(app) as c:
+                resp = c.post("/portfolio/analyze", json=self._PORTFOLIO_PAYLOAD)
+
+        self._teardown_rag(api_module)
+        assert resp.status_code == 200
+
+    # -----------------------------------------------------------------------
+    # D3 -- /portfolio/correlation
+    # -----------------------------------------------------------------------
+
+    def test_portfolio_correlation_store_called_with_mock_graph(self):
+        """D3: store_portfolio_analysis called once after successful correlation."""
+        import api as api_module
+        from api import app
+        from unittest.mock import MagicMock, patch as _patch
+
+        mock_store = MagicMock()
+        self._setup_rag(api_module, mock_store)
+        corr = _make_mock_corr(["AcmeCo"])
+
+        with _patch("api._get_portfolio_analyzer") as mock_pa_factory:
+            mock_pa = MagicMock()
+            mock_pa.correlation_matrix.return_value = corr
+            mock_pa_factory.return_value = mock_pa
+            with TestClient(app) as c:
+                resp = c.post("/portfolio/correlation", json=self._PORTFOLIO_PAYLOAD)
+
+        self._teardown_rag(api_module)
+        assert resp.status_code == 200
+        mock_store.store_portfolio_analysis.assert_called_once()
+
+    def test_portfolio_correlation_no_store_returns_200(self):
+        """D3: missing _graph_store does not fail /portfolio/correlation."""
+        import api as api_module
+        from api import app
+        from unittest.mock import MagicMock, patch as _patch
+
+        self._setup_rag(api_module, None)
+        corr = _make_mock_corr(["AcmeCo"])
+
+        with _patch("api._get_portfolio_analyzer") as mock_pa_factory:
+            mock_pa = MagicMock()
+            mock_pa.correlation_matrix.return_value = corr
+            mock_pa_factory.return_value = mock_pa
+            with TestClient(app) as c:
+                resp = c.post("/portfolio/correlation", json=self._PORTFOLIO_PAYLOAD)
+
+        self._teardown_rag(api_module)
+        assert resp.status_code == 200
+
+    def test_portfolio_correlation_store_raises_returns_200(self):
+        """D3: raising store_portfolio_analysis does not fail /portfolio/correlation (best-effort)."""
+        import api as api_module
+        from api import app
+        from unittest.mock import MagicMock, patch as _patch
+
+        mock_store = MagicMock()
+        mock_store.store_portfolio_analysis.side_effect = RuntimeError("neo4j down")
+        self._setup_rag(api_module, mock_store)
+        corr = _make_mock_corr(["AcmeCo"])
+
+        with _patch("api._get_portfolio_analyzer") as mock_pa_factory:
+            mock_pa = MagicMock()
+            mock_pa.correlation_matrix.return_value = corr
+            mock_pa_factory.return_value = mock_pa
+            with TestClient(app) as c:
+                resp = c.post("/portfolio/correlation", json=self._PORTFOLIO_PAYLOAD)
+
+        self._teardown_rag(api_module)
+        assert resp.status_code == 200
+
+    # -----------------------------------------------------------------------
+    # D4 -- /compliance/analyze
+    # -----------------------------------------------------------------------
+
+    def test_compliance_analyze_store_called_with_mock_graph(self):
+        """D4: store_compliance_report called once after successful compliance analysis."""
+        import api as api_module
+        from api import app
+        from unittest.mock import MagicMock, patch as _patch
+
+        mock_store = MagicMock()
+        self._setup_rag(api_module, mock_store)
+        report = _make_mock_compliance_report()
+
+        with _patch("api._get_compliance_scorer") as mock_cs_factory:
+            mock_cs = MagicMock()
+            mock_cs.full_compliance_report.return_value = report
+            mock_cs_factory.return_value = mock_cs
+            with TestClient(app) as c:
+                resp = c.post("/compliance/analyze", json=self._COMPLIANCE_PAYLOAD)
+
+        self._teardown_rag(api_module)
+        assert resp.status_code == 200
+        mock_store.store_compliance_report.assert_called_once()
+        # The compliance_report argument should be the computed report.
+        call_args = mock_store.store_compliance_report.call_args
+        positional = call_args[0] if call_args[0] else []
+        keyword = call_args[1] if call_args[1] else {}
+        all_args = list(positional) + list(keyword.values())
+        assert report in all_args
+
+    def test_compliance_analyze_no_store_returns_200(self):
+        """D4: missing _graph_store does not fail /compliance/analyze."""
+        import api as api_module
+        from api import app
+        from unittest.mock import MagicMock, patch as _patch
+
+        self._setup_rag(api_module, None)
+        report = _make_mock_compliance_report()
+
+        with _patch("api._get_compliance_scorer") as mock_cs_factory:
+            mock_cs = MagicMock()
+            mock_cs.full_compliance_report.return_value = report
+            mock_cs_factory.return_value = mock_cs
+            with TestClient(app) as c:
+                resp = c.post("/compliance/analyze", json=self._COMPLIANCE_PAYLOAD)
+
+        self._teardown_rag(api_module)
+        assert resp.status_code == 200
+
+    def test_compliance_analyze_store_raises_returns_200(self):
+        """D4: raising store_compliance_report does not fail /compliance/analyze (best-effort)."""
+        import api as api_module
+        from api import app
+        from unittest.mock import MagicMock, patch as _patch
+
+        mock_store = MagicMock()
+        mock_store.store_compliance_report.side_effect = RuntimeError("neo4j down")
+        self._setup_rag(api_module, mock_store)
+        report = _make_mock_compliance_report()
+
+        with _patch("api._get_compliance_scorer") as mock_cs_factory:
+            mock_cs = MagicMock()
+            mock_cs.full_compliance_report.return_value = report
+            mock_cs_factory.return_value = mock_cs
+            with TestClient(app) as c:
+                resp = c.post("/compliance/analyze", json=self._COMPLIANCE_PAYLOAD)
+
+        self._teardown_rag(api_module)
+        assert resp.status_code == 200
