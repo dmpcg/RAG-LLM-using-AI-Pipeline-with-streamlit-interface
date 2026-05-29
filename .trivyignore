@@ -1,0 +1,11 @@
+# Trivy ignore file — documented, justified risk-acceptances for container scanning.
+# Format: one advisory ID per line (optionally `# comment`). Revisit on base-image bumps.
+
+# CVE-2026-4878 — libcap2 (Debian base-image OS package) TOCTOU local privilege escalation.
+# Fixed in libcap2 1:2.75-10+deb13u1; the digest-pinned python:3.12-slim base ships 1:2.75-10+b8.
+# ACCEPTED: this is an OS package in the base image (not application code), and the runtime is
+# hardened so the privesc is neutralized — docker-compose runs the container as non-root with
+# `cap_drop: [ALL]`, `read_only: true`, `no-new-privileges:true` (WS-1 P0-4). A libcap
+# capability-based privilege escalation has no capabilities to escalate when ALL caps are dropped.
+# Remove this entry when the base image digest is bumped to one carrying the patched libcap2.
+CVE-2026-4878

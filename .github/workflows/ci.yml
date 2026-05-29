@@ -196,6 +196,7 @@ jobs:
           exit-code: "1"
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore   # documented base-image OS-CVE acceptances (see .trivyignore)
 
   # ──────────────────────────────────────────────────────────────
   # Stage 5: Quality Gate
