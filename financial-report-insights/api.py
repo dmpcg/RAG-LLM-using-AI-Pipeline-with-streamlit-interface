@@ -4,6 +4,7 @@ Wraps SimpleRAG, CharlieAnalyzer, and health checks as HTTP endpoints.
 """
 
 import asyncio
+import hmac
 import io
 import logging
 import threading
@@ -12,7 +13,7 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Path, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
@@ -134,6 +135,30 @@ async def lifespan(app: FastAPI):
 
 
 # ---------------------------------------------------------------------------
+# Optional API-key authentication
+# ---------------------------------------------------------------------------
+
+# Routes that never require an API key (monitoring / liveness).
+_AUTH_EXEMPT_PATHS = {"/health", "/metrics"}
+
+
+def require_api_key(request: Request) -> None:
+    """Enforce optional X-API-Key auth (disabled when settings.api_key is empty).
+
+    Backward-compatible: when no key is configured the dependency is a no-op so
+    all existing callers and tests pass.  When a key IS set, every route except
+    /health and /metrics must present a matching X-API-Key header.  Comparison
+    uses hmac.compare_digest to avoid timing leaks.
+    """
+    expected = settings.api_key
+    if not expected or request.url.path in _AUTH_EXEMPT_PATHS:
+        return
+    provided = request.headers.get("X-API-Key", "")
+    if not (provided and hmac.compare_digest(provided, expected)):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key.")
+
+
+# ---------------------------------------------------------------------------
 # FastAPI app
 # ---------------------------------------------------------------------------
 
@@ -141,6 +166,7 @@ app = FastAPI(
     title="Financial Report Insights API",
     version="1.0.0",
     lifespan=lifespan,
+    dependencies=[Depends(require_api_key)],
 )
 
 app.add_middleware(
@@ -175,7 +201,10 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     response.headers["Cache-Control"] = "no-store"
     return response
 

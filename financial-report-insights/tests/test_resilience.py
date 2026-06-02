@@ -638,7 +638,13 @@ class TestStreamingLLM:
             {"response": "!"},
         ]
 
-        with patch("local_llm.ollama.generate", return_value=iter(chunks)):
+        # Streaming routes through LocalLLM._get_stream_client().generate(); the
+        # client is an ollama.Client when OLLAMA_HOST is set (it is, via .env),
+        # so patch the seam (not module-level ollama.generate, which the client
+        # path bypasses).
+        mock_client = MagicMock()
+        mock_client.generate.return_value = iter(chunks)
+        with patch.object(LocalLLM, "_get_stream_client", return_value=mock_client):
             result = list(llm.generate_stream("Test prompt"))
 
         assert result == ["Hello", " world", "!"]
@@ -653,7 +659,9 @@ class TestStreamingLLM:
             {"response": " world"},
         ]
 
-        with patch("local_llm.ollama.generate", return_value=iter(chunks)):
+        mock_client = MagicMock()
+        mock_client.generate.return_value = iter(chunks)
+        with patch.object(LocalLLM, "_get_stream_client", return_value=mock_client):
             result = list(llm.generate_stream("Test prompt"))
 
         assert result == ["Hello", " world"]
@@ -684,7 +692,9 @@ class TestStreamingLLM:
         """ConnectionError during streaming should raise LLMConnectionError."""
         llm = LocalLLM(model="test-model")
 
-        with patch("local_llm.ollama.generate", side_effect=ConnectionError("down")):
+        mock_client = MagicMock()
+        mock_client.generate.side_effect = ConnectionError("down")
+        with patch.object(LocalLLM, "_get_stream_client", return_value=mock_client):
             with pytest.raises(LLMConnectionError, match="Cannot connect to Ollama"):
                 list(llm.generate_stream("Test"))
 
@@ -695,7 +705,9 @@ class TestStreamingLLM:
 
         chunks = [{"response": "OK"}]
 
-        with patch("local_llm.ollama.generate", return_value=iter(chunks)):
+        mock_client = MagicMock()
+        mock_client.generate.return_value = iter(chunks)
+        with patch.object(LocalLLM, "_get_stream_client", return_value=mock_client):
             # WS-4 P1-C2: generate_stream now calls the PUBLIC record_success
             # (the private _on_success is a thin alias).
             with patch.object(llm._circuit_breaker, "record_success") as mock_success:
@@ -706,7 +718,9 @@ class TestStreamingLLM:
         """Failed streaming should record failure on circuit breaker."""
         llm = LocalLLM(model="test-model", circuit_breaker_failure_threshold=3)
 
-        with patch("local_llm.ollama.generate", side_effect=ConnectionError("fail")):
+        mock_client = MagicMock()
+        mock_client.generate.side_effect = ConnectionError("fail")
+        with patch.object(LocalLLM, "_get_stream_client", return_value=mock_client):
             # WS-4 P1-C2: generate_stream now calls the PUBLIC record_failure.
             with patch.object(llm._circuit_breaker, "record_failure") as mock_failure:
                 with pytest.raises(LLMConnectionError):
@@ -717,17 +731,21 @@ class TestStreamingLLM:
         """generate_stream should pass stream=True to ollama.generate."""
         llm = LocalLLM(model="test-model")
 
-        with patch("local_llm.ollama.generate", return_value=iter([])) as mock_gen:
+        mock_client = MagicMock()
+        mock_client.generate.return_value = iter([])
+        with patch.object(LocalLLM, "_get_stream_client", return_value=mock_client):
             list(llm.generate_stream("Test prompt"))
 
-            # WS-4 P1-C1-stream-timeout adds a finite timeout kwarg, so assert the
-            # key args individually rather than an exact-kwargs match.
-            mock_gen.assert_called_once()
-            kwargs = mock_gen.call_args.kwargs
+            # P1-C1-stream-timeout (corrected): the streaming call must pass
+            # stream=True and must NOT pass a timeout kwarg to generate() — the
+            # installed ollama client rejects it; the read timeout lives on the
+            # ollama.Client instead.
+            mock_client.generate.assert_called_once()
+            kwargs = mock_client.generate.call_args.kwargs
             assert kwargs.get("model") == "test-model"
             assert kwargs.get("prompt") == "Test prompt"
             assert kwargs.get("stream") is True
-            assert kwargs.get("timeout") is not None
+            assert "timeout" not in kwargs
 
 
 # ============================================================

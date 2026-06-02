@@ -1,5 +1,6 @@
 """Tests for reranker module: EmbeddingReranker, mmr_diversify, add_citations."""
 
+import tempfile
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -510,8 +511,12 @@ class TestRerankerActivationIntegration:
 
         mock_llm = MagicMock()
 
+        # Use an isolated empty temp dir (NOT ".") so _load_documents does not
+        # recursively scan the working tree — including .venv/ (tens of
+        # thousands of site-packages files) — which hangs the suite. The test
+        # overwrites rag.documents below, so no real documents are needed.
         rag = SimpleRAG(
-            docs_folder=".",
+            docs_folder=tempfile.mkdtemp(prefix="rerank_test_"),
             llm=mock_llm,
             embedder=mock_embedder,
         )

@@ -305,24 +305,48 @@ class LocalLLM:
             self._circuit_breaker.record_failure()
             raise
 
+    def _get_stream_client(self):
+        """Return an ollama.Client configured with a finite read timeout.
+
+        The installed ollama client's ``generate()`` accepts no ``timeout``
+        kwarg, so the read timeout must be configured on the Client instead
+        (it is forwarded to the underlying httpx client). When OLLAMA_HOST is
+        set we build a host-bound Client carrying ``timeout=self._timeout``;
+        otherwise we fall back to the module-level ``ollama`` functions which
+        use the default host. The client is cached on the instance.
+        """
+        import os
+
+        client = getattr(self, "_stream_client", None)
+        if client is not None:
+            return client
+        host = os.environ.get("OLLAMA_HOST")
+        if host:
+            client = ollama.Client(host=host, timeout=self._timeout)
+        else:
+            # No explicit host: use module-level functions (default host).
+            client = ollama
+        self._stream_client = client
+        return client
+
     def _raw_generate_stream(self, prompt: str):
         """Raw streaming Ollama call without circuit breaker wrappers.
 
-        A finite ``timeout`` is passed to ollama.generate so the underlying
-        httpx read timeout is bounded.  This is required for thread/connection
-        reclamation: without it, the blocked C-level socket read in the
-        streaming path keeps the to_thread worker alive indefinitely even after
-        the caller abandons the generator (see P1-C1-stream-timeout).
+        A finite read timeout is configured on the ollama.Client so the
+        underlying httpx read timeout is bounded.  This is required for
+        thread/connection reclamation: without it, the blocked C-level socket
+        read in the streaming path keeps the to_thread worker alive
+        indefinitely even after the caller abandons the generator (see
+        P1-C1-stream-timeout). The installed ollama.generate() has no timeout
+        kwarg, so the timeout lives on the Client, not the generate() call.
         """
         try:
             last_chunk = {}
-            # timeout caps the per-read wait so orphaned workers can be reclaimed.
-            # Uses self._timeout (seconds) which comes from settings.llm_timeout_seconds.
-            for chunk in ollama.generate(
+            client = self._get_stream_client()
+            for chunk in client.generate(
                 model=self.model,
                 prompt=prompt,
                 stream=True,
-                timeout=self._timeout,
             ):
                 last_chunk = chunk
                 text = chunk.get("response", "")
@@ -486,6 +510,9 @@ class LocalEmbedder:
         if cfg_dim > 0:
             self.dimension = cfg_dim
         else:
+            # Sentinel dimension lets the probe pass the self.dimension>0 guard
+            # in _request_embeddings; the real dimension is set from the result.
+            self.dimension = 1
             probe = self._request_embeddings(["dimension probe"])
             self.dimension = len(probe[0])
 

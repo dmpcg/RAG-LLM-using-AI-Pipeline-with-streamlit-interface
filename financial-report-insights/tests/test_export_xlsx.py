@@ -445,3 +445,50 @@ class TestRatiosSheetCap_WP8:
         col0 = [ws.cell(row=r, column=1).value for r in range(1, ws.max_row + 1)]
         notes = [v for v in col0 if isinstance(v, str) and "truncated" in v.lower()]
         assert len(notes) == 1, f"expected exactly one truncation note, got {notes}"
+
+
+class TestFormulaInjection_AUD0522_05:
+    """User-controlled strings beginning with = + - @ must be stored as literal
+    strings, never interpreted as formulas (CWE-1236)."""
+
+    def test_exporter_does_not_promote_user_string_to_formula(self):
+        import io
+
+        import openpyxl
+
+        from export_xlsx import FinancialExcelExporter
+        from financial_analyzer import ScenarioResult
+
+        # scenario_name is attacker-controlled and written via ws.write(); a
+        # leading '=' must NOT be promoted to a live formula in the workbook.
+        exporter = FinancialExcelExporter()
+        evil = '=HYPERLINK("http://evil","click")'
+        out = exporter.export_scenario_comparison(
+            [ScenarioResult(scenario_name=evil)]
+        )
+        assert out[:2] == b"PK"
+
+        wb = openpyxl.load_workbook(io.BytesIO(out))
+        ws = wb["Scenario Comparison"]
+        cells = [ws.cell(row=r, column=1) for r in range(1, ws.max_row + 1)]
+        evil_cells = [c for c in cells if c.value == evil]
+        assert evil_cells, "expected the scenario name to be written verbatim"
+        for c in evil_cells:
+            assert c.data_type != "f", "user string must not be stored as a formula"
+
+    def test_leading_equals_string_not_a_formula(self):
+        import io
+
+        import openpyxl
+        import xlsxwriter
+
+        buf = io.BytesIO()
+        wb = xlsxwriter.Workbook(buf, {"in_memory": True, "strings_to_formulas": False})
+        ws = wb.add_worksheet("S")
+        ws.write(0, 0, "=cmd|'/c calc'!A1")
+        wb.close()
+
+        loaded = openpyxl.load_workbook(io.BytesIO(buf.getvalue()))
+        cell = loaded["S"].cell(row=1, column=1)
+        assert cell.value == "=cmd|'/c calc'!A1"
+        assert cell.data_type == "s", "leading '=' string must be stored as text, not a formula"

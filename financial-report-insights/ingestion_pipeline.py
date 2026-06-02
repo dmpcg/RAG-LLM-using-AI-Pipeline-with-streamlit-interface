@@ -141,8 +141,12 @@ def _df_to_markdown(df: pd.DataFrame, max_rows: int = 200) -> str:
     if df.empty:
         return ""
 
+    # Drop all-blank rows before truncating so data past the limit isn't lost
+    # to blank-padded rows that pandas reads from sparse sheets.
+    compacted = df.dropna(how="all").reset_index(drop=True)
+
     # Truncate if needed
-    truncated = df.head(max_rows)
+    truncated = compacted.head(max_rows)
 
     try:
         return truncated.to_markdown(index=False)
@@ -201,6 +205,12 @@ def ingest_excel(
                     ]
                     # Skip empty sheets
                     if df.empty or (df.shape[0] < 2 and df.shape[1] < 2):
+                        logger.warning(
+                            "Skipping empty/near-empty sheet '%s' (shape=%s) in %s",
+                            sheet_name,
+                            df.shape,
+                            source,
+                        )
                         continue
                     sheets.append((sheet_name, df))
                 except Exception as e:
@@ -211,6 +221,12 @@ def ingest_excel(
             md = _df_to_markdown(df)
 
             if not md.strip():
+                logger.warning(
+                    "Skipping sheet '%s' (shape=%s) in %s: produced blank markdown",
+                    sheet_name,
+                    df.shape,
+                    source,
+                )
                 continue
 
             meta = {
@@ -231,12 +247,19 @@ def ingest_excel(
             )
             all_chunks.extend(sheet_chunks)
 
-        logger.info(
-            "Ingested Excel '%s': %d sheets -> %d chunks",
-            source,
-            len(sheets),
-            len(all_chunks),
-        )
+        if sheets and not all_chunks:
+            logger.warning(
+                "Ingested Excel '%s': %d sheets present but produced 0 chunks",
+                source,
+                len(sheets),
+            )
+        else:
+            logger.info(
+                "Ingested Excel '%s': %d sheets -> %d chunks",
+                source,
+                len(sheets),
+                len(all_chunks),
+            )
 
     except Exception as e:
         logger.error("Failed to ingest Excel file %s: %s", source, e)

@@ -67,8 +67,74 @@ class TestSecurityHeaders:
         assert resp.headers["X-Content-Type-Options"] == "nosniff"
         assert resp.headers["X-Frame-Options"] == "DENY"
         assert resp.headers["X-XSS-Protection"] == "1; mode=block"
-        assert resp.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+        assert resp.headers["Referrer-Policy"] == "no-referrer"
+        assert resp.headers["Permissions-Policy"] == "geolocation=(), microphone=(), camera=()"
+        assert resp.headers["Content-Security-Policy"] == "default-src 'self'"
+        assert resp.headers["Strict-Transport-Security"] == "max-age=63072000; includeSubDomains"
         assert resp.headers["Cache-Control"] == "no-store"
+
+
+# ---------------------------------------------------------------------------
+# Optional API-key authentication (require_api_key dependency)
+# ---------------------------------------------------------------------------
+
+
+class TestApiKeyAuth:
+    def test_no_key_configured_allows_all(self, client, mock_rag):
+        """Default (empty api_key) -> auth disabled, requests succeed."""
+        import api as api_module
+
+        assert api_module.settings.api_key == ""
+        resp = client.post("/query", json={"text": "What is revenue?"})
+        assert resp.status_code == 200
+
+    def test_missing_key_when_configured_rejected(self, client, mock_rag):
+        import api as api_module
+
+        with patch.object(api_module.settings, "api_key", "s3cr3t"):
+            resp = client.post("/query", json={"text": "What is revenue?"})
+        assert resp.status_code == 401
+
+    def test_wrong_key_when_configured_rejected(self, client, mock_rag):
+        import api as api_module
+
+        with patch.object(api_module.settings, "api_key", "s3cr3t"):
+            resp = client.post(
+                "/query",
+                json={"text": "What is revenue?"},
+                headers={"X-API-Key": "wrong"},
+            )
+        assert resp.status_code == 401
+
+    def test_correct_key_when_configured_allowed(self, client, mock_rag):
+        import api as api_module
+
+        with patch.object(api_module.settings, "api_key", "s3cr3t"):
+            resp = client.post(
+                "/query",
+                json={"text": "What is revenue?"},
+                headers={"X-API-Key": "s3cr3t"},
+            )
+        assert resp.status_code == 200
+
+    def test_health_exempt_even_when_key_set(self, client):
+        import api as api_module
+
+        with patch.object(api_module.settings, "api_key", "s3cr3t"), patch(
+            "api.get_health_status",
+            return_value={"healthy": True, "status": "ok", "checks": []},
+        ):
+            resp = client.get("/health")
+        assert resp.status_code == 200
+
+    def test_metrics_exempt_even_when_key_set(self, client):
+        import api as api_module
+
+        with patch.object(api_module.settings, "api_key", "s3cr3t"), patch.object(
+            api_module.settings, "enable_metrics_endpoint", True
+        ):
+            resp = client.get("/metrics")
+        assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------

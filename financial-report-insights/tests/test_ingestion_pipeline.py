@@ -377,3 +377,37 @@ class TestIngestPdfExcInfo:
                 pytest.fail(f"ingest_pdf raised unexpectedly: {exc!r}")
 
         assert result == []
+
+
+class TestIngestExcelEmptySheetWarning:
+    def test_single_1x1_sheet_warns_and_zero_chunks(self, tmp_path, caplog):
+        """A workbook whose only sheet is 1x1 must produce 0 chunks and emit a
+        WARNING (regression: empty-sheet skips were previously silent)."""
+        import logging
+
+        path = tmp_path / "tiny.xlsx"
+        pd.DataFrame({"A": ["only"]}).to_excel(path, index=False, sheet_name="Solo")
+
+        with caplog.at_level(logging.WARNING, logger="ingestion_pipeline"):
+            chunks = ingest_excel(path)
+
+        assert chunks == []
+        warning_msgs = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+        assert any("Solo" in m for m in warning_msgs), f"no warning naming the sheet: {warning_msgs}"
+
+
+class TestDfToMarkdownDropna:
+    def test_blank_padded_rows_do_not_drop_late_data(self):
+        """Blank rows interspersed before data past max_rows must be compacted
+        so the real data survives the head(max_rows) truncation."""
+        import numpy as np
+
+        # 250 all-blank rows, then a real data row at index 250 (> default 200).
+        rows = [[np.nan, np.nan] for _ in range(250)]
+        rows.append(["Net Income", 12345])
+        df = pd.DataFrame(rows, columns=["Label", "Value"])
+
+        md = _df_to_markdown(df)
+
+        assert "Net Income" in md
+        assert "12345" in md

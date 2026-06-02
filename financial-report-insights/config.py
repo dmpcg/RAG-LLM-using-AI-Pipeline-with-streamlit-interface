@@ -78,6 +78,7 @@ class Settings(BaseSettings):
 
     # API
     api_port: int = 8504
+    api_key: str = ""  # When set, X-API-Key required on all routes except /health and /metrics (env RAG_API_KEY)
     cors_origins: str = "http://localhost:8501"  # Comma-separated allowed origins
     cors_allow_credentials: bool = False  # If True, "*" in cors_origins is forbidden (browsers reject the combination)
     max_request_body_bytes: int = 1_048_576  # 1 MB max request body
@@ -157,6 +158,9 @@ def validate_settings(s: Settings | None = None) -> Tuple[list[str], list[str]]:
         )
 
     # --- Neo4j consistency ---
+    # Distinguish UNSET (env var absent) from set-but-blank.  Only require a
+    # password when NEO4J_URI is actually configured (non-empty after strip);
+    # an unset OR blank NEO4J_URI must never trigger the password requirement.
     neo4j_uri = os.environ.get("NEO4J_URI", "").strip()
     neo4j_pass = os.environ.get("NEO4J_PASSWORD", "").strip()
     if neo4j_uri and not neo4j_pass:
@@ -175,7 +179,7 @@ def validate_settings(s: Settings | None = None) -> Tuple[list[str], list[str]]:
         warnings.append(f"Unusual embedding_dimension: {s.embedding_dimension}")
     if s.max_file_size_mb > 500:
         warnings.append(f"max_file_size_mb is very large: {s.max_file_size_mb}")
-    if s.bm25_weight + s.semantic_weight != 1.0:
+    if abs((s.bm25_weight + s.semantic_weight) - 1.0) > 1e-9:
         warnings.append(f"bm25_weight + semantic_weight = {s.bm25_weight + s.semantic_weight} (expected 1.0)")
 
     return errors, warnings

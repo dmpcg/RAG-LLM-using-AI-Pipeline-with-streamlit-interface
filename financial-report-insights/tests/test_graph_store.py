@@ -696,6 +696,26 @@ class TestNeo4jPasswordRequired:
                 mock_neo4j.GraphDatabase.driver.assert_called_once()
                 mock_driver.verify_connectivity.assert_called_once()
 
+    def test_connect_closes_driver_when_verify_connectivity_fails(self):
+        """If verify_connectivity() raises, the driver must be closed to avoid
+        leaking its connection pool, and connect() must return None."""
+        from graph_store import Neo4jStore
+
+        env = {
+            "NEO4J_URI": "bolt://localhost:7687",
+            "NEO4J_USERNAME": "neo4j",
+            "NEO4J_PASSWORD": "test-secret",
+        }
+        mock_neo4j = MagicMock()
+        mock_driver = MagicMock()
+        mock_driver.verify_connectivity.side_effect = ConnectionError("unreachable")
+        mock_neo4j.GraphDatabase.driver.return_value = mock_driver
+        with patch.dict("os.environ", env, clear=False):
+            with patch.dict("sys.modules", {"neo4j": mock_neo4j}):
+                result = Neo4jStore.connect()
+                assert result is None
+                mock_driver.close.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # Error path tests: driver.session() throws, empty results, None data

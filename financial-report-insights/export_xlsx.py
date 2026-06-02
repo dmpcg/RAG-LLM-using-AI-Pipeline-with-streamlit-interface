@@ -166,7 +166,7 @@ class FinancialExcelExporter:
           - Scoring: Z-Score and F-Score details (if present)
         """
         buf = io.BytesIO()
-        wb = xlsxwriter.Workbook(buf, {"in_memory": True})
+        wb = xlsxwriter.Workbook(buf, {"in_memory": True, "strings_to_formulas": False})
         fmt = _Formats(wb)
 
         self._write_summary_sheet(wb, fmt, data, analysis_results, report)
@@ -184,7 +184,7 @@ class FinancialExcelExporter:
     ) -> bytes:
         """Single-sheet export of ratio name / value pairs."""
         buf = io.BytesIO()
-        wb = xlsxwriter.Workbook(buf, {"in_memory": True})
+        wb = xlsxwriter.Workbook(buf, {"in_memory": True, "strings_to_formulas": False})
         fmt = _Formats(wb)
         ws = wb.add_worksheet("Ratios")
 
@@ -245,7 +245,7 @@ class FinancialExcelExporter:
     ) -> bytes:
         """Export scenario comparison with base vs scenario columns."""
         buf = io.BytesIO()
-        wb = xlsxwriter.Workbook(buf, {"in_memory": True})
+        wb = xlsxwriter.Workbook(buf, {"in_memory": True, "strings_to_formulas": False})
         fmt = _Formats(wb)
         ws = wb.add_worksheet("Scenario Comparison")
 
