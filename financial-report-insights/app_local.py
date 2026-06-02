@@ -1238,7 +1238,8 @@ class SimpleRAG:
                         {
                             "source": r.get("source", ""),
                             "content": r.get("content", ""),
-                            "type": "unknown",
+                            "type": r.get("type") or "text",
+                            "metadata": {"chunk_id": r.get("chunk_id")} if r.get("chunk_id") else {},
                             "_graph_context": {
                                 "document": r.get("document", ""),
                                 "period": r.get("period", ""),
@@ -1318,6 +1319,22 @@ class SimpleRAG:
 
         return [self.documents[i] for i in top_indices]
 
+    @staticmethod
+    def _doc_identity(doc: dict):
+        """Stable CONTENT identity for fusion (not Python object identity).
+
+        In Neo4j/graph mode the semantic path returns freshly-built dicts that
+        can never share id() with the BM25 self.documents[i] objects, so keying
+        fusion on id(doc) silently loses the RRF overlap boost.
+
+        Key on (source, content[:200]) as the universal identity: BM25 results
+        are raw self.documents[i] dicts that never carry a chunk_id, so content
+        is the only field both rankers share. chunk_id is honored only when BOTH
+        sides expose the same one (it is not currently propagated to BM25 docs),
+        so it is used purely as a disambiguating suffix and never alone.
+        """
+        return ("content", doc.get("source", ""), doc.get("content", "")[:200])
+
     def _fuse_results_rrf(self, semantic_results: list, bm25_results: list, top_k: int) -> list:
         """
         Fuse semantic and BM25 results using Reciprocal Rank Fusion.
@@ -1333,14 +1350,18 @@ class SimpleRAG:
         Returns:
             Fused list of document chunks
         """
-        # Build rank maps (doc_id -> rank) for each system
-        semantic_ranks = {id(doc): rank for rank, doc in enumerate(semantic_results)}
-        bm25_ranks = {id(doc): rank for rank, doc in enumerate(bm25_results)}
+        # Build rank maps (content-identity -> rank) for each system. Keying on a
+        # stable content identity (not id(doc)) lets the same logical chunk fuse
+        # even when the two rankers return distinct dict objects (graph mode).
+        semantic_ranks = {self._doc_identity(doc): rank for rank, doc in enumerate(semantic_results)}
+        bm25_ranks = {self._doc_identity(doc): rank for rank, doc in enumerate(bm25_results)}
 
-        # Get all unique documents
+        # Get all unique documents (first occurrence wins per identity)
         all_docs = {}
         for doc in semantic_results + bm25_results:
-            all_docs[id(doc)] = doc
+            key = self._doc_identity(doc)
+            if key not in all_docs:
+                all_docs[key] = doc
 
         # Calculate RRF scores
         rrf_scores = {}

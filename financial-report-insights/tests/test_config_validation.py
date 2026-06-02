@@ -111,6 +111,36 @@ class TestValidateSettings:
         errors, _ = validate_settings(s)
         assert not any("NEO4J" in e for e in errors)
 
+    def test_neo4j_uri_unset_never_requires_password(self):
+        """Unset NEO4J_URI (env var absent) must not trigger the password error."""
+        env = {k: v for k, v in os.environ.items() if k not in ("NEO4J_URI", "NEO4J_PASSWORD")}
+        with patch.dict(os.environ, env, clear=True):
+            s = Settings()
+            errors, _ = validate_settings(s)
+        assert not any("NEO4J" in e for e in errors)
+
+    @patch.dict(os.environ, {"NEO4J_URI": "   ", "NEO4J_PASSWORD": ""})
+    def test_neo4j_uri_blank_string_never_requires_password(self):
+        """Set-but-blank NEO4J_URI is treated as unconfigured."""
+        s = Settings()
+        errors, _ = validate_settings(s)
+        assert not any("NEO4J" in e for e in errors)
+
+    def test_weights_float_tolerance_no_warning(self):
+        """Sums off by less than 1e-9 (float rounding) must not warn."""
+        # 0.4 + 0.6 + a sub-tolerance perturbation -> != 1.0 exactly but within tol.
+        s = Settings(bm25_weight=0.4, semantic_weight=0.6 + 1e-12)
+        assert (s.bm25_weight + s.semantic_weight) != 1.0
+        assert abs((s.bm25_weight + s.semantic_weight) - 1.0) <= 1e-9
+        _, warnings = validate_settings(s)
+        assert not any("bm25_weight" in w for w in warnings)
+
+    def test_weights_beyond_tolerance_warns(self):
+        """Sums off by more than the tolerance still warn."""
+        s = Settings(bm25_weight=0.4, semantic_weight=0.61)
+        _, warnings = validate_settings(s)
+        assert any("bm25_weight" in w for w in warnings)
+
     def test_multiple_errors_reported(self):
         """Multiple invalid fields should all be reported."""
         s = Settings(chunk_size=50, top_k=0, llm_timeout_seconds=1)

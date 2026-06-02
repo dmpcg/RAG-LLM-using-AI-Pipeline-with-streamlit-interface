@@ -81,7 +81,13 @@ class Neo4jStore:
                 logger.error("NEO4J_PASSWORD is not set. Refusing to connect without credentials.")
                 return None
             driver = neo4j.GraphDatabase.driver(uri, auth=(username, password))
-            driver.verify_connectivity()
+            try:
+                driver.verify_connectivity()
+            except Exception:
+                # Close the driver to avoid leaking its connection pool before
+                # propagating the failure to the outer fallback handler.
+                driver.close()
+                raise
             logger.info("Connected to Neo4j at %s", uri)
             return cls(driver)
         except Exception as exc:

@@ -380,7 +380,7 @@ class ExcelProcessor:
                     continue
 
             if df is None:
-                df = pd.read_csv(file_path, delimiter=delimiter, encoding="utf-8", errors="ignore")
+                df = pd.read_csv(file_path, delimiter=delimiter, encoding="utf-8", encoding_errors="ignore")
 
             df = self._clean_dataframe(df)
 

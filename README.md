@@ -1,6 +1,6 @@
 # Financial Report Insights
 
-A privacy-first, local RAG (Retrieval-Augmented Generation) platform for CFO-grade financial analysis. Upload Excel or PDF financial reports and get interactive dashboards, 160+ financial ratios, scoring models, Monte Carlo simulations, and natural-language Q&A — all powered by Ollama and Sentence Transformers running entirely on your machine. No API keys, no cloud dependencies.
+A privacy-first, local RAG (Retrieval-Augmented Generation) platform for CFO-grade financial analysis. Upload Excel or PDF financial reports and get interactive dashboards, 160+ financial ratios, scoring models, Monte Carlo simulations, and natural-language Q&A — all powered by Ollama (LLM) and Docker Model Runner embeddings (mxbai-embed-large) running entirely on your machine. No API keys, no cloud dependencies.
 
 ## Key Features
 
@@ -19,7 +19,7 @@ A privacy-first, local RAG (Retrieval-Augmented Generation) platform for CFO-gra
 
 | Layer | Technology |
 |-------|------------|
-| Language | Python 3.13 |
+| Language | Python 3.12 or 3.13 (numpy 2.x wheels require 3.12+) |
 | UI | Streamlit |
 | LLM | Ollama (llama3.2 default) |
 | Embeddings | Docker Model Runner (mxbai-embed-large, 1024-dim) |
@@ -33,7 +33,7 @@ A privacy-first, local RAG (Retrieval-Augmented Generation) platform for CFO-gra
 
 ## Prerequisites
 
-- **Python 3.13** — required for numpy 2.x compatibility
+- **Python 3.12 or 3.13 (numpy 2.x wheels require 3.12+)**
 - **Ollama** — [Install Ollama](https://ollama.com/download) and pull a model:
   ```bash
   ollama pull llama3.2

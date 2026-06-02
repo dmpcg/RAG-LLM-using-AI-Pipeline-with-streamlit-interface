@@ -1,5 +1,7 @@
 """Tests for excel_processor.py core processing engine."""
 
+from unittest.mock import patch
+
 import pandas as pd
 import pytest
 
@@ -468,3 +470,38 @@ class TestEmbeddingSanitization:
         assert result[0] == [0.0, 0.0]  # empty -> zero vector
         assert result[1] == [1.0, 2.0]  # real text -> actual embedding
         assert result[2] == [0.0, 0.0]  # whitespace -> zero vector
+
+
+# ---------------------------------------------------------------------------
+# CSV encoding fallback (regression for errors= -> encoding_errors=)
+# ---------------------------------------------------------------------------
+
+
+class TestCsvEncodingFallback:
+    def test_load_csv_falls_back_when_all_encodings_fail(self, processor, tmp_path):
+        """When every probed encoding raises UnicodeDecodeError, _load_csv must
+        still return rows via the encoding_errors='ignore' fallback.
+
+        Regression: the fallback previously used the non-existent pandas
+        kwarg errors='ignore', which raised TypeError and made _load_csv
+        silently return []."""
+        import pandas as pd
+
+        # CSV with a byte invalid in utf-8 (0xe9, lone latin-1 'é').
+        path = tmp_path / "weird_encoding.csv"
+        path.write_bytes(b"Category,Amount\nRevenue,500\nCaf\xe9,300\n")
+
+        real_read_csv = pd.read_csv
+
+        def fake_read_csv(*args, **kwargs):
+            # Force the encoding-probe loop (which passes encoding=...) to fail,
+            # but let the fallback (which passes encoding_errors=...) through.
+            if "encoding_errors" not in kwargs:
+                raise UnicodeDecodeError("utf-8", b"", 0, 1, "forced")
+            return real_read_csv(*args, **kwargs)
+
+        with patch("excel_processor.pd.read_csv", side_effect=fake_read_csv):
+            sheets = processor._load_csv(path, delimiter=",")
+
+        assert sheets, "fallback path returned no sheets (errors= kwarg bug)"
+        assert len(sheets[0].df) >= 2

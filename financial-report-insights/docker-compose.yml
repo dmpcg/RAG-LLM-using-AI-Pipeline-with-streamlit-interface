@@ -27,7 +27,7 @@ services:
         condition: service_healthy
         required: false
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health'); urllib.request.urlopen('http://localhost:8504/health')\" || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=5); urllib.request.urlopen('http://localhost:8504/health', timeout=5)\" || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

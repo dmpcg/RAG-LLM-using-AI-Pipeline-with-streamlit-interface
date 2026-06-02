@@ -468,6 +468,79 @@ class TestFuseResultsRRF:
         fused = rag_with_docs._fuse_results_rrf([], [], top_k=3)
         assert fused == []
 
+    def test_content_identity_fuses_distinct_dict_objects(self, rag_with_docs):
+        """AUD0522-04: same logical chunk in both rankers must fuse on CONTENT
+        identity even when the two rankers return distinct dict objects (graph
+        mode), so the shared chunk gets the combined (boosted) RRF score."""
+        shared_content = "Revenue was 1 million"
+        # Semantic ranker returns a freshly-built dict (graph mode) that does NOT
+        # share id() with the BM25 self.documents[...] object.
+        semantic = [
+            {"source": "report.txt", "content": shared_content, "type": "text"},
+            {"source": "report.txt", "content": "Net income was 200k", "type": "text"},
+        ]
+        bm25 = [
+            rag_with_docs.documents[2],  # data.xlsx — semantic-only would win
+            rag_with_docs.documents[0],  # SAME logical chunk as semantic[0]
+        ]
+        # Object identity differs for the shared chunk.
+        assert semantic[0] is not bm25[1]
+
+        fused = rag_with_docs._fuse_results_rrf(semantic, bm25, top_k=3)
+        # The shared chunk appears in both rankers -> highest combined RRF score.
+        assert fused[0].get("content") == shared_content
+        # And it is deduplicated (not emitted twice).
+        contents = [d.get("content") for d in fused]
+        assert contents.count(shared_content) == 1
+
+    def test_numpy_mode_object_identity_still_fuses(self, rag_with_docs):
+        """Numpy-mode behavior is unchanged: when both rankers return the SAME
+        self.documents[i] objects, the overlapping doc is still boosted."""
+        docs = rag_with_docs.documents
+        semantic = [docs[0], docs[1]]
+        bm25 = [docs[1], docs[2]]  # docs[1] overlaps
+        fused = rag_with_docs._fuse_results_rrf(semantic, bm25, top_k=3)
+        # docs[1] is rank 1 in semantic + rank 0 in bm25 -> highest combined.
+        assert fused[0] is docs[1]
+        # Three distinct logical chunks survive (no spurious dedup).
+        assert len(fused) == 3
+        assert {d["content"] for d in fused} == {d["content"] for d in docs}
+
+    def test_mocked_graph_path_fuses_with_bm25(self, rag_with_docs):
+        """Mocked graph (Neo4j) semantic path must produce dicts that fuse with
+        BM25 results: real 'type' (not 'unknown') + matching content identity."""
+        # Wire a mocked graph store whose graph_search returns Neo4j-shaped dicts.
+        mock_store = MagicMock()
+        mock_store.graph_search.return_value = [
+            {
+                "source": "report.txt",
+                "content": "Revenue was 1 million",
+                "type": "text",
+                "chunk_id": "graph-cid-1",
+                "document": "",
+                "period": "",
+                "ratios": [],
+                "scores": [],
+            },
+        ]
+        rag_with_docs._graph_store = mock_store
+
+        semantic = rag_with_docs._semantic_search("revenue", top_k=2)
+        # Neo4j path carries a real type and the chunk_id (not 'unknown').
+        assert semantic[0]["type"] == "text"
+        assert semantic[0]["metadata"]["chunk_id"] == "graph-cid-1"
+
+        # BM25 returns the in-memory dict for the same logical chunk.
+        bm25 = [rag_with_docs.documents[0]]  # same content "Revenue was 1 million"
+        assert semantic[0] is not bm25[0]
+
+        fused = rag_with_docs._fuse_results_rrf(semantic, bm25, top_k=3)
+        # The shared chunk (content identity match) is boosted to the top and
+        # only appears once.
+        assert fused[0].get("content") == "Revenue was 1 million"
+        contents = [d.get("content") for d in fused]
+        assert contents.count("Revenue was 1 million") == 1
+
 
 # ---------------------------------------------------------------------------
 # answer

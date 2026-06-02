@@ -32,6 +32,7 @@ sys.modules.setdefault("config", _config_mod)
 # Stub 'ollama'
 _ollama_mod = _types.ModuleType("ollama")
 _ollama_mod.generate = MagicMock(return_value={"response": "hello"})
+_ollama_mod.Client = MagicMock(name="ollama.Client")
 sys.modules.setdefault("ollama", _ollama_mod)
 
 # Stub 'httpx'
@@ -106,6 +107,52 @@ class TestLocalEmbedderClose(unittest.TestCase):
             any(callable(fn) for fn in registered_callables),
             "atexit.register must have been called with a callable",
         )
+
+
+# ===========================================================================
+# RC5: dimension-probe bootstrap (embedding_dimension=0 must not deadlock)
+# ===========================================================================
+
+
+class TestDimensionProbeBootstrap(unittest.TestCase):
+    """
+    With RAG_EMBEDDING_DIMENSION=0, __init__ must run a dimension probe.
+    The probe goes through _request_embeddings, which guards on
+    self.dimension > 0 — so a sentinel dimension must be set first, then
+    replaced with the real probed length. Otherwise the probe can never run.
+    """
+
+    def test_probe_runs_and_sets_real_dimension_when_cfg_zero(self):
+        vector_1024 = [0.1] * 1024
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.return_value = None
+        mock_resp.json.return_value = {"data": [{"embedding": vector_1024}]}
+        mock_http_client = MagicMock()
+        mock_http_client.post.return_value = mock_resp
+
+        with (
+            # Force LocalEmbedder's deferred ``from config import settings`` to
+            # resolve to our stub regardless of full-suite import order. The
+            # module-level ``sys.modules.setdefault("config", ...)`` only wins if
+            # this file is imported before the real config module; in the full
+            # suite the real config is already loaded, so without this the probe
+            # branch never runs and post.assert_called() fails.
+            patch.dict("sys.modules", {"config": _config_mod}),
+            patch("httpx.Client", return_value=mock_http_client),
+            patch.dict("os.environ", {"OLLAMA_HOST": "http://localhost:11434"}),
+            # Force the configured dimension to 0 so the probe path is taken.
+            patch.object(_settings_obj, "embedding_dimension", 0),
+        ):
+            embedder = local_llm.LocalEmbedder()
+
+        self.assertEqual(
+            embedder.dimension,
+            1024,
+            "self.dimension must be set from the probe vector length (1024)",
+        )
+        # The probe must actually have hit the endpoint (not short-circuited).
+        mock_http_client.post.assert_called()
 
 
 # ===========================================================================
@@ -414,14 +461,13 @@ class TestSendEmbeddingBatchTerminalRaise(unittest.TestCase):
 
 class TestStreamingReadTimeout(unittest.TestCase):
     """
-    The streaming ollama.generate(stream=True) call must carry a finite read
-    timeout so that the blocked C-level socket read can be interrupted and the
-    thread/connection reclaimed.
+    The installed ollama client's generate() accepts NO 'timeout' kwarg, so
+    passing one raises TypeError on every real streaming call. The finite read
+    timeout must therefore be configured on an ollama.Client, not forwarded to
+    generate(). These tests pin the corrected contract:
 
-    We assert that the timeout value forwarded to ollama.generate is finite
-    (i.e. not None and not float('inf')).  The exact delivery mechanism
-    (kwarg vs client-level) is an implementation detail; we inspect the call
-    kwargs on the ollama.generate mock.
+      * generate(stream=True) is invoked WITHOUT a 'timeout' kwarg
+      * when OLLAMA_HOST is set, the Client is built carrying the timeout
     """
 
     def _make_raw_llm(self, timeout_seconds=30):
@@ -430,73 +476,72 @@ class TestStreamingReadTimeout(unittest.TestCase):
         llm._timeout = timeout_seconds
         return llm
 
-    def test_streaming_generate_has_finite_timeout_kwarg(self):
+    def test_streaming_generate_omits_timeout_kwarg(self):
         """
-        ollama.generate(stream=True, ...) must be called with a finite
-        'timeout' keyword argument (or equivalent option dict).
+        generate(stream=True, ...) must NOT be called with a 'timeout' kwarg —
+        the installed ollama.generate() has no such parameter.
         """
         chunks_yielded = []
 
-        def fake_ollama_generate(*args, **kwargs):
-            # Record the call kwargs for assertion; yield one chunk
+        def fake_generate(*args, **kwargs):
             chunks_yielded.append(kwargs)
             yield {"response": "hello"}
 
-        with patch.object(local_llm.ollama, "generate", side_effect=fake_ollama_generate):
-            llm = self._make_raw_llm(timeout_seconds=45)
-            # Consume the generator
-            list(llm._raw_generate_stream("test prompt"))
+        # No OLLAMA_HOST -> module-level ollama.generate is used.
+        with patch.dict("os.environ", {}, clear=False) as _env:
+            _env.pop("OLLAMA_HOST", None)
+            with patch.object(local_llm.ollama, "generate", side_effect=fake_generate):
+                llm = self._make_raw_llm(timeout_seconds=45)
+                list(llm._raw_generate_stream("test prompt"))
 
         self.assertTrue(
             len(chunks_yielded) >= 1,
-            "ollama.generate must have been called at least once",
+            "generate must have been called at least once",
         )
-        call_kwargs = chunks_yielded[0]
-        self.assertIn(
+        self.assertNotIn(
             "timeout",
-            call_kwargs,
-            "ollama.generate(stream=True) must be called with a 'timeout' kwarg "
-            "to enable finite read timeout for thread/connection reclamation",
+            chunks_yielded[0],
+            "generate(stream=True) must NOT receive a 'timeout' kwarg (unsupported by the installed ollama client)",
         )
-        timeout_val = call_kwargs["timeout"]
-        self.assertIsNotNone(timeout_val, "timeout must not be None")
-        self.assertNotEqual(timeout_val, float("inf"), "timeout must be finite (not inf)")
-        # Should be a positive number
-        self.assertGreater(
-            float(timeout_val) if not hasattr(timeout_val, "read") else timeout_val.read,
-            0,
-            "timeout must be positive",
-        )
+        self.assertTrue(chunks_yielded[0].get("stream"), "stream=True must be passed")
 
-    def test_streaming_timeout_respects_configured_value(self):
+    def test_streaming_client_built_with_timeout_when_host_set(self):
         """
-        The timeout forwarded to the streaming call must equal (or derive from)
-        settings.llm_timeout_seconds so the operator can tune it.
+        When OLLAMA_HOST is set the read timeout is configured on the
+        ollama.Client (derived from settings.llm_timeout_seconds), and the
+        Client's generate() is still called WITHOUT a 'timeout' kwarg.
         """
         expected_timeout = 77
+        generate_kwargs_seen = []
 
-        call_kwargs_seen = []
+        fake_client = MagicMock()
 
-        def fake_ollama_generate(*args, **kwargs):
-            call_kwargs_seen.append(kwargs)
+        def fake_client_generate(*args, **kwargs):
+            generate_kwargs_seen.append(kwargs)
             yield {"response": "chunk"}
 
-        with patch.object(local_llm.ollama, "generate", side_effect=fake_ollama_generate):
-            llm = self._make_raw_llm(timeout_seconds=expected_timeout)
-            list(llm._raw_generate_stream("prompt"))
+        fake_client.generate.side_effect = fake_client_generate
+        client_init_kwargs = {}
 
-        self.assertTrue(call_kwargs_seen)
-        kw = call_kwargs_seen[0]
-        timeout_val = kw.get("timeout")
-        # Accept either a plain number or an httpx.Timeout-like object
-        if hasattr(timeout_val, "read"):
-            actual = timeout_val.read
-        else:
-            actual = float(timeout_val)
+        def fake_client_cls(*args, **kwargs):
+            client_init_kwargs.update(kwargs)
+            return fake_client
+
+        with patch.dict("os.environ", {"OLLAMA_HOST": "http://localhost:11434"}):
+            with patch.object(local_llm.ollama, "Client", side_effect=fake_client_cls):
+                llm = self._make_raw_llm(timeout_seconds=expected_timeout)
+                list(llm._raw_generate_stream("prompt"))
+
         self.assertEqual(
-            actual,
-            float(expected_timeout),
-            f"Expected timeout={expected_timeout}, got {timeout_val}",
+            client_init_kwargs.get("timeout"),
+            expected_timeout,
+            "ollama.Client must be constructed with timeout=self._timeout",
+        )
+        self.assertTrue(generate_kwargs_seen, "client.generate must be called")
+        self.assertNotIn(
+            "timeout",
+            generate_kwargs_seen[0],
+            "client.generate(stream=True) must NOT receive a 'timeout' kwarg",
         )
 
 

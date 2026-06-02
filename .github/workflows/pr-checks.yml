@@ -31,7 +31,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: financial-report-insights/requirements.txt
-      - run: pip install ruff
+      - run: pip install ruff==0.14.14   # pinned to match ci.yml so `format --check` is deterministic (unpinned latest reformats pre-existing files)
       - run: ruff check . --output-format=github
       - run: ruff format --check .
 
