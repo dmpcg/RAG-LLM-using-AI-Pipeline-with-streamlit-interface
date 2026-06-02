@@ -501,8 +501,7 @@ class TestStreamingReadTimeout(unittest.TestCase):
         self.assertNotIn(
             "timeout",
             chunks_yielded[0],
-            "generate(stream=True) must NOT receive a 'timeout' kwarg "
-            "(unsupported by the installed ollama client)",
+            "generate(stream=True) must NOT receive a 'timeout' kwarg (unsupported by the installed ollama client)",
         )
         self.assertTrue(chunks_yielded[0].get("stream"), "stream=True must be passed")
 

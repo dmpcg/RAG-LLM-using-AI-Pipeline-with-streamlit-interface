@@ -512,9 +512,16 @@ class TestFuseResultsRRF:
         # Wire a mocked graph store whose graph_search returns Neo4j-shaped dicts.
         mock_store = MagicMock()
         mock_store.graph_search.return_value = [
-            {"source": "report.txt", "content": "Revenue was 1 million",
-             "type": "text", "chunk_id": "graph-cid-1",
-             "document": "", "period": "", "ratios": [], "scores": []},
+            {
+                "source": "report.txt",
+                "content": "Revenue was 1 million",
+                "type": "text",
+                "chunk_id": "graph-cid-1",
+                "document": "",
+                "period": "",
+                "ratios": [],
+                "scores": [],
+            },
         ]
         rag_with_docs._graph_store = mock_store
 

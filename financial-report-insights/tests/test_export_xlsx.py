@@ -463,9 +463,7 @@ class TestFormulaInjection_AUD0522_05:
         # leading '=' must NOT be promoted to a live formula in the workbook.
         exporter = FinancialExcelExporter()
         evil = '=HYPERLINK("http://evil","click")'
-        out = exporter.export_scenario_comparison(
-            [ScenarioResult(scenario_name=evil)]
-        )
+        out = exporter.export_scenario_comparison([ScenarioResult(scenario_name=evil)])
         assert out[:2] == b"PK"
 
         wb = openpyxl.load_workbook(io.BytesIO(out))

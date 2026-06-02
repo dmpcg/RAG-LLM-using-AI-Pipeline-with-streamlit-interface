@@ -120,9 +120,12 @@ class TestApiKeyAuth:
     def test_health_exempt_even_when_key_set(self, client):
         import api as api_module
 
-        with patch.object(api_module.settings, "api_key", "s3cr3t"), patch(
-            "api.get_health_status",
-            return_value={"healthy": True, "status": "ok", "checks": []},
+        with (
+            patch.object(api_module.settings, "api_key", "s3cr3t"),
+            patch(
+                "api.get_health_status",
+                return_value={"healthy": True, "status": "ok", "checks": []},
+            ),
         ):
             resp = client.get("/health")
         assert resp.status_code == 200
@@ -130,8 +133,9 @@ class TestApiKeyAuth:
     def test_metrics_exempt_even_when_key_set(self, client):
         import api as api_module
 
-        with patch.object(api_module.settings, "api_key", "s3cr3t"), patch.object(
-            api_module.settings, "enable_metrics_endpoint", True
+        with (
+            patch.object(api_module.settings, "api_key", "s3cr3t"),
+            patch.object(api_module.settings, "enable_metrics_endpoint", True),
         ):
             resp = client.get("/metrics")
         assert resp.status_code == 200
