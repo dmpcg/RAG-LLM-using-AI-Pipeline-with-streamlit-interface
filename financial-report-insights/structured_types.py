@@ -176,12 +176,28 @@ class AnalysisResults:
     piotroski_f_score: Optional[Any] = None
     composite_health: Optional[Any] = None
     insights: List[Any] = field(default_factory=list)
+    # Internal cache field -- must come after all data fields so the dataclass
+    # __init__ writes it last.  init=False means callers cannot pass it; the
+    # generated __init__ sets it to None via __setattr__, which triggers the
+    # override below, but the guard (`if name != '_dict_cache'`) prevents
+    # the cache from being touched during that write, so no AttributeError.
+    _dict_cache: Any = field(default=None, init=False, repr=False, compare=False)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        object.__setattr__(self, name, value)
+        # Invalidate the dict cache whenever a real field is mutated so that
+        # post-construction mutations are always visible via dict-style access.
+        # Guarding on name avoids infinite recursion when we clear the cache
+        # itself.
+        if name != '_dict_cache':
+            object.__setattr__(self, '_dict_cache', None)
 
     def __post_init__(self) -> None:
-        # Lazily-populated dict cache for dict-style access methods.
-        # The object is treated as immutable after construction; mutating
-        # fields directly will NOT invalidate this cache.
-        object.__setattr__(self, '_dict_cache', None)
+        # _dict_cache is already initialised to None by the generated __init__
+        # (via the field default above).  Nothing more to do here; the method
+        # is retained so subclasses / existing tests that call super().__post_init__
+        # continue to work.
+        pass
 
     def _get_dict(self) -> Dict[str, Any]:
         """Return cached dict representation, building it on first access."""
