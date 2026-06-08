@@ -84,6 +84,11 @@ class DocumentInfo(BaseModel):
 _rag_instance = None
 _rag_lock = threading.Lock()
 
+# Module-level exporter references — populated eagerly at lifespan startup.
+# Using None sentinel so tests can detect missing eager import.
+FinancialExcelExporter = None  # type: ignore[assignment]
+FinancialPDFExporter = None  # type: ignore[assignment]
+
 
 def _get_rag():
     """Lazy-initialise the RAG singleton (avoids slow startup when importing)."""
@@ -104,6 +109,7 @@ def _get_rag():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global FinancialExcelExporter, FinancialPDFExporter
     logger.info("FastAPI starting up")
     from config import validate_settings
     errors, warnings = validate_settings()
@@ -115,6 +121,13 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(
             f"Configuration validation failed: {'; '.join(errors)}"
         )
+    # Eagerly import exporters at startup so the first export request pays no
+    # per-request import overhead and import errors surface immediately (P1-A6).
+    from export_xlsx import FinancialExcelExporter as _FXE
+    from export_pdf import FinancialPDFExporter as _FPE
+    FinancialExcelExporter = _FXE
+    FinancialPDFExporter = _FPE
+    logger.info("Exporter classes loaded: %s, %s", _FXE.__name__, _FPE.__name__)
     yield
     logger.info("FastAPI shutting down")
 
@@ -502,6 +515,25 @@ async def compare_periods(req: CompareRequest):
 
     # In-memory fallback: use cached FinancialData
     if not deltas:
+        # Quick-return guard (P1-A4 / D9): when no documents have been ingested
+        # there is nothing to compare; skip the expensive context scan entirely.
+        # NOTE: guard is on rag.documents (the ingestion list), NOT on
+        # _period_financial_data which is lazily populated BY the very scan we
+        # want to skip (bailing on empty period_data would regress document-
+        # loaded analyzers whose period cache is cold on the first request).
+        if not getattr(rag, "documents", None):
+            return CompareResponse(
+                periods_compared=req.period_labels,
+                improvements=[],
+                deteriorations=[],
+                deltas=[],
+                graph_trend_data=graph_trend_data,
+                summary=(
+                    f"Compared {len(req.period_labels)} periods: "
+                    "0 improvements, 0 deteriorations."
+                ),
+            )
+
         period_data = getattr(rag, "_period_financial_data", {})
         # Ensure financial analysis context is computed
         if not period_data:
@@ -583,8 +615,6 @@ class ExportRequest(BaseModel):
 @app.post("/export/xlsx")
 async def export_xlsx(req: ExportRequest):
     """Export financial analysis as Excel workbook."""
-    from export_xlsx import FinancialExcelExporter
-
     data = _parse_financial_data(req.financial_data)
 
     rag = _get_rag()
@@ -614,8 +644,6 @@ async def export_xlsx(req: ExportRequest):
 @app.post("/export/pdf")
 async def export_pdf(req: ExportRequest):
     """Export financial analysis as PDF report."""
-    from export_pdf import FinancialPDFExporter
-
     data = _parse_financial_data(req.financial_data)
 
     rag = _get_rag()

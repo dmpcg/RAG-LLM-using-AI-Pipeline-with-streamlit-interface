@@ -409,6 +409,59 @@ class TestAnalysisResults:
         assert ar.liquidity_ratios.cash_ratio == 0.5
         assert ar.liquidity_ratios.current_ratio is None
 
+    # ------------------------------------------------------------------
+    # WP-A / P0-5: dict-cache invalidation tests
+    # ------------------------------------------------------------------
+
+    def test_post_construction_mutation_visible_via_dict(self):
+        """Fix #2: mutate .insights after seeding cache; new value visible via dict."""
+        ar = AnalysisResults()
+        # Seed the cache
+        _ = ar.to_dict()
+        _ = ar["insights"]
+        # Mutate after cache has been built
+        ar.insights = ["new insight"]
+        # The dict view must reflect the mutation
+        assert ar["insights"] == ["new insight"]
+        assert ar.to_dict()["insights"] == ["new insight"]
+
+    def test_original_ordering_recurrence_ws2_o5(self):
+        """WS2-O5: to_dict() FIRST then set .insights must still show new insights.
+
+        This is the original-ordering recurrence that FAILS against the pre-fix
+        class (no __setattr__ invalidation).  After Fix #2 it must pass.
+        """
+        ar = AnalysisResults()
+        # Call to_dict() first -- this seeds the cache with empty insights
+        first_dict = ar.to_dict()
+        assert first_dict["insights"] == []
+        # Now assign insights (reproduces the analyze() bug pattern)
+        ar.insights = ["insight A", "insight B"]
+        # The cache must be invalidated so the new value is visible
+        assert ar["insights"] == ["insight A", "insight B"]
+        assert ar.to_dict()["insights"] == ["insight A", "insight B"]
+
+    def test_analyze_level_insights_non_empty(self):
+        """analyze() result has non-empty insights in dict view when data triggers them."""
+        from financial_analyzer import CharlieAnalyzer, FinancialData
+
+        analyzer = CharlieAnalyzer()
+        data = FinancialData(
+            current_assets=500_000,
+            current_liabilities=200_000,
+            cash=50_000,
+            net_income=150_000,
+            total_assets=2_000_000,
+            total_equity=1_200_000,
+            revenue=1_000_000,
+            gross_profit=400_000,
+            operating_income=200_000,
+        )
+        result = analyzer.analyze(data)
+        # Insights should be populated (current_ratio >= 1.5 triggers an info insight)
+        assert result["insights"] is not None
+        assert len(result["insights"]) > 0
+
 
 # ---------------------------------------------------------------------------
 # GraphChunk

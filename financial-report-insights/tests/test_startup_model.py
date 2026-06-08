@@ -66,10 +66,23 @@ class TestSaaSMetrics:
         m = analyzer.saas_metrics(saas_company)
         assert m.arpu == pytest.approx(500.0)  # 500k / 1000
 
-    def test_nrr_estimate(self, analyzer, saas_company):
+    def test_grr_estimate(self, analyzer, saas_company):
+        """P0-9: 1 - gross_churn is GRR, not NRR."""
         m = analyzer.saas_metrics(saas_company)
-        # Simplified NRR = 1 - gross_churn = 1 - 0.03 = 0.97
-        assert m.net_revenue_retention == pytest.approx(0.97)
+        # GRR = 1 - gross_churn = 1 - 0.03 = 0.97
+        assert m.gross_revenue_retention == pytest.approx(0.97)
+
+    def test_nrr_is_none_without_expansion_data(self, analyzer, saas_company):
+        """P0-9: NRR requires expansion-revenue data; without it, must be None."""
+        m = analyzer.saas_metrics(saas_company)
+        assert m.net_revenue_retention is None
+
+    def test_p0_9_grr_field_exists_on_dataclass(self):
+        """P0-9: SaaSMetrics exposes gross_revenue_retention separately from NRR."""
+        sm = SaaSMetrics()
+        assert hasattr(sm, "gross_revenue_retention")
+        assert sm.gross_revenue_retention is None
+        assert sm.net_revenue_retention is None
 
     def test_mrr_growth_unavailable(self, analyzer, saas_company):
         m = analyzer.saas_metrics(saas_company)
@@ -79,6 +92,40 @@ class TestSaaSMetrics:
         m = analyzer.saas_metrics(saas_company)
         assert len(m.interpretation) > 0
         assert "MRR" in m.interpretation
+
+    def test_nrr_unavailable_clause_present_when_none(self, analyzer, saas_company):
+        """WP-7(e): when NRR is None, interpretation states it is unavailable."""
+        m = analyzer.saas_metrics(saas_company)
+        assert m.net_revenue_retention is None
+        assert "NRR unavailable (requires multi-period expansion data)" in m.interpretation
+
+    def test_nrr_unavailable_clause_present_empty_data(self, analyzer):
+        """WP-7(e): NRR-unavailable clause surfaces even with no SaaS inputs."""
+        m = analyzer.saas_metrics(FinancialData())
+        assert m.net_revenue_retention is None
+        assert "NRR unavailable (requires multi-period expansion data)" in m.interpretation
+
+    def test_nrr_unavailable_clause_absent_when_supplied(self, analyzer, saas_company):
+        """WP-7(e): when a caller supplies NRR (non-None), the clause is absent."""
+        interp = analyzer._build_saas_interpretation(
+            mrr=500_000,
+            arr=6_000_000,
+            gross_churn=0.03,
+            mrr_growth_rate=None,
+            net_revenue_retention=1.10,
+        )
+        assert "NRR unavailable" not in interp
+
+    def test_nrr_unavailable_clause_present_via_builder(self, analyzer):
+        """WP-7(e): builder emits the clause when NRR is None."""
+        interp = analyzer._build_saas_interpretation(
+            mrr=500_000,
+            arr=6_000_000,
+            gross_churn=0.03,
+            mrr_growth_rate=None,
+            net_revenue_retention=None,
+        )
+        assert "NRR unavailable (requires multi-period expansion data)" in interp
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +149,8 @@ class TestUnitEconomics:
             revenue=500_000,
         )
         ue = analyzer.unit_economics(data)
-        assert ue.ltv_to_cac == pytest.approx(5.0)
+        # P0-10: LTV/CAC now uses GM-adjusted LTV: 25000 * 0.7 / 5000 = 3.5
+        assert ue.ltv_to_cac == pytest.approx(3.5)
         assert ue.cac == 5000
         assert "Healthy" in ue.interpretation
 
@@ -114,7 +162,8 @@ class TestUnitEconomics:
             revenue=10000,
         )
         ue = analyzer.unit_economics(data)
-        assert ue.ltv_to_cac == pytest.approx(2.0)
+        # P0-10: GM-adjusted LTV/CAC = (20000 * 0.6) / 10000 = 1.2
+        assert ue.ltv_to_cac == pytest.approx(1.2)
         assert "improvement" in ue.interpretation
 
     def test_unit_economics_unsustainable(self, analyzer):
@@ -125,7 +174,8 @@ class TestUnitEconomics:
             revenue=10000,
         )
         ue = analyzer.unit_economics(data)
-        assert ue.ltv_to_cac == pytest.approx(0.5)
+        # P0-10: GM-adjusted LTV/CAC = (5000 * 0.3) / 10000 = 0.15
+        assert ue.ltv_to_cac == pytest.approx(0.15)
         assert "Unsustainable" in ue.interpretation
 
     def test_unit_economics_empty(self, analyzer):
@@ -157,6 +207,7 @@ class TestUnitEconomics:
         assert ue.gross_margin_adjusted_ltv == pytest.approx(7000)
 
     def test_payback_months(self, analyzer):
+        # No revenue/gross_profit -> gross_margin is None, falls back to raw ARPU
         data = FinancialData(
             monthly_recurring_revenue=100_000,
             customer_count=100,
@@ -164,13 +215,64 @@ class TestUnitEconomics:
             lifetime_value=50000,
         )
         ue = analyzer.unit_economics(data)
-        # Monthly ARPU = 100k/100 = 1000, payback = 5000/1000 = 5
+        # Monthly ARPU = 100k/100 = 1000, gross_margin unknown, payback = 5000/1000 = 5
         assert ue.payback_months == pytest.approx(5.0)
 
     def test_magic_number_unavailable(self, analyzer):
         data = FinancialData(lifetime_value=10000, customer_acquisition_cost=2000)
         ue = analyzer.unit_economics(data)
         assert ue.magic_number is None
+
+    # ------------------------------------------------------------------
+    # P0-10: GM-adjusted CAC payback and LTV/CAC
+    # ------------------------------------------------------------------
+
+    def test_p0_10_payback_uses_gm_adjusted_arpu(self, analyzer):
+        """CAC payback divides by GM-adjusted ARPU when gross_margin is known."""
+        data = FinancialData(
+            monthly_recurring_revenue=100_000,
+            customer_count=100,
+            customer_acquisition_cost=5000,
+            gross_profit=600_000,
+            revenue=1_000_000,  # gross_margin = 0.6
+        )
+        ue = analyzer.unit_economics(data)
+        # ARPU = 1000, gm_arpu = 600, payback = 5000/600 ~ 8.33
+        assert ue.payback_months == pytest.approx(5000 / 600)
+
+    def test_p0_10_payback_longer_than_gross_arpu_payback(self, analyzer):
+        """GM-adjusted payback must always be >= raw-ARPU payback."""
+        data = FinancialData(
+            monthly_recurring_revenue=100_000,
+            customer_count=100,
+            customer_acquisition_cost=5000,
+            gross_profit=400_000,
+            revenue=1_000_000,  # gm = 0.4
+        )
+        ue = analyzer.unit_economics(data)
+        assert ue.payback_months > 5.0
+        assert ue.payback_months == pytest.approx(12.5)
+
+    def test_p0_10_ltv_to_cac_uses_gm_adjusted_ltv(self, analyzer):
+        """LTV/CAC uses GM-adjusted LTV when gross_margin is known."""
+        data = FinancialData(
+            customer_acquisition_cost=1000,
+            lifetime_value=10000,
+            gross_profit=7000,
+            revenue=10000,  # gm = 0.7
+        )
+        ue = analyzer.unit_economics(data)
+        assert ue.ltv_to_cac == pytest.approx(7.0)
+        assert ue.gross_margin_adjusted_ltv == pytest.approx(7000)
+
+    def test_p0_10_ltv_to_cac_falls_back_when_no_gm(self, analyzer):
+        """When gross_margin cannot be computed, fall back to raw LTV/CAC."""
+        data = FinancialData(
+            customer_acquisition_cost=1000,
+            lifetime_value=5000,
+        )
+        ue = analyzer.unit_economics(data)
+        assert ue.ltv_to_cac == pytest.approx(5.0)
 
 
 # ---------------------------------------------------------------------------
@@ -334,6 +436,45 @@ class TestFundingScenarios:
         scenarios = [{"raise_amount": 1_000_000, "pre_money_valuation": 5_000_000}]
         results = analyzer.funding_scenarios(data, scenarios)
         assert results[0].scenario_name == "Scenario 1"
+
+    def test_p1_e6_negative_raise_clamped_to_zero(self, analyzer):
+        # WP-1 / P1-E6: a negative raise_amount must clamp to 0 so dilution is
+        # never negative and no negative new-cash is computed.
+        data = FinancialData(
+            cash=1_000_000,
+            monthly_burn_rate=200_000,
+            monthly_recurring_revenue=100_000,
+        )
+        scenarios = [{"raise_amount": -5_000_000, "pre_money_valuation": 20_000_000}]
+        results = analyzer.funding_scenarios(data, scenarios)
+        assert len(results) == 1
+        r = results[0]
+        # raise clamped to 0
+        assert r.raise_amount == 0.0
+        # post_money == pre_money (pre_money NOT clamped, raise == 0)
+        assert r.post_money_valuation == pytest.approx(20_000_000)
+        # dilution is 0, never negative
+        assert r.dilution_pct == 0.0
+        assert r.dilution_pct >= 0.0
+        # new cash = cash + 0 = 1M; net_burn = 100k -> new_runway = 10 (not negative)
+        assert r.new_runway_months == pytest.approx(10.0)
+
+    def test_p1_e6_zero_and_positive_raise_unchanged(self, analyzer):
+        # Zero and positive raise amounts are unaffected by the clamp.
+        data = FinancialData(
+            cash=1_000_000,
+            monthly_burn_rate=200_000,
+            monthly_recurring_revenue=100_000,
+        )
+        scenarios = [
+            {"raise_amount": 0, "pre_money_valuation": 20_000_000},
+            {"raise_amount": 5_000_000, "pre_money_valuation": 20_000_000},
+        ]
+        results = analyzer.funding_scenarios(data, scenarios)
+        assert results[0].raise_amount == 0.0
+        assert results[0].dilution_pct == 0.0
+        assert results[1].raise_amount == pytest.approx(5_000_000)
+        assert results[1].dilution_pct == pytest.approx(0.20)  # 5M / 25M
 
 
 # ---------------------------------------------------------------------------

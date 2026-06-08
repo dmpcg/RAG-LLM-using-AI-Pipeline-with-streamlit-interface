@@ -250,10 +250,35 @@ class FAISSIndex:
         self._raw_embeddings: List[List[float]] = []  # kept for IVF rebuild
         self._index = None  # built lazily on first add/search
         self._faiss = faiss  # keep module reference
+        # Tracks the total size at which the next IVF retrain is scheduled.
+        # Set to 0 initially; updated to the next power-of-two after each
+        # IVF build (see add()).
+        self._next_retrain_n: int = 0
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _next_power_of_two(n: int) -> int:
+        """Return the smallest power of two that is strictly greater than *n*.
+
+        Args:
+            n: A non-negative integer.
+
+        Returns:
+            The next power-of-two above *n* (always >= 1).
+
+        Examples:
+            _next_power_of_two(0)  -> 1
+            _next_power_of_two(16) -> 32
+            _next_power_of_two(17) -> 32
+            _next_power_of_two(31) -> 32
+            _next_power_of_two(32) -> 64
+        """
+        if n < 1:
+            return 1
+        return 1 << n.bit_length()
 
     def _build_index(self, matrix: np.ndarray) -> None:
         """(Re)build the FAISS index from *matrix* (already L2-normalised)."""
@@ -287,9 +312,15 @@ class FAISSIndex:
     def add(self, embeddings: List[List[float]], ids: List[int]) -> None:
         """Add vectors to the index.
 
-        For the flat index (<=10k vectors), new vectors are added
-        incrementally. For larger collections requiring IVF, the index is
-        rebuilt from all accumulated embeddings.
+        For the flat index (<=_IVF_THRESHOLD vectors), new vectors are added
+        incrementally.  For larger collections the IVF index is rebuilt only
+        when the new total crosses a power-of-two boundary; all other adds
+        insert directly into the existing IVF index without retraining.
+
+        This amortises the O(n) rebuild cost: between boundaries vectors are
+        assigned to existing centroids, which is fast but slightly approximate.
+        A full retrain at each power-of-two restores centroid quality before
+        the gap to the next retrain doubles in size.
 
         Args:
             embeddings: Float vectors.
@@ -312,17 +343,31 @@ class FAISSIndex:
         total = len(self._ids)
 
         if self._index is None:
-            # First add: build index from scratch
+            # First add: build index from scratch (flat or IVF depending on size)
             self._build_index(new_matrix)
+            if total > self._IVF_THRESHOLD:
+                self._next_retrain_n = self._next_power_of_two(total)
         elif total <= self._IVF_THRESHOLD:
             # Flat index: incremental add (O(batch) not O(total))
             self._index.add(new_matrix)
-        else:
-            # IVF index: must rebuild with all data for proper cell assignment
+        elif total >= getattr(self, "_next_retrain_n", 0):
+            # IVF index: total crossed a power-of-two boundary — full rebuild
+            # to retrain centroids on the enlarged corpus.
             all_matrix = self._normalize(
                 np.asarray(self._raw_embeddings, dtype=np.float32)
             )
             self._build_index(all_matrix)
+            self._next_retrain_n = self._next_power_of_two(total)
+            logger.debug(
+                "FAISSIndex: IVF retrained at n=%d; next retrain at n=%d",
+                total,
+                self._next_retrain_n,
+            )
+        else:
+            # IVF index between power-of-two boundaries: add without retraining.
+            # New vectors are assigned to the nearest existing centroids, which
+            # is approximate but avoids the O(n) retrain cost.
+            self._index.add(new_matrix)
 
     def search(self, query_embedding: List[float], top_k: int) -> List[Tuple[int, float]]:
         """Search for the *top_k* nearest neighbours.

@@ -37,8 +37,13 @@ def score_to_grade(score: int) -> str:
 # ---------------------------------------------------------------------------
 
 _PERCENT_KEYWORDS = (
-    "margin", "ratio", "return", "yield", "roe", "roa", "roic",
+    "margin", "return", "yield", "roe", "roa", "roic",
     "turnover", "coverage", "rate",
+)
+# Multiplier-style metrics rendered as "X.XXx" (e.g. current_ratio, debt_to_equity).
+# These are decimal multiples, NOT percentages -- 1.5 must render as "1.50x" not "150%".
+_RATIO_KEYWORDS = (
+    "ratio", "to_equity", "to_assets", "multiplier",
 )
 _DOLLAR_KEYWORDS = (
     "revenue", "income", "assets", "debt", "equity", "cash",
@@ -51,6 +56,16 @@ def _is_percent_key(key: str) -> bool:
     """Return True if *key* looks like a percentage metric."""
     lower = key.lower()
     return any(kw in lower for kw in _PERCENT_KEYWORDS)
+
+
+def _is_ratio_key(key: str) -> bool:
+    """Return True if *key* looks like a multiplier-style ratio (rendered as 'X.XXx').
+
+    Distinguishes true ratios (e.g. current_ratio = 1.5 -> "1.50x") from
+    percentage metrics (e.g. gross_margin = 0.45 -> "45.00%").
+    """
+    lower = key.lower()
+    return any(kw in lower for kw in _RATIO_KEYWORDS)
 
 
 def _is_dollar_key(key: str) -> bool:

@@ -5,7 +5,9 @@ import pytest
 from export_utils import (
     _PERCENT_KEYWORDS,
     _DOLLAR_KEYWORDS,
+    _RATIO_KEYWORDS,
     _is_percent_key,
+    _is_ratio_key,
     _is_dollar_key,
     _CATEGORY_MAP,
     _categorize,
@@ -44,6 +46,11 @@ class TestScoreToGrade:
 
     def test_grade_f_negative(self):
         assert score_to_grade(-5) == "F"
+
+    # WS-3 WP-8 (lock-only): None must raise TypeError (fail-fast contract).
+    def test_none_raises_typeerror(self):
+        with pytest.raises(TypeError):
+            score_to_grade(None)
 
 
 # ---------------------------------------------------------------------------
@@ -223,3 +230,57 @@ class TestCategoryMapCompleteness:
     def test_all_categories_are_valid(self):
         valid_categories = {"Liquidity", "Profitability", "Leverage", "Efficiency"}
         assert set(_CATEGORY_MAP.values()).issubset(valid_categories)
+
+
+
+# ---------------------------------------------------------------------------
+# WS-3 P0-8: ratio keys must NOT be classified as percent
+# ---------------------------------------------------------------------------
+
+class TestIsRatioKey:
+    """Regression tests for P0-8: 'ratio' keys must render as multipliers (1.50x), not percent (150%)."""
+
+    def test_current_ratio_is_ratio_not_percent(self):
+        assert _is_ratio_key("current_ratio") is True
+        assert _is_percent_key("current_ratio") is False
+
+    def test_quick_ratio_is_ratio_not_percent(self):
+        assert _is_ratio_key("quick_ratio") is True
+        assert _is_percent_key("quick_ratio") is False
+
+    def test_cash_ratio_is_ratio_not_percent(self):
+        assert _is_ratio_key("cash_ratio") is True
+        assert _is_percent_key("cash_ratio") is False
+
+    def test_debt_ratio_is_ratio_not_percent(self):
+        assert _is_ratio_key("debt_ratio") is True
+        assert _is_percent_key("debt_ratio") is False
+
+    def test_debt_to_equity_is_ratio(self):
+        assert _is_ratio_key("debt_to_equity") is True
+
+    def test_debt_to_assets_is_ratio(self):
+        assert _is_ratio_key("debt_to_assets") is True
+
+    def test_equity_multiplier_is_ratio(self):
+        assert _is_ratio_key("equity_multiplier") is True
+
+    def test_coverage_ratio_still_percent(self):
+        # coverage_ratio matches both -- PDF/XLSX route ratio FIRST so it renders as 'x',
+        # but _is_percent_key is True via 'coverage' keyword which is acceptable.
+        assert _is_ratio_key("coverage_ratio") is True
+
+    def test_revenue_is_not_ratio(self):
+        assert _is_ratio_key("revenue") is False
+
+    def test_gross_margin_is_not_ratio(self):
+        assert _is_ratio_key("gross_margin") is False
+
+    def test_case_insensitive(self):
+        assert _is_ratio_key("Current_Ratio") is True
+        assert _is_ratio_key("DEBT_TO_EQUITY") is True
+
+    def test_ratio_keywords_excludes_legacy(self):
+        # ensure 'ratio' was removed from percent keywords
+        assert "ratio" not in _PERCENT_KEYWORDS
+        assert "ratio" in _RATIO_KEYWORDS
