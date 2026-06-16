@@ -9,6 +9,7 @@ Integrates with SimpleRAG's document/embedding stores.
 """
 
 import logging
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -133,30 +134,52 @@ def _find_label_column(df: pd.DataFrame) -> Optional[int]:
     return best_col if best_score > 3 else None
 
 
-def _df_to_markdown(df: pd.DataFrame, max_rows: int = 200) -> str:
-    """Convert a DataFrame to markdown table format.
+def _is_meaningful_header(name: str) -> bool:
+    """True if a column header carries semantic meaning worth embedding.
 
-    Limits to max_rows to prevent extremely large chunks.
+    Excel exports without a header band become ``Unnamed: N`` (renamed to
+    ``Col_N`` upstream); attaching those to every value is pure noise, so we
+    emit value-only for them and ``Header: value`` only for real labels.
+    """
+    s = str(name).strip()
+    if not s:
+        return False
+    if re.match(r"^(unnamed|col)[\s_:]*\d*$", s, re.IGNORECASE):
+        return False
+    return bool(re.search(r"[A-Za-z]", s))
+
+
+def _df_to_markdown(df: pd.DataFrame, max_rows: int = 200) -> str:
+    """Render a DataFrame densely: one line per row, non-empty cells only.
+
+    On sparse financial sheets, ``to_markdown`` pads every cell to column width
+    and emits all NaN cells, so ~80% of the output is whitespace/pipe padding
+    that both dilutes embeddings and inflates the volume to embed ~5x. This form
+    drops empty cells and alignment padding entirely: each row becomes its
+    non-empty cells joined by `` | ``, with the column name attached only when
+    it is a real label (``Header: value``), else value-only. Downstream chunking
+    treats each line as one row record. Limits to max_rows to bound volume.
     """
     if df.empty:
         return ""
 
-    # Truncate if needed
-    truncated = df.head(max_rows)
+    df = df.dropna(axis=1, how="all").dropna(axis=0, how="all")
+    if df.empty:
+        return ""
+    df = df.head(max_rows)
 
-    try:
-        return truncated.to_markdown(index=False)
-    except Exception as exc:
-        logger.debug("to_markdown fallback: %s", exc)
-        # Fallback: simple pipe-delimited format
-        lines = []
-        headers = [str(c) for c in truncated.columns]
-        lines.append("| " + " | ".join(headers) + " |")
-        lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
-        for _, row in truncated.iterrows():
-            vals = [str(v) if pd.notna(v) else "" for v in row]
-            lines.append("| " + " | ".join(vals) + " |")
-        return "\n".join(lines)
+    headers = [str(c) for c in df.columns]
+    meaningful = [_is_meaningful_header(h) for h in headers]
+    lines: List[str] = []
+    for _, row in df.iterrows():
+        cells: List[str] = []
+        for header, is_named, value in zip(headers, meaningful, row):
+            if pd.notna(value) and str(value).strip() != "":
+                val = str(value).strip()
+                cells.append(f"{header}: {val}" if is_named else val)
+        if cells:
+            lines.append(" | ".join(cells))
+    return "\n".join(lines)
 
 
 def ingest_excel(

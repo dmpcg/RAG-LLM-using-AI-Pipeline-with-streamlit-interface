@@ -460,15 +460,29 @@ class LocalEmbedder:
                 "Embedder dimension not initialized. Ensure embedding service is "
                 "available and wait_for_embedding_service() has completed."
             )
-        # mxbai-embed-large via DMR: ~512 token context per text, ~4K total batch tokens
+        # mxbai-embed-large: ~512-token context per text. Chunking sizes inputs
+        # to fit, but guard here rather than truncating silently.
         max_chars = 2500
-        max_batch_chars = 3000
+        # Real batching: well-sized chunks are ~1-1.5k chars, so a larger char
+        # budget lets many pack into one request (the item cap then binds) instead
+        # of the old ~1-chunk-per-request that drove ingestion wall-clock.
+        max_batch_chars = 12000
+        window_chars = 1800  # ~512 tokens of dense table text
         # Item-count cap from config (default 32) prevents unbounded batch sizes
         try:
             from config import settings as _cfg
             max_batch_items = _cfg.embedding_batch_size
         except (ImportError, AttributeError):
             max_batch_items = 32
+        # Surface (don't hide) inputs that overflow the model window and will be
+        # truncated by the server -> signals chunk sizing needs tightening.
+        _oversize = sum(1 for t in texts if len(t) > window_chars)
+        if _oversize:
+            logger.warning(
+                "%d/%d embed inputs exceed ~%d chars (~512-token window) and will be "
+                "truncated by the model; chunk sizing may need tightening",
+                _oversize, len(texts), window_chars,
+            )
         safe_texts = [t[:max_chars] if len(t) > max_chars else t for t in texts]
         # Sanitize text: replace NUL bytes and non-UTF8 that crash DMR tokenizer
         safe_texts = [
@@ -538,7 +552,8 @@ class LocalEmbedder:
                     ) from exc
             except httpx.RequestError as e:
                 if attempt < max_retries:
-                    wait = 2 ** attempt
+                    wait = min(2 ** attempt, 8)  # cap backoff so a transient blip
+                    # can't stack into a multi-minute apparent hang
                     logger.warning(
                         "Embedding network error (attempt %d/%d, batch=%d texts), "
                         "retrying in %ds: %s",
@@ -549,7 +564,7 @@ class LocalEmbedder:
                 raise
             except httpx.HTTPStatusError as e:
                 if e.response.status_code >= 500 and attempt < max_retries:
-                    wait = 2 ** attempt  # 2s, 4s, 8s, 16s
+                    wait = min(2 ** attempt, 8)  # capped backoff (see above)
                     logger.warning(
                         "Embedding 5xx error (attempt %d/%d, batch=%d texts), "
                         "retrying in %ds: %s",

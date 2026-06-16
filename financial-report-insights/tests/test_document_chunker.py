@@ -194,3 +194,51 @@ class TestChunkExcelSheet:
         # Implementation: chunk_table on empty string still creates a chunk
         # but chunk_excel_sheet checks token count
         assert len(chunks) >= 0  # May be 0 or 1 depending on implementation
+
+
+class TestExcelChunkInvariants:
+    """Guards for the dense parent-child Excel chunking (A-prime)."""
+
+    def _rows(self, n: int) -> str:
+        # One dense row-record per line, varied widths to force multiple
+        # parent/child splits.
+        return "\n".join(
+            f"Line Item {i}: {i * 100} | {i * 7} | week {i % 13} | note-{i}"
+            for i in range(n)
+        )
+
+    def test_row_conservation(self):
+        """Every input row appears in exactly one child chunk (no drop/dup).
+
+        This is the only guard against silently dropping a financial line item.
+        """
+        from collections import Counter
+
+        rows = self._rows(120)
+        chunks = chunk_excel_sheet(rows, source="cf.xlsx", sheet_name="Forecast")
+        expected = Counter(ln for ln in rows.split("\n") if ln.strip())
+        got = Counter(
+            ln
+            for c in chunks
+            for ln in c.text.split("\n")
+            if ln.strip()
+        )
+        assert got == expected, "rows dropped or duplicated across children"
+
+    def test_children_have_parent_links(self):
+        """All emitted chunks are children carrying parent_id + parent_text."""
+        chunks = chunk_excel_sheet(self._rows(120), source="cf.xlsx", sheet_name="F")
+        assert len(chunks) > 1  # 120 varied rows must split into multiple children
+        for c in chunks:
+            assert c.metadata.get("chunk_level") == "child"
+            assert c.parent_id
+            assert c.parent_text
+
+    def test_children_fit_embed_window(self):
+        """Child text stays within the ~512-token embed window (table-aware)."""
+        chunks = chunk_excel_sheet(self._rows(200), source="cf.xlsx", sheet_name="F")
+        for c in chunks:
+            # table-aware estimate must leave headroom under 512 for the
+            # nl_description prefix added at embed time
+            assert _count_tokens_approx(c.text, is_table=True) <= 512
+            assert len(c.parent_text or "") <= 6000  # EXCEL_MAX_PARENT_CHARS
