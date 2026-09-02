@@ -1357,12 +1357,7 @@ class SimpleRAG:
         ).hexdigest()
         return f"h:{digest}"
 
-    def _fuse_results_rrf(
-        self,
-        semantic_results: list,
-        bm25_results: list,
-        top_k: int
-    ) -> list:
+    def _fuse_results_rrf(self, semantic_results: list, bm25_results: list, top_k: int) -> list:
         """
         Fuse semantic and BM25 results using Reciprocal Rank Fusion.
 

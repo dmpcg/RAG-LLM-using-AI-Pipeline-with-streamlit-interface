@@ -352,10 +352,7 @@ class TestReadCsvRobust:
         # A row missing a trailing field is a transaction with a blank, not a
         # footer. pandas kept it as NaN; dropping it loses money silently.
         path = _write_csv(
-            "Date,Description,Amount\n"
-            "2026-01-01,Coffee,4.50\n"
-            "2026-01-02,Rent\n"
-            "2026-01-03,Payroll,1200.00\n"
+            "Date,Description,Amount\n2026-01-01,Coffee,4.50\n2026-01-02,Rent\n2026-01-03,Payroll,1200.00\n"
         )
         df = _read_csv_robust(path, ",")
         assert len(df) == 3
@@ -363,11 +360,7 @@ class TestReadCsvRobust:
 
     def test_banner_and_footer_are_dropped(self):
         path = _write_csv(
-            "ACME Corp Q1 Report\n"
-            "Date,Description,Amount\n"
-            "2026-01-01,Coffee,4.50\n"
-            "2026-01-02,Rent\n"
-            "Grand Total\n"
+            "ACME Corp Q1 Report\nDate,Description,Amount\n2026-01-01,Coffee,4.50\n2026-01-02,Rent\nGrand Total\n"
         )
         df = _read_csv_robust(path, ",")
         assert list(df.columns) == ["Date", "Description", "Amount"]
@@ -377,12 +370,7 @@ class TestReadCsvRobust:
     def test_width_tie_does_not_collapse_table(self):
         # Two single-cell rows and two 3-field rows: a plain modal count ties
         # and can pick width 1, collapsing the sheet to one column.
-        path = _write_csv(
-            "Title Banner\n"
-            "A,B,C\n"
-            "1,2,3\n"
-            "Footer Note\n"
-        )
+        path = _write_csv("Title Banner\nA,B,C\n1,2,3\nFooter Note\n")
         df = _read_csv_robust(path, ",")
         assert list(df.columns) == ["A", "B", "C"]
         assert len(df) == 1

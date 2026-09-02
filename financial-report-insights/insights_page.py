@@ -4553,6 +4553,7 @@ class FinancialInsightsPage:
         # FCF components bar chart
         if result.fcf is not None:
             import plotly.graph_objects as go
+
             ocf_val = data.operating_cash_flow or 0
             capex_val = data.capex or 0
             fig = go.Figure(

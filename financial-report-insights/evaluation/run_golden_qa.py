@@ -30,7 +30,7 @@ except ImportError:
     sys.exit(0)
 
 # Gate thresholds.
-MIN_TOP1 = 8            # >= this many of 12 with the figure in the TOP chunk
+MIN_TOP1 = 8  # >= this many of 12 with the figure in the TOP chunk
 MIN_DEEP_FRACTION = 0.5  # >= half the deep questions must hit top-1
 
 
@@ -71,17 +71,15 @@ def main() -> int:
     n = len(GOLDEN)
     for deep, t1, t3, sheet, label, val in rows:
         tag = "DEEP" if deep else "    "
-        print(
-            f"  {tag} top1={'Y' if t1 else 'N'} top3={'Y' if t3 else 'N'}  "
-            f"[{sheet}] {label} = {val}"
-        )
+        print(f"  {tag} top1={'Y' if t1 else 'N'} top3={'Y' if t3 else 'N'}  [{sheet}] {label} = {val}")
     print(f"\nTOP1 {top1}/{n}   TOP3 {top3}/{n}   DEEP-TOP1 {deep_top1}/{deep_total}")
 
-    passed = top1 >= MIN_TOP1 and (
-        deep_total == 0 or deep_top1 >= deep_total * MIN_DEEP_FRACTION
+    passed = top1 >= MIN_TOP1 and (deep_total == 0 or deep_top1 >= deep_total * MIN_DEEP_FRACTION)
+    print(
+        "GATE",
+        "PASS" if passed else "FAIL",
+        f"(need TOP1>={MIN_TOP1} and DEEP-TOP1>={int(deep_total * MIN_DEEP_FRACTION)})",
     )
-    print("GATE", "PASS" if passed else "FAIL",
-          f"(need TOP1>={MIN_TOP1} and DEEP-TOP1>={int(deep_total * MIN_DEEP_FRACTION)})")
     return 0 if passed else 1
 
 

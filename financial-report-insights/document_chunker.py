@@ -435,7 +435,9 @@ def chunk_excel_sheet(
         for child_idx, child_rows in enumerate(child_groups):
             child_text = "\n".join(child_rows)
             child_id = _generate_chunk_id(
-                source, f"{sheet_name}:child", f"{p_idx}-{child_idx}",
+                source,
+                f"{sheet_name}:child",
+                f"{p_idx}-{child_idx}",
             )
             child = RAGChunk(
                 chunk_id=child_id,
@@ -454,7 +456,10 @@ def chunk_excel_sheet(
                 },
             )
             child.nl_description = _generate_nl_description(
-                child_text, section_type, title, source,
+                child_text,
+                section_type,
+                title,
+                source,
             )
             chunks.append(child)
 

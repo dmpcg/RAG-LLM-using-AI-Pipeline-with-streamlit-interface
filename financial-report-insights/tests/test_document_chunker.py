@@ -207,10 +207,7 @@ class TestExcelChunkInvariants:
     def _rows(self, n: int) -> str:
         # One dense row-record per line, varied widths to force multiple
         # parent/child splits.
-        return "\n".join(
-            f"Line Item {i}: {i * 100} | {i * 7} | week {i % 13} | note-{i}"
-            for i in range(n)
-        )
+        return "\n".join(f"Line Item {i}: {i * 100} | {i * 7} | week {i % 13} | note-{i}" for i in range(n))
 
     def test_row_conservation(self):
         """Every input row appears in exactly one child chunk (no drop/dup).
@@ -222,12 +219,7 @@ class TestExcelChunkInvariants:
         rows = self._rows(120)
         chunks = chunk_excel_sheet(rows, source="cf.xlsx", sheet_name="Forecast")
         expected = Counter(ln for ln in rows.split("\n") if ln.strip())
-        got = Counter(
-            ln
-            for c in chunks
-            for ln in c.text.split("\n")
-            if ln.strip()
-        )
+        got = Counter(ln for c in chunks for ln in c.text.split("\n") if ln.strip())
         assert got == expected, "rows dropped or duplicated across children"
 
     def test_children_have_parent_links(self):

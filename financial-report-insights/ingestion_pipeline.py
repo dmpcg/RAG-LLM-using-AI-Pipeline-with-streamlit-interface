@@ -235,8 +235,12 @@ def _read_csv_robust(file_path: Path, sep: str) -> pd.DataFrame:
     if not rows:
         # Could not read raw rows; fall back to a tolerant pandas read.
         return pd.read_csv(
-            file_path, sep=sep, engine="python", on_bad_lines="skip",
-            encoding="utf-8-sig", nrows=settings.max_workbook_rows,
+            file_path,
+            sep=sep,
+            engine="python",
+            on_bad_lines="skip",
+            encoding="utf-8-sig",
+            nrows=settings.max_workbook_rows,
         )
 
     def _clean(cell: str) -> str:
@@ -255,8 +259,7 @@ def _read_csv_robust(file_path: Path, sep: str) -> pd.DataFrame:
     modal = max(width_counts.items(), key=lambda kv: (kv[1], kv[0]))[0]
 
     header_idx = next(
-        (i for i, r in enumerate(rows)
-         if len(r) == modal and sum(1 for c in r if _clean(c)) >= max(2, modal * 0.5)),
+        (i for i, r in enumerate(rows) if len(r) == modal and sum(1 for c in r if _clean(c)) >= max(2, modal * 0.5)),
         0,
     )
     header = [_clean(c) for c in rows[header_idx]]
@@ -269,7 +272,7 @@ def _read_csv_robust(file_path: Path, sep: str) -> pd.DataFrame:
     min_data_width = max(2, int(modal * 0.6))
 
     data: list[list[str]] = []
-    for r in rows[header_idx + 1:]:
+    for r in rows[header_idx + 1 :]:
         cleaned = [_clean(c) for c in r]
         if not any(cleaned):
             continue  # fully blank
@@ -287,9 +290,12 @@ def _read_csv_robust(file_path: Path, sep: str) -> pd.DataFrame:
     dropped = len(populated) - 1 - len(data)
     if header_idx or dropped > 0:
         logger.info(
-            "CSV '%s': header at row %d (width %d), kept %d data rows, "
-            "dropped %d off-shape banner/footer row(s)",
-            file_path.name, header_idx, modal, len(data), max(dropped, 0),
+            "CSV '%s': header at row %d (width %d), kept %d data rows, dropped %d off-shape banner/footer row(s)",
+            file_path.name,
+            header_idx,
+            modal,
+            len(data),
+            max(dropped, 0),
         )
     return pd.DataFrame(data, columns=header)
 
@@ -360,14 +366,16 @@ def ingest_excel(
                     # Read raw (no header), detect the real header row below any
                     # title/provenance banner, then re-key the frame from it.
                     raw = pd.read_excel(
-                        xls, sheet_name=sheet_name, header=None,
+                        xls,
+                        sheet_name=sheet_name,
+                        header=None,
                         nrows=settings.max_workbook_rows,
                     )
                     if raw.empty:
                         continue
                     hdr = _detect_excel_header_row(raw)
                     cols = raw.iloc[hdr].tolist()
-                    df = raw.iloc[hdr + 1:].reset_index(drop=True)
+                    df = raw.iloc[hdr + 1 :].reset_index(drop=True)
                     # Name columns from the detected header; fall back to Col_N
                     # for blank/unnamed cells.
                     df.columns = [
@@ -378,9 +386,11 @@ def ingest_excel(
                     ]
                     if hdr:
                         logger.info(
-                            "Excel '%s' sheet '%s': header detected at row %d "
-                            "(skipped %d banner row(s))",
-                            source, sheet_name, hdr, hdr,
+                            "Excel '%s' sheet '%s': header detected at row %d (skipped %d banner row(s))",
+                            source,
+                            sheet_name,
+                            hdr,
+                            hdr,
                         )
                     # Skip empty sheets
                     if df.empty or (df.shape[0] < 2 and df.shape[1] < 2):

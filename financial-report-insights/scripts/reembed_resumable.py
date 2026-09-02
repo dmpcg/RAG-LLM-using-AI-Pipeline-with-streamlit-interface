@@ -43,14 +43,21 @@ from ingestion_pipeline import chunks_to_documents, ingest_file  # noqa: E402
 OLLAMA = "http://localhost:11434"
 URL = f"{OLLAMA}/v1/embeddings"
 MODEL = settings.embedding_model
-BATCH = 4                    # small batches reduce Ollama CPU deadlock risk
-REQ_TIMEOUT = 45.0          # per-request; shorter than a true hang
-MAX_CHARS = 2500            # match LocalEmbedder truncation
+BATCH = 4  # small batches reduce Ollama CPU deadlock risk
+REQ_TIMEOUT = 45.0  # per-request; shorter than a true hang
+MAX_CHARS = 2500  # match LocalEmbedder truncation
 CACHE_DIR = Path(settings.embedding_cache_dir)
 # Extensions the ingestion pipeline can actually parse + embed.
 SUPPORTED = {
-    ".pdf", ".txt", ".md", ".docx",
-    ".xlsx", ".xlsm", ".xls", ".csv", ".tsv",
+    ".pdf",
+    ".txt",
+    ".md",
+    ".docx",
+    ".xlsx",
+    ".xlsm",
+    ".xls",
+    ".csv",
+    ".tsv",
 }
 # Resolve the shell to a full path (avoids PATH-hijack; satisfies ruff S607).
 _PWSH = shutil.which("powershell") or shutil.which("pwsh") or "powershell"
@@ -86,14 +93,12 @@ def _restart_ollama():
     print("  ! restarting Ollama (cleared wedged embed runner)...", flush=True)
     # All args are hardcoded constants (no untrusted input) -> S603 suppressed.
     subprocess.run(  # noqa: S603
-        [_PWSH, "-NoProfile", "-Command",
-         "Get-Process ollama -ErrorAction SilentlyContinue | Stop-Process -Force"],
+        [_PWSH, "-NoProfile", "-Command", "Get-Process ollama -ErrorAction SilentlyContinue | Stop-Process -Force"],
         capture_output=True,
     )
     time.sleep(3)
     subprocess.Popen(  # noqa: S603
-        [_PWSH, "-NoProfile", "-Command",
-         "Start-Process ollama -ArgumentList serve -WindowStyle Hidden"],
+        [_PWSH, "-NoProfile", "-Command", "Start-Process ollama -ArgumentList serve -WindowStyle Hidden"],
     )
     for _ in range(20):
         if _ollama_up():
@@ -174,8 +179,7 @@ def reembed_file(file_path: Path) -> int:
                 ok = True
                 break
             except Exception as exc:
-                print(f"  batch at {batch_idx[0]} failed (attempt {attempt}): "
-                      f"{type(exc).__name__}", flush=True)
+                print(f"  batch at {batch_idx[0]} failed (attempt {attempt}): {type(exc).__name__}", flush=True)
                 _restart_ollama()
         if not ok:
             print(f"FATAL: could not embed batch at {batch_idx[0]} after retries", flush=True)
@@ -185,8 +189,7 @@ def reembed_file(file_path: Path) -> int:
         i = batch_idx[-1] + 1
         # Checkpoint every ~20 chunks (BATCH*5) so an external kill loses little.
         if done % (BATCH * 5) < BATCH or done >= n:
-            progress.write_text(json.dumps(
-                {"n": n, "cache_key": cache_key, "embeddings": embeddings}))
+            progress.write_text(json.dumps({"n": n, "cache_key": cache_key, "embeddings": embeddings}))
             rate = done / max(time.time() - t0, 1e-6)
             eta = (n - done) / max(rate, 1e-6) / 60
             print(f"  {done}/{n}  ({rate:.1f}/s, ETA {eta:.0f} min)", flush=True)
@@ -195,8 +198,9 @@ def reembed_file(file_path: Path) -> int:
     embeddings = [e if e is not None else [0.0] * dim for e in embeddings]
     out.write_text(json.dumps([docs, embeddings]))
     progress.unlink(missing_ok=True)
-    print(f"DONE  {file_path.name}  wrote {out.name}  ({n} embeddings, dim={dim}) in "
-          f"{time.time() - t0:.0f}s", flush=True)
+    print(
+        f"DONE  {file_path.name}  wrote {out.name}  ({n} embeddings, dim={dim}) in {time.time() - t0:.0f}s", flush=True
+    )
     return 0
 
 
@@ -215,8 +219,9 @@ def main() -> int:
     supported = [f for f in targets if f.suffix.lower() in SUPPORTED]
     skipped = [f for f in targets if f.suffix.lower() not in SUPPORTED]
     for f in skipped:
-        print(f"UNSUPPORTED  {f.name}  ({f.suffix}) -- pipeline cannot ingest; "
-              f"convert to xlsx/pdf/txt first", flush=True)
+        print(
+            f"UNSUPPORTED  {f.name}  ({f.suffix}) -- pipeline cannot ingest; convert to xlsx/pdf/txt first", flush=True
+        )
 
     print(f"=== re-embed: {len(supported)} supported file(s) ===", flush=True)
     rc = 0
@@ -229,8 +234,10 @@ def main() -> int:
             print(f"  -> stopping run due to fatal error on {f.name}", flush=True)
             break
 
-    print("=== re-embed run complete. Restart Streamlit so SimpleRAG rebuilds "
-          "data/vector_index.npz from all caches. ===", flush=True)
+    print(
+        "=== re-embed run complete. Restart Streamlit so SimpleRAG rebuilds data/vector_index.npz from all caches. ===",
+        flush=True,
+    )
     return rc
 
 

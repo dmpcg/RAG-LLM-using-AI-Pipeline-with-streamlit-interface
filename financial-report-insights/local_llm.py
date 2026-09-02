@@ -570,7 +570,9 @@ class LocalEmbedder:
             logger.warning(
                 "%d/%d embed inputs exceed ~%d chars (~512-token window) and will be "
                 "truncated by the model; chunk sizing may need tightening",
-                _oversize, len(texts), window_chars,
+                _oversize,
+                len(texts),
+                window_chars,
             )
         safe_texts = [t[:max_chars] if len(t) > max_chars else t for t in texts]
         # Sanitize text: replace NUL bytes and non-UTF8 that crash DMR tokenizer
