@@ -10,7 +10,7 @@ across multiple companies and layers portfolio-level logic on top.
 import logging
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -187,9 +187,7 @@ class PortfolioAnalyzer:
     # 2. Correlation Matrix
     # ------------------------------------------------------------------
 
-    def correlation_matrix(
-        self, companies: Dict[str, FinancialData]
-    ) -> CorrelationMatrix:
+    def correlation_matrix(self, companies: Dict[str, FinancialData]) -> CorrelationMatrix:
         """Compute pairwise correlation of core ratios across companies.
 
         Each company becomes a "sample" with 5 core ratio values. The
@@ -241,10 +239,7 @@ class PortfolioAnalyzer:
             avg_corr = 0.0
 
         # Warn about companies with no computable ratios (all-zero vectors)
-        zero_companies = [
-            names[i] for i in range(n)
-            if np.allclose(ratio_matrix[i], 0.0)
-        ]
+        zero_companies = [names[i] for i in range(n) if np.allclose(ratio_matrix[i], 0.0)]
 
         # Replace NaN with 0.0 only for the output matrix (display purposes)
         corr = np.nan_to_num(corr, nan=0.0)
@@ -256,10 +251,7 @@ class PortfolioAnalyzer:
                 "move similarly, reducing diversification benefit."
             )
         elif avg_corr > 0.3:
-            interp = (
-                f"Moderate correlation ({avg_corr:.2f}): reasonable diversification "
-                "across portfolio companies."
-            )
+            interp = f"Moderate correlation ({avg_corr:.2f}): reasonable diversification across portfolio companies."
         else:
             interp = (
                 f"Low correlation ({avg_corr:.2f}): strong diversification effect -- "
@@ -323,15 +315,11 @@ class PortfolioAnalyzer:
             correlation = self.correlation_matrix(companies)
 
         # Revenue HHI
-        revenues = [
-            getattr(d, "revenue", None) or 0.0 for d in companies.values()
-        ]
+        revenues = [getattr(d, "revenue", None) or 0.0 for d in companies.values()]
         hhi_rev = _hhi(revenues)
 
         # Asset HHI
-        assets = [
-            getattr(d, "total_assets", None) or 0.0 for d in companies.values()
-        ]
+        assets = [getattr(d, "total_assets", None) or 0.0 for d in companies.values()]
         hhi_ast = _hhi(assets)
 
         # Score components
@@ -413,23 +401,17 @@ class PortfolioAnalyzer:
         strongest = max(snapshots, key=lambda s: s.health_score)
 
         # Distress detection: Z-score in distress zone OR health score < 30
-        distress = [
-            s for s in snapshots
-            if s.z_zone == "distress" or s.health_score < 30
-        ]
+        distress = [s for s in snapshots if s.z_zone == "distress" or s.health_score < 30]
 
         risk_flags: List[str] = []
 
         if len(distress) > 0:
             risk_flags.append(
-                f"{len(distress)} company(ies) in financial distress: "
-                + ", ".join(d.name for d in distress)
+                f"{len(distress)} company(ies) in financial distress: " + ", ".join(d.name for d in distress)
             )
 
         if avg_score < 40:
-            risk_flags.append(
-                f"Low average health score ({avg_score:.0f}/100) across portfolio"
-            )
+            risk_flags.append(f"Low average health score ({avg_score:.0f}/100) across portfolio")
 
         # Check for negative equity in any company
         for name, data in companies.items():
@@ -441,9 +423,7 @@ class PortfolioAnalyzer:
         for s in snapshots:
             ic = s.key_ratios.get("interest_coverage")
             if ic is not None and ic < 1.5:
-                risk_flags.append(
-                    f"{s.name}: weak interest coverage ({ic:.2f}x)"
-                )
+                risk_flags.append(f"{s.name}: weak interest coverage ({ic:.2f}x)")
 
         # Determine overall risk level
         if len(distress) >= max(1, n // 2) or avg_score < 30:
@@ -472,9 +452,7 @@ class PortfolioAnalyzer:
     # 5. Full Portfolio Analysis
     # ------------------------------------------------------------------
 
-    def full_portfolio_analysis(
-        self, companies: Dict[str, FinancialData]
-    ) -> PortfolioReport:
+    def full_portfolio_analysis(self, companies: Dict[str, FinancialData]) -> PortfolioReport:
         """Run the complete portfolio analysis pipeline.
 
         Args:
@@ -485,10 +463,7 @@ class PortfolioAnalyzer:
             and risk summary.
         """
         # 1. Build snapshots
-        snapshots = [
-            self.company_snapshot(name, data)
-            for name, data in companies.items()
-        ]
+        snapshots = [self.company_snapshot(name, data) for name, data in companies.items()]
 
         # 2. Correlation matrix
         correlation = self.correlation_matrix(companies)
@@ -503,19 +478,13 @@ class PortfolioAnalyzer:
         summary_parts = [
             f"Portfolio of {len(companies)} companies.",
             f"Average health score: {risk_summary.avg_health_score:.0f}/100.",
-            f"Strongest: {risk_summary.strongest_company} "
-            f"({risk_summary.max_health_score}/100).",
-            f"Weakest: {risk_summary.weakest_company} "
-            f"({risk_summary.min_health_score}/100).",
-            f"Diversification: {diversification.overall_score}/100 "
-            f"(Grade {diversification.grade}).",
+            f"Strongest: {risk_summary.strongest_company} ({risk_summary.max_health_score}/100).",
+            f"Weakest: {risk_summary.weakest_company} ({risk_summary.min_health_score}/100).",
+            f"Diversification: {diversification.overall_score}/100 (Grade {diversification.grade}).",
             f"Overall risk level: {risk_summary.overall_risk_level}.",
         ]
         if risk_summary.distress_count > 0:
-            summary_parts.append(
-                f"WARNING: {risk_summary.distress_count} company(ies) "
-                "in financial distress."
-            )
+            summary_parts.append(f"WARNING: {risk_summary.distress_count} company(ies) in financial distress.")
 
         return PortfolioReport(
             snapshots=snapshots,

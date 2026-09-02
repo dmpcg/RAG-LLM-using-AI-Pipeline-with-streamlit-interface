@@ -12,7 +12,6 @@ from underwriting import (
     UnderwritingReport,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -166,7 +165,6 @@ class TestCreditScorecard:
 
     def test_negative_equity_scores_zero_leverage(self, analyzer):
         """CORRUPT-04 fix: negative equity must not earn max leverage points."""
-        from underwriting import UnderwritingAnalyzer
         # D/E = 500k / -200k = -2.5 (negative equity)
         # D/A = 500k / 300k = 1.67
         data = FinancialData(
@@ -262,14 +260,18 @@ class TestDebtCapacity:
 
         # Baseline: no existing service
         loan_no_existing = LoanStructure(
-            principal=1_000_000, annual_rate=0.06, term_years=5,
+            principal=1_000_000,
+            annual_rate=0.06,
+            term_years=5,
             existing_debt_service=0.0,
         )
         r_no = analyzer.debt_capacity(data, loan_no_existing)
 
         # With explicit existing service
         loan_with_existing = LoanStructure(
-            principal=1_000_000, annual_rate=0.06, term_years=5,
+            principal=1_000_000,
+            annual_rate=0.06,
+            term_years=5,
             existing_debt_service=300_000,
         )
         r_with = analyzer.debt_capacity(data, loan_with_existing)
@@ -342,26 +344,20 @@ class TestDebtCapacity:
 
 class TestCovenantPackage:
     def test_light_covenants_for_strong_credit(self, analyzer):
-        scorecard = CreditScorecard(
-            total_score=85, grade="A", recommendation="approve"
-        )
+        scorecard = CreditScorecard(total_score=85, grade="A", recommendation="approve")
         data = FinancialData(capex=500_000)
         covenants = analyzer.recommend_covenants(data, scorecard)
         assert covenants.covenant_tier == "light"
         assert len(covenants.financial_covenants) >= 3
 
     def test_standard_covenants_for_b_grade(self, analyzer):
-        scorecard = CreditScorecard(
-            total_score=70, grade="B", recommendation="approve"
-        )
+        scorecard = CreditScorecard(total_score=70, grade="B", recommendation="approve")
         data = FinancialData()
         covenants = analyzer.recommend_covenants(data, scorecard)
         assert covenants.covenant_tier == "standard"
 
     def test_heavy_covenants_for_weak_credit(self, analyzer):
-        scorecard = CreditScorecard(
-            total_score=40, grade="D", recommendation="decline"
-        )
+        scorecard = CreditScorecard(total_score=40, grade="D", recommendation="decline")
         data = FinancialData(capex=500_000)
         covenants = analyzer.recommend_covenants(data, scorecard)
         assert covenants.covenant_tier == "heavy"
@@ -526,78 +522,93 @@ class TestScoringBoundaries:
     """Test exact boundary values for all 5 _score_* static methods."""
 
     # --- Profitability: net_margin and roa thresholds ---
-    @pytest.mark.parametrize("nm,roa,expected", [
-        (0.101, 0.081, 20),   # Above top tier
-        (0.10, 0.08, 15),     # AT threshold: not > 0.10, falls to tier 2
-        (0.051, 0.041, 15),   # Above tier 2
-        (0.05, 0.04, 10),     # AT threshold: falls to tier 3
-        (0.021, 0.021, 10),   # Above tier 3
-        (0.02, 0.02, 5),      # AT threshold: falls to tier 4
-        (0.001, 0.001, 5),    # Above tier 4
-        (0, 0, 0),            # AT threshold: not > 0, falls to 0
-        (None, None, None),   # WP-7b: not evaluable -> None (was misleading 0)
-    ])
+    @pytest.mark.parametrize(
+        "nm,roa,expected",
+        [
+            (0.101, 0.081, 20),  # Above top tier
+            (0.10, 0.08, 15),  # AT threshold: not > 0.10, falls to tier 2
+            (0.051, 0.041, 15),  # Above tier 2
+            (0.05, 0.04, 10),  # AT threshold: falls to tier 3
+            (0.021, 0.021, 10),  # Above tier 3
+            (0.02, 0.02, 5),  # AT threshold: falls to tier 4
+            (0.001, 0.001, 5),  # Above tier 4
+            (0, 0, 0),  # AT threshold: not > 0, falls to 0
+            (None, None, None),  # WP-7b: not evaluable -> None (was misleading 0)
+        ],
+    )
     def test_score_profitability(self, nm, roa, expected):
         assert UnderwritingAnalyzer._score_profitability(nm, roa) == expected
 
     # --- Leverage: d_e and d_a thresholds ---
-    @pytest.mark.parametrize("de,da,expected", [
-        (0.49, 0.29, 20),     # Both below top tier
-        (0.5, 0.3, 15),       # AT threshold: not < 0.5, falls to tier 2
-        (0.99, 0.49, 15),     # Below tier 2
-        (1.0, 0.5, 10),       # AT threshold: not < 1.0, falls to tier 3
-        (1.99, 0.59, 10),     # Below tier 3
-        (2.0, 0.6, 5),        # AT threshold: not < 2.0, falls to tier 4
-        (2.99, None, 5),      # Below tier 4 (da=None -> 999)
-        (3.0, None, 0),       # AT threshold: not < 3.0, falls to 0
-        (-0.5, 0.2, 0),       # Negative D/E: worst case
-        (None, None, 0),      # None values -> 999 -> 0
-    ])
+    @pytest.mark.parametrize(
+        "de,da,expected",
+        [
+            (0.49, 0.29, 20),  # Both below top tier
+            (0.5, 0.3, 15),  # AT threshold: not < 0.5, falls to tier 2
+            (0.99, 0.49, 15),  # Below tier 2
+            (1.0, 0.5, 10),  # AT threshold: not < 1.0, falls to tier 3
+            (1.99, 0.59, 10),  # Below tier 3
+            (2.0, 0.6, 5),  # AT threshold: not < 2.0, falls to tier 4
+            (2.99, None, 5),  # Below tier 4 (da=None -> 999)
+            (3.0, None, 0),  # AT threshold: not < 3.0, falls to 0
+            (-0.5, 0.2, 0),  # Negative D/E: worst case
+            (None, None, 0),  # None values -> 999 -> 0
+        ],
+    )
     def test_score_leverage(self, de, da, expected):
         assert UnderwritingAnalyzer._score_leverage(de, da) == expected
 
     # --- Liquidity: current_ratio and cash_ratio thresholds ---
-    @pytest.mark.parametrize("cr,cashr,expected", [
-        (2.01, 0.51, 20),     # Above top tier
-        (2.0, 0.5, 15),       # AT threshold: not > 2.0, falls to tier 2
-        (1.51, 0.31, 15),     # Above tier 2
-        (1.5, 0.3, 10),       # AT threshold: not > 1.5, falls to tier 3
-        (1.21, 0.11, 10),     # Above tier 3
-        (1.2, 0.1, 5),        # AT threshold: not > 1.2, falls to tier 4
-        (1.01, 0.0, 5),       # Above tier 4 (cash doesn't matter)
-        (1.0, 0.0, 0),        # AT threshold: not > 1.0, falls to 0
-        (None, None, None),   # WP-7b: not evaluable -> None (was misleading 0)
-    ])
+    @pytest.mark.parametrize(
+        "cr,cashr,expected",
+        [
+            (2.01, 0.51, 20),  # Above top tier
+            (2.0, 0.5, 15),  # AT threshold: not > 2.0, falls to tier 2
+            (1.51, 0.31, 15),  # Above tier 2
+            (1.5, 0.3, 10),  # AT threshold: not > 1.5, falls to tier 3
+            (1.21, 0.11, 10),  # Above tier 3
+            (1.2, 0.1, 5),  # AT threshold: not > 1.2, falls to tier 4
+            (1.01, 0.0, 5),  # Above tier 4 (cash doesn't matter)
+            (1.0, 0.0, 0),  # AT threshold: not > 1.0, falls to 0
+            (None, None, None),  # WP-7b: not evaluable -> None (was misleading 0)
+        ],
+    )
     def test_score_liquidity(self, cr, cashr, expected):
         assert UnderwritingAnalyzer._score_liquidity(cr, cashr) == expected
 
     # --- Cash flow: ocf_debt and fcf_margin thresholds ---
-    @pytest.mark.parametrize("od,fm,expected", [
-        (0.41, 0.11, 20),     # Above top tier
-        (0.4, 0.10, 15),      # AT threshold: not > 0.4, falls to tier 2
-        (0.26, 0.051, 15),    # Above tier 2
-        (0.25, 0.05, 10),     # AT threshold: not > 0.25, falls to tier 3
-        (0.16, 0.0, 10),      # Above tier 3 (fm doesn't matter)
-        (0.15, 0.0, 5),       # AT threshold: not > 0.15, falls to tier 4
-        (0.051, 0.0, 5),      # Above tier 4
-        (0.05, 0.0, 0),       # AT threshold: not > 0.05, falls to 0
-        (None, None, None),   # WP-7b: not evaluable -> None (was misleading 0)
-    ])
+    @pytest.mark.parametrize(
+        "od,fm,expected",
+        [
+            (0.41, 0.11, 20),  # Above top tier
+            (0.4, 0.10, 15),  # AT threshold: not > 0.4, falls to tier 2
+            (0.26, 0.051, 15),  # Above tier 2
+            (0.25, 0.05, 10),  # AT threshold: not > 0.25, falls to tier 3
+            (0.16, 0.0, 10),  # Above tier 3 (fm doesn't matter)
+            (0.15, 0.0, 5),  # AT threshold: not > 0.15, falls to tier 4
+            (0.051, 0.0, 5),  # Above tier 4
+            (0.05, 0.0, 0),  # AT threshold: not > 0.05, falls to 0
+            (None, None, None),  # WP-7b: not evaluable -> None (was misleading 0)
+        ],
+    )
     def test_score_cash_flow(self, od, fm, expected):
         assert UnderwritingAnalyzer._score_cash_flow(od, fm) == expected
 
     # --- Stability: interest_coverage and ebitda_margin thresholds ---
-    @pytest.mark.parametrize("ic,em,expected", [
-        (6.01, 0.21, 20),     # Above top tier
-        (6.0, 0.20, 15),      # AT threshold: not > 6.0, falls to tier 2
-        (4.01, 0.151, 15),    # Above tier 2
-        (4.0, 0.15, 10),      # AT threshold: not > 4.0, falls to tier 3
-        (2.51, 0.101, 10),    # Above tier 3
-        (2.5, 0.10, 5),       # AT threshold: not > 2.5, falls to tier 4
-        (1.51, 0.0, 5),       # Above tier 4 (em doesn't matter)
-        (1.5, 0.0, 0),        # AT threshold: not > 1.5, falls to 0
-        (None, None, None),   # WP-7b: not evaluable -> None (was misleading 0)
-    ])
+    @pytest.mark.parametrize(
+        "ic,em,expected",
+        [
+            (6.01, 0.21, 20),  # Above top tier
+            (6.0, 0.20, 15),  # AT threshold: not > 6.0, falls to tier 2
+            (4.01, 0.151, 15),  # Above tier 2
+            (4.0, 0.15, 10),  # AT threshold: not > 4.0, falls to tier 3
+            (2.51, 0.101, 10),  # Above tier 3
+            (2.5, 0.10, 5),  # AT threshold: not > 2.5, falls to tier 4
+            (1.51, 0.0, 5),  # Above tier 4 (em doesn't matter)
+            (1.5, 0.0, 0),  # AT threshold: not > 1.5, falls to 0
+            (None, None, None),  # WP-7b: not evaluable -> None (was misleading 0)
+        ],
+    )
     def test_score_stability(self, ic, em, expected):
         assert UnderwritingAnalyzer._score_stability(ic, em) == expected
 

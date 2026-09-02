@@ -224,9 +224,7 @@ class Tool:
             A multi-line string describing the tool name, purpose, and
             parameters.
         """
-        param_lines = "\n".join(
-            f"    - {pname}: {pdesc}" for pname, pdesc in self.parameters.items()
-        )
+        param_lines = "\n".join(f"    - {pname}: {pdesc}" for pname, pdesc in self.parameters.items())
         params_section = f"\n  Parameters:\n{param_lines}" if param_lines else ""
         return f"- {self.name}: {self.description}{params_section}"
 
@@ -441,9 +439,7 @@ class BaseAgent:
                 observation = f"ERROR: tool '{tool_call.tool_name}' is not registered"
                 tool_call.result = observation
 
-        step_result = AgentStep(
-            thought=thought_text, action=tool_call, observation=observation
-        )
+        step_result = AgentStep(thought=thought_text, action=tool_call, observation=observation)
         # Record in memory so subsequent steps have context
         mem_content = thought_text
         if observation:
@@ -501,9 +497,7 @@ class BaseAgent:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _select_tool(
-        self, thought: str, available_tools: list[Tool]
-    ) -> Optional[ToolCall]:
+    def _select_tool(self, thought: str, available_tools: list[Tool]) -> Optional[ToolCall]:
         """Parse *thought* text for a tool-invocation directive.
 
         Looks for ``TOOL: tool_name`` / ``Action: tool_name`` patterns
@@ -553,6 +547,7 @@ class BaseAgent:
         # Try JSON first for structured arguments
         try:
             import json
+
             parsed = json.loads(raw_args)
             if isinstance(parsed, dict):
                 return parsed
@@ -596,9 +591,7 @@ class BaseAgent:
         if tools_prompt:
             parts.append(tools_prompt)
             parts.append(
-                "\nTo use a tool, output exactly:\n"
-                "TOOL: <tool_name>\n"
-                "ARGS: <key=value> pairs separated by commas\n"
+                "\nTo use a tool, output exactly:\nTOOL: <tool_name>\nARGS: <key=value> pairs separated by commas\n"
             )
 
         parts.append(f"Question: {query}\n")
@@ -610,15 +603,10 @@ class BaseAgent:
             if step.observation:
                 parts.append(f"Observation: {step.observation}")
 
-        parts.append(
-            "Provide a Final Answer using the format:\n"
-            "Final Answer: <your answer here>"
-        )
+        parts.append("Provide a Final Answer using the format:\nFinal Answer: <your answer here>")
         return "\n".join(parts)
 
-    def _format_step_prompt(
-        self, step: str, tools_prompt: str, context: str
-    ) -> str:
+    def _format_step_prompt(self, step: str, tools_prompt: str, context: str) -> str:
         """Build the per-step reasoning prompt.
 
         Args:
@@ -644,10 +632,7 @@ class BaseAgent:
                 "Final Answer: <answer>\n"
             )
         else:
-            parts.append(
-                "No tools are available. Reason through the task and end with:\n"
-                "Final Answer: <answer>\n"
-            )
+            parts.append("No tools are available. Reason through the task and end with:\nFinal Answer: <answer>\n")
 
         parts.append(f"Task: {self._sanitize_user_input(step)}")
         return "\n".join(parts)
@@ -662,15 +647,10 @@ class BaseAgent:
         Returns:
             Synthesised answer string.
         """
-        observations = "\n".join(
-            f"- {s.observation}" for s in steps if s.observation
-        )
+        observations = "\n".join(f"- {s.observation}" for s in steps if s.observation)
         thoughts = "\n".join(f"- {s.thought[:200]}" for s in steps if s.thought)
 
-        prompt = (
-            f"You have been working on: {query}\n\n"
-            f"Reasoning so far:\n{thoughts}\n\n"
-        )
+        prompt = f"You have been working on: {query}\n\nReasoning so far:\n{thoughts}\n\n"
         if observations:
             prompt += f"Tool observations:\n{observations}\n\n"
 

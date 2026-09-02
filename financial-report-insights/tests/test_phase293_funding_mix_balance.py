@@ -4,6 +4,7 @@ Tests for funding_mix_balance_analysis() and FundingMixBalanceResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestFundingMixBalanceDataclass:
     def test_defaults(self):
         r = FundingMixBalanceResult()
@@ -68,6 +70,7 @@ class TestFundingMixBalanceDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestFundingMixBalanceAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -100,6 +103,7 @@ class TestFundingMixBalanceAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestFundingMixBalanceScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """E/(E+D)=0.75 in [0.70,0.80)=>base 8.5. D/E=0.333<=0.50(+0.5). E>0&D>=0(+0.5). Score=9.5."""
@@ -131,6 +135,7 @@ class TestFundingMixBalanceScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase293EdgeCases:
     def test_empty_data(self, analyzer):

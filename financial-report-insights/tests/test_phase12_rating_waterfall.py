@@ -4,13 +4,14 @@ Tests for financial_rating(), variance_waterfall() and related dataclasses.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
-    RatingCategory,
     FinancialRating,
-    WaterfallItem,
+    RatingCategory,
     VarianceWaterfall,
+    WaterfallItem,
 )
 
 
@@ -63,6 +64,7 @@ def prior_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestRatingCategoryDataclass:
     def test_defaults(self):
         c = RatingCategory()
@@ -100,6 +102,7 @@ class TestVarianceWaterfallDataclass:
 
 
 # ===== GRADE CONVERSION TESTS =====
+
 
 class TestScoreToGrade:
     def test_aaa(self):
@@ -141,6 +144,7 @@ class TestScoreToGrade:
 
 # ===== FINANCIAL RATING TESTS =====
 
+
 class TestFinancialRatingMethod:
     def test_returns_rating(self, analyzer, sample_data):
         result = analyzer.financial_rating(sample_data)
@@ -174,12 +178,20 @@ class TestFinancialRatingMethod:
 
     def test_strong_company_high_rating(self, analyzer):
         strong = FinancialData(
-            revenue=10_000_000, cogs=3_000_000, gross_profit=7_000_000,
-            net_income=2_000_000, ebit=3_000_000, total_equity=5_000_000,
-            total_assets=8_000_000, total_debt=1_000_000,
-            current_assets=4_000_000, current_liabilities=1_000_000,
-            inventory=500_000, interest_expense=100_000,
-            operating_cash_flow=2_500_000, capex=500_000,
+            revenue=10_000_000,
+            cogs=3_000_000,
+            gross_profit=7_000_000,
+            net_income=2_000_000,
+            ebit=3_000_000,
+            total_equity=5_000_000,
+            total_assets=8_000_000,
+            total_debt=1_000_000,
+            current_assets=4_000_000,
+            current_liabilities=1_000_000,
+            inventory=500_000,
+            interest_expense=100_000,
+            operating_cash_flow=2_500_000,
+            capex=500_000,
         )
         result = analyzer.financial_rating(strong)
         assert result.overall_score >= 7.0
@@ -187,12 +199,20 @@ class TestFinancialRatingMethod:
 
     def test_weak_company_low_rating(self, analyzer):
         weak = FinancialData(
-            revenue=500_000, cogs=450_000, gross_profit=50_000,
-            net_income=5_000, ebit=10_000, total_equity=100_000,
-            total_assets=500_000, total_debt=350_000,
-            current_assets=80_000, current_liabilities=200_000,
-            inventory=60_000, interest_expense=40_000,
-            operating_cash_flow=-10_000, capex=20_000,
+            revenue=500_000,
+            cogs=450_000,
+            gross_profit=50_000,
+            net_income=5_000,
+            ebit=10_000,
+            total_equity=100_000,
+            total_assets=500_000,
+            total_debt=350_000,
+            current_assets=80_000,
+            current_liabilities=200_000,
+            inventory=60_000,
+            interest_expense=40_000,
+            operating_cash_flow=-10_000,
+            capex=20_000,
         )
         result = analyzer.financial_rating(weak)
         assert result.overall_score < 5.0
@@ -213,6 +233,7 @@ class TestFinancialRatingMethod:
 
 
 # ===== VARIANCE WATERFALL TESTS =====
+
 
 class TestVarianceWaterfall:
     def test_returns_waterfall(self, analyzer, sample_data, prior_data):
@@ -289,6 +310,7 @@ class TestVarianceWaterfall:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase12EdgeCases:
     def test_rating_partial_data(self, analyzer):

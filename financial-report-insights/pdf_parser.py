@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ParsedSection:
     """A detected section within a PDF document."""
+
     title: str
     content: str
     section_type: str  # e.g. "income_statement", "balance_sheet", etc.
@@ -32,6 +33,7 @@ class ParsedSection:
 @dataclass
 class ParsedDocument:
     """Complete parsed PDF document."""
+
     source_path: str
     title: str
     company: Optional[str]
@@ -46,7 +48,9 @@ class ParsedDocument:
 SECTION_PATTERNS: Dict[str, List[re.Pattern]] = {
     # Financial statements
     "income_statement": [
-        re.compile(r"(?i)\b(consolidated\s+)?statements?\s+of\s+(income|operations|earnings|profit\s+(?:and|&)\s+loss)"),
+        re.compile(
+            r"(?i)\b(consolidated\s+)?statements?\s+of\s+(income|operations|earnings|profit\s+(?:and|&)\s+loss)"
+        ),
         re.compile(r"(?i)\b(income|profit\s+(?:and|&)\s+loss|p\s*&\s*l)\s+statement"),
         re.compile(r"(?i)\bincome\s+statement\b"),
     ],
@@ -59,13 +63,14 @@ SECTION_PATTERNS: Dict[str, List[re.Pattern]] = {
         re.compile(r"(?i)\bcash\s+flow\s+statement"),
     ],
     "equity_statement": [
-        re.compile(r"(?i)\b(consolidated\s+)?statements?\s+of\s+(stockholders|shareholders|owners)[\'\u2019]?\s+equity"),
+        re.compile(
+            r"(?i)\b(consolidated\s+)?statements?\s+of\s+(stockholders|shareholders|owners)[\'\u2019]?\s+equity"
+        ),
         re.compile(r"(?i)\bchanges\s+in\s+(stockholders|shareholders)[\'\u2019]?\s+equity"),
     ],
     "comprehensive_income": [
         re.compile(r"(?i)\b(consolidated\s+)?statements?\s+of\s+comprehensive\s+(income|loss)"),
     ],
-
     # Regulatory/SEC filings
     "mda": [
         re.compile(r"(?i)\bmanagement[\'\u2019]?s?\s+discussion\s+(and|&)\s+analysis"),
@@ -81,7 +86,6 @@ SECTION_PATTERNS: Dict[str, List[re.Pattern]] = {
         re.compile(r"(?i)\b(independent\s+)?auditor[\'\u2019]?s?\s+report"),
         re.compile(r"(?i)\breport\s+of\s+independent\s+(registered\s+)?public\s+accounting\s+firm"),
     ],
-
     # Valuation / M&A
     "dcf": [
         re.compile(r"(?i)\bdiscounted\s+cash\s+flow"),
@@ -104,7 +108,6 @@ SECTION_PATTERNS: Dict[str, List[re.Pattern]] = {
         re.compile(r"(?i)\bmerger\s+(model|analysis)"),
         re.compile(r"(?i)\baccretion[\s/]+dilution"),
     ],
-
     # Debt / Credit
     "debt_schedule": [
         re.compile(r"(?i)\bdebt\s+(schedule|summary|detail|waterfall)"),
@@ -114,7 +117,6 @@ SECTION_PATTERNS: Dict[str, List[re.Pattern]] = {
         re.compile(r"(?i)\bcovenant\s+(analysis|compliance|summary)"),
         re.compile(r"(?i)\bfinancial\s+covenants?\b"),
     ],
-
     # Cannabis-specific
     "280e_tax": [
         re.compile(r"(?i)\b280\s*e\s+(tax|classification|analysis)"),
@@ -128,7 +130,6 @@ SECTION_PATTERNS: Dict[str, List[re.Pattern]] = {
         re.compile(r"(?i)\blicense\s+(inventory|summary|status)"),
         re.compile(r"(?i)\bregulatory\s+license"),
     ],
-
     # Real estate
     "rent_roll": [
         re.compile(r"(?i)\brent\s+roll\b"),
@@ -139,7 +140,6 @@ SECTION_PATTERNS: Dict[str, List[re.Pattern]] = {
     "construction_budget": [
         re.compile(r"(?i)\bconstruction\s+budget"),
     ],
-
     # Fund reporting
     "fund_performance": [
         re.compile(r"(?i)\bfund\s+performance"),
@@ -148,14 +148,12 @@ SECTION_PATTERNS: Dict[str, List[re.Pattern]] = {
     "capital_account": [
         re.compile(r"(?i)\bcapital\s+account\s+(statement|summary)"),
     ],
-
     # KPIs / Operating metrics
     "kpi_dashboard": [
         re.compile(r"(?i)\bkpi\s+(dashboard|summary|metrics)"),
         re.compile(r"(?i)\boperating\s+metrics\b"),
         re.compile(r"(?i)\bkey\s+performance\s+indicators\b"),
     ],
-
     # Budget / Forecast
     "budget": [
         re.compile(r"(?i)\b(annual\s+)?budget\b"),
@@ -165,7 +163,6 @@ SECTION_PATTERNS: Dict[str, List[re.Pattern]] = {
         re.compile(r"(?i)\b(cash\s+)?forecast\b"),
         re.compile(r"(?i)\bprojections?\b"),
     ],
-
     # General sections
     "executive_summary": [
         re.compile(r"(?i)\bexecutive\s+summary\b"),
@@ -203,7 +200,9 @@ def _extract_metadata(markdown: str, source_path: str) -> Dict[str, Any]:
 
     # Company name heuristics — look for common patterns
     company_patterns = [
-        re.compile(r"(?i)(?:^|\n)\s*([A-Z][A-Za-z\s&,\.]+(?:Inc|Corp|LLC|LP|Ltd|Co|Group|Holdings|Partners)\.?)\s*(?:\n|$)"),
+        re.compile(
+            r"(?i)(?:^|\n)\s*([A-Z][A-Za-z\s&,\.]+(?:Inc|Corp|LLC|LP|Ltd|Co|Group|Holdings|Partners)\.?)\s*(?:\n|$)"
+        ),
         re.compile(r"(?i)annual\s+report\s+(?:of|for)\s+(.+?)(?:\n|$)"),
         re.compile(r"(?i)(?:^|\n)\s*([A-Z][A-Z\s&]+)\s*\n\s*(?:consolidated|financial|annual|quarterly)", re.MULTILINE),
     ]
@@ -268,21 +267,26 @@ def _split_into_sections(markdown: str) -> List[Dict[str, Any]]:
         end = matches[i + 1].start() if i + 1 < len(matches) else len(markdown)
         content = markdown[start:end].strip()
         if len(content) > 20:  # Skip trivially small sections
-            sections.append({
-                "title": title,
-                "content": content,
-                "start_pos": start,
-            })
+            sections.append(
+                {
+                    "title": title,
+                    "content": content,
+                    "start_pos": start,
+                }
+            )
 
     # If the document starts before the first heading, capture that preamble
     if matches and matches[0].start() > 100:
-        preamble = markdown[:matches[0].start()].strip()
+        preamble = markdown[: matches[0].start()].strip()
         if preamble:
-            sections.insert(0, {
-                "title": "Preamble",
-                "content": preamble,
-                "start_pos": 0,
-            })
+            sections.insert(
+                0,
+                {
+                    "title": "Preamble",
+                    "content": preamble,
+                    "start_pos": 0,
+                },
+            )
 
     return sections
 
@@ -314,17 +318,34 @@ def _detect_tables_in_section(content: str) -> List[str]:
     return tables
 
 
+def _empty_parsed_document(file_path: Path) -> ParsedDocument:
+    """Return a zero-content ParsedDocument for unreadable/corrupt PDFs."""
+    return ParsedDocument(
+        source_path=str(file_path),
+        title=file_path.stem,
+        company=None,
+        period=None,
+        total_pages=0,
+        sections=[],
+        raw_markdown="",
+    )
+
+
 def parse_pdf(file_path: Path) -> ParsedDocument:
     """Parse a PDF file into structured sections with metadata.
 
     Attempts pymupdf4llm first for high-quality markdown output,
     falls back to raw PyMuPDF text extraction.
 
+    Returns an empty ParsedDocument (no raise) when the file is corrupt
+    or unreadable (fitz.FileDataError, RuntimeError).
+
     Args:
         file_path: Path to the PDF file.
 
     Returns:
         ParsedDocument with sections, metadata, and raw markdown.
+        An empty ParsedDocument is returned for corrupt/unreadable files.
     """
     file_path = Path(file_path)
     markdown = ""
@@ -332,17 +353,31 @@ def parse_pdf(file_path: Path) -> ParsedDocument:
 
     _MAX_PDF_PAGES = 500
 
+    # Resolve fitz.FileDataError once so we can reference it in except clauses
+    # without re-importing inside every branch.
+    try:
+        import fitz as _fitz_mod
+
+        _fitz_file_data_error: type = _fitz_mod.FileDataError
+    except ImportError:
+        # fitz not installed; define a dummy so the except clause compiles safely
+        _fitz_file_data_error = type("_FitzFileDataErrorStub", (Exception,), {})
+
     # Try pymupdf4llm first (best quality)
     try:
-        import pymupdf4llm
         import fitz as _fitz_check
+        import pymupdf4llm
+
         _doc_check = _fitz_check.open(file_path)
         total_pages = len(_doc_check)
         _doc_check.close()
         if total_pages > _MAX_PDF_PAGES:
             logger.warning(
                 "PDF %s has %d pages (limit %d); truncating to first %d pages.",
-                file_path.name, total_pages, _MAX_PDF_PAGES, _MAX_PDF_PAGES,
+                file_path.name,
+                total_pages,
+                _MAX_PDF_PAGES,
+                _MAX_PDF_PAGES,
             )
         page_list = list(range(min(total_pages, _MAX_PDF_PAGES)))
         markdown = pymupdf4llm.to_markdown(str(file_path), pages=page_list)
@@ -351,12 +386,16 @@ def parse_pdf(file_path: Path) -> ParsedDocument:
         logger.info("pymupdf4llm not available, falling back to fitz")
         try:
             import fitz
+
             doc = fitz.open(file_path)
             total_pages = len(doc)
             if total_pages > _MAX_PDF_PAGES:
                 logger.warning(
                     "PDF %s has %d pages (limit %d); truncating to first %d pages.",
-                    file_path.name, total_pages, _MAX_PDF_PAGES, _MAX_PDF_PAGES,
+                    file_path.name,
+                    total_pages,
+                    _MAX_PDF_PAGES,
+                    _MAX_PDF_PAGES,
                 )
             pages = []
             for page_idx, page in enumerate(doc):
@@ -367,9 +406,24 @@ def parse_pdf(file_path: Path) -> ParsedDocument:
             markdown = "\n\n".join(pages)
         except ImportError:
             raise ImportError(
-                "Neither pymupdf4llm nor PyMuPDF (fitz) is installed. "
-                "Install with: pip install pymupdf4llm"
+                "Neither pymupdf4llm nor PyMuPDF (fitz) is installed. Install with: pip install pymupdf4llm"
             )
+        except (_fitz_file_data_error, RuntimeError) as exc:
+            logger.warning(
+                "PDF '%s' is corrupt or unreadable (fitz fallback): %s",
+                file_path.name,
+                exc,
+                exc_info=True,
+            )
+            return _empty_parsed_document(file_path)
+    except (_fitz_file_data_error, RuntimeError) as exc:
+        logger.warning(
+            "PDF '%s' is corrupt or unreadable (pymupdf4llm path): %s",
+            file_path.name,
+            exc,
+            exc_info=True,
+        )
+        return _empty_parsed_document(file_path)
 
     # Extract metadata
     meta = _extract_metadata(markdown, str(file_path))
@@ -387,14 +441,16 @@ def parse_pdf(file_path: Path) -> ParsedDocument:
         page_end = min(total_pages, (raw["start_pos"] + len(raw["content"])) // chars_per_page + 1)
         tables = _detect_tables_in_section(raw["content"])
 
-        sections.append(ParsedSection(
-            title=raw["title"],
-            content=raw["content"],
-            section_type=section_type,
-            page_start=page_start,
-            page_end=page_end,
-            tables=tables,
-        ))
+        sections.append(
+            ParsedSection(
+                title=raw["title"],
+                content=raw["content"],
+                section_type=section_type,
+                page_start=page_start,
+                page_end=page_end,
+                tables=tables,
+            )
+        )
 
     return ParsedDocument(
         source_path=str(file_path),

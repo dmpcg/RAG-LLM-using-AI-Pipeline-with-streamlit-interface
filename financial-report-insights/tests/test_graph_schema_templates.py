@@ -7,8 +7,6 @@ Covers templates that had zero direct test coverage:
            MERGE_COMPLIANCE_REPORT_BATCH, COMPLIANCE_BY_COMPANY
 """
 
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # Phase 2: Structured financial data population
@@ -316,10 +314,19 @@ class TestConstraintCompleteness:
 
         text = " ".join(CONSTRAINTS)
         expected_types = [
-            "Document", "Chunk", "FiscalPeriod", "FinancialStatement",
-            "LineItem", "FinancialRatio", "ScoringResult",
-            "CreditAssessment", "CovenantPackage", "Company",
-            "Portfolio", "PortfolioRisk", "ComplianceReport",
+            "Document",
+            "Chunk",
+            "FiscalPeriod",
+            "FinancialStatement",
+            "LineItem",
+            "FinancialRatio",
+            "ScoringResult",
+            "CreditAssessment",
+            "CovenantPackage",
+            "Company",
+            "Portfolio",
+            "PortfolioRisk",
+            "ComplianceReport",
         ]
         for node_type in expected_types:
             assert node_type in text, f"Missing constraint for {node_type}"
@@ -329,20 +336,37 @@ class TestConstraintCompleteness:
         import graph_schema
 
         template_names = [
-            "MERGE_DOCUMENT", "MERGE_CHUNK", "MERGE_CHUNKS_BATCH",
-            "MERGE_FISCAL_PERIOD", "MERGE_LINE_ITEM", "MERGE_RATIO",
-            "MERGE_RATIOS_BATCH", "MERGE_SCORE", "MERGE_SCORES_BATCH",
-            "MERGE_FINANCIAL_STATEMENT", "MERGE_LINE_ITEMS_BATCH",
-            "MERGE_DERIVED_FROM_BATCH", "MERGE_TEMPORAL_EDGES",
-            "CROSS_PERIOD_RATIO_TREND", "MERGE_PORTFOLIO",
-            "MERGE_PORTFOLIO_MEMBERSHIP_BATCH", "MERGE_PORTFOLIO_RISK",
-            "MERGE_COMPLIANCE_REPORT_BATCH", "COMPLIANCE_BY_COMPANY",
-            "MERGE_COMPANY", "MERGE_CREDIT_ASSESSMENT",
-            "MERGE_CREDIT_ASSESSMENTS_BATCH", "MERGE_COVENANT_PACKAGE",
-            "MERGE_COVENANT_PACKAGES_BATCH", "CREDIT_ASSESSMENT_BY_COMPANY",
-            "VECTOR_SEARCH", "GRAPH_CONTEXT_FOR_CHUNK",
-            "GRAPH_CONTEXT_FOR_CHUNKS_BATCH", "RATIOS_BY_PERIOD",
-            "SCORES_BY_PERIOD", "RATIOS_BY_PERIOD_LABEL",
+            "MERGE_DOCUMENT",
+            "MERGE_CHUNK",
+            "MERGE_CHUNKS_BATCH",
+            "MERGE_FISCAL_PERIOD",
+            "MERGE_LINE_ITEM",
+            "MERGE_RATIO",
+            "MERGE_RATIOS_BATCH",
+            "MERGE_SCORE",
+            "MERGE_SCORES_BATCH",
+            "MERGE_FINANCIAL_STATEMENT",
+            "MERGE_LINE_ITEMS_BATCH",
+            "MERGE_DERIVED_FROM_BATCH",
+            "MERGE_TEMPORAL_EDGES",
+            "CROSS_PERIOD_RATIO_TREND",
+            "MERGE_PORTFOLIO",
+            "MERGE_PORTFOLIO_MEMBERSHIP_BATCH",
+            "MERGE_PORTFOLIO_RISK",
+            "MERGE_COMPLIANCE_REPORT_BATCH",
+            "COMPLIANCE_BY_COMPANY",
+            "MERGE_COMPANY",
+            "MERGE_CREDIT_ASSESSMENT",
+            "MERGE_CREDIT_ASSESSMENTS_BATCH",
+            "MERGE_COVENANT_PACKAGE",
+            "MERGE_COVENANT_PACKAGES_BATCH",
+            "CREDIT_ASSESSMENT_BY_COMPANY",
+            "VECTOR_SEARCH",
+            "GRAPH_CONTEXT_FOR_CHUNK",
+            "GRAPH_CONTEXT_FOR_CHUNKS_BATCH",
+            "RATIOS_BY_PERIOD",
+            "SCORES_BY_PERIOD",
+            "RATIOS_BY_PERIOD_LABEL",
             "SCORES_BY_PERIOD_LABEL",
         ]
         for name in template_names:

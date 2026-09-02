@@ -6,15 +6,15 @@ exercising serialization, Pydantic validation, business logic, and
 response structure. Each test is independent and deterministic.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Test data factories (following E2E pattern: realistic data, deterministic)
 # ---------------------------------------------------------------------------
+
 
 def _strong_company_data():
     """Realistic strong company financial data dict."""
@@ -118,9 +118,11 @@ def mock_rag():
 def client(mock_rag):
     """TestClient with RAG singleton patched out."""
     import api as api_module
+
     api_module._rag_instance = mock_rag
     api_module._rate_log.clear()
     from api import app
+
     with TestClient(app) as c:
         yield c
     api_module._rag_instance = None
@@ -145,9 +147,15 @@ class TestPortfolioAnalyze:
         resp = client.post("/portfolio/analyze", json=_portfolio_payload())
         body = resp.json()
         required = [
-            "num_companies", "avg_health_score", "diversification_score",
-            "diversification_grade", "risk_level", "risk_flags",
-            "strongest", "weakest", "summary",
+            "num_companies",
+            "avg_health_score",
+            "diversification_score",
+            "diversification_grade",
+            "risk_level",
+            "risk_flags",
+            "strongest",
+            "weakest",
+            "summary",
         ]
         for field in required:
             assert field in body, f"Missing field: {field}"
@@ -246,10 +254,18 @@ class TestComplianceAnalyze:
         )
         body = resp.json()
         required = [
-            "sox_risk", "sox_score", "sec_score", "sec_grade",
-            "regulatory_pct", "regulatory_pass", "regulatory_fail",
-            "audit_risk", "audit_score", "audit_grade",
-            "going_concern", "summary",
+            "sox_risk",
+            "sox_score",
+            "sec_score",
+            "sec_grade",
+            "regulatory_pct",
+            "regulatory_pass",
+            "regulatory_fail",
+            "audit_risk",
+            "audit_score",
+            "audit_grade",
+            "going_concern",
+            "summary",
         ]
         for field in required:
             assert field in body, f"Missing field: {field}"
@@ -415,9 +431,12 @@ class TestPortfolioErrorPaths:
 
     def test_portfolio_analyze_single_company_ok(self, client):
         """Single company should still work (min_length=1)."""
-        resp = client.post("/portfolio/analyze", json={
-            "companies": {"Solo": _strong_company_data()},
-        })
+        resp = client.post(
+            "/portfolio/analyze",
+            json={
+                "companies": {"Solo": _strong_company_data()},
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["num_companies"] == 1
 

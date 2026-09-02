@@ -5,7 +5,7 @@ SaaS metrics, unit economics, burn/runway analysis, and funding scenarios.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from financial_analyzer import FinancialData, safe_divide
 

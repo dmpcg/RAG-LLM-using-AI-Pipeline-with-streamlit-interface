@@ -4,12 +4,13 @@ Tests for evaluate_custom_kpis() and related dataclasses.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     CustomKPIDefinition,
-    CustomKPIResult,
     CustomKPIReport,
+    CustomKPIResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCustomKPIDefinitionDataclass:
     def test_defaults(self):
         d = CustomKPIDefinition()
@@ -82,6 +84,7 @@ class TestCustomKPIReportDataclass:
 
 
 # ===== EVALUATE CUSTOM KPIS =====
+
 
 class TestEvaluateCustomKPIs:
     def test_returns_report(self, analyzer, sample_data):
@@ -127,14 +130,12 @@ class TestEvaluateCustomKPIs:
         assert result.results[0].meets_target is True  # 0.33 <= 1.0
 
     def test_meets_target_range(self, analyzer, sample_data):
-        kpis = [CustomKPIDefinition(name="AT", formula="revenue / total_assets",
-                                     target_min=0.3, target_max=0.8)]
+        kpis = [CustomKPIDefinition(name="AT", formula="revenue / total_assets", target_min=0.3, target_max=0.8)]
         result = analyzer.evaluate_custom_kpis(sample_data, kpis)
         assert result.results[0].meets_target is True  # 0.5 in [0.3, 0.8]
 
     def test_misses_target_range(self, analyzer, sample_data):
-        kpis = [CustomKPIDefinition(name="AT", formula="revenue / total_assets",
-                                     target_min=0.6, target_max=0.8)]
+        kpis = [CustomKPIDefinition(name="AT", formula="revenue / total_assets", target_min=0.6, target_max=0.8)]
         result = analyzer.evaluate_custom_kpis(sample_data, kpis)
         assert result.results[0].meets_target is False  # 0.5 < 0.6
 
@@ -211,6 +212,7 @@ class TestEvaluateCustomKPIs:
 
 # ===== SECURITY TESTS =====
 
+
 class TestCustomKPISecurity:
     def test_no_builtins_access(self, analyzer, sample_data):
         kpis = [CustomKPIDefinition(name="hack", formula="print('hello')")]
@@ -259,6 +261,7 @@ class TestCustomKPISecurity:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase10EdgeCases:
     def test_zero_kpis(self, analyzer, sample_data):

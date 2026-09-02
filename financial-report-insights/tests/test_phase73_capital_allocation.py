@@ -4,10 +4,11 @@ Tests for capital_allocation_analysis() and CapitalAllocationResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    CapitalAllocationResult,
     CharlieAnalyzer,
     FinancialData,
-    CapitalAllocationResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCapitalAllocationDataclass:
     def test_defaults(self):
         r = CapitalAllocationResult()
@@ -68,6 +70,7 @@ class TestCapitalAllocationDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCapitalAllocationAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -114,6 +117,7 @@ class TestCapitalAllocationAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestCapitalAllocationScoring:
     def test_very_low_capex_ratio(self, analyzer):
@@ -194,6 +198,7 @@ class TestCapitalAllocationScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase73EdgeCases:
     def test_empty_data(self, analyzer):

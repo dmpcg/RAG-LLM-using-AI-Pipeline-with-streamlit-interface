@@ -8,7 +8,7 @@ financial_analyzer and layers credit-scoring logic on top.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from export_utils import score_to_grade as _score_to_grade
 from financial_analyzer import (
@@ -95,6 +95,7 @@ class UnderwritingReport:
 # ---------------------------------------------------------------------------
 # Scoring helpers (pure functions)
 # ---------------------------------------------------------------------------
+
 
 def _grade_to_recommendation(grade: str) -> str:
     """Map letter grade to a lending recommendation."""
@@ -190,9 +191,7 @@ class UnderwritingAnalyzer:
     # --- individual scoring helpers (static-like, kept as methods for readability) ---
 
     @staticmethod
-    def _score_profitability(
-        net_margin: Optional[float], roa: Optional[float]
-    ) -> Optional[int]:
+    def _score_profitability(net_margin: Optional[float], roa: Optional[float]) -> Optional[int]:
         # WP-7b: all-None inputs are "not evaluable" -- return None, NOT a
         # misleading 0 (which would be indistinguishable from a measured 0
         # and silently penalize a borrower whose data is merely missing).
@@ -211,9 +210,7 @@ class UnderwritingAnalyzer:
         return 0
 
     @staticmethod
-    def _score_leverage(
-        d_e: Optional[float], d_a: Optional[float]
-    ) -> int:
+    def _score_leverage(d_e: Optional[float], d_a: Optional[float]) -> int:
         de = d_e if d_e is not None else 999
         da = d_a if d_a is not None else 999
         # Negative D/E means negative equity (worst case), not low leverage
@@ -230,9 +227,7 @@ class UnderwritingAnalyzer:
         return 0
 
     @staticmethod
-    def _score_liquidity(
-        current_ratio: Optional[float], cash_ratio: Optional[float]
-    ) -> Optional[int]:
+    def _score_liquidity(current_ratio: Optional[float], cash_ratio: Optional[float]) -> Optional[int]:
         # WP-7b: not evaluable when no liquidity input is present.
         if current_ratio is None and cash_ratio is None:
             return None
@@ -249,9 +244,7 @@ class UnderwritingAnalyzer:
         return 0
 
     @staticmethod
-    def _score_cash_flow(
-        ocf_debt: Optional[float], fcf_margin: Optional[float]
-    ) -> Optional[int]:
+    def _score_cash_flow(ocf_debt: Optional[float], fcf_margin: Optional[float]) -> Optional[int]:
         # WP-7b: not evaluable when no cash-flow input is present.
         if ocf_debt is None and fcf_margin is None:
             return None
@@ -268,9 +261,7 @@ class UnderwritingAnalyzer:
         return 0
 
     @staticmethod
-    def _score_stability(
-        interest_coverage: Optional[float], ebitda_margin: Optional[float]
-    ) -> Optional[int]:
+    def _score_stability(interest_coverage: Optional[float], ebitda_margin: Optional[float]) -> Optional[int]:
         # WP-7b: not evaluable when no stability input is present.
         if interest_coverage is None and ebitda_margin is None:
             return None
@@ -385,12 +376,9 @@ class UnderwritingAnalyzer:
         if interest is None and (existing_debt is None or existing_debt <= 0):
             return None
 
-        principal_amort = (
-            (existing_debt / term) if existing_debt and existing_debt > 0 else 0.0
-        )
+        principal_amort = (existing_debt / term) if existing_debt and existing_debt > 0 else 0.0
         interest_part = float(interest) if interest is not None else 0.0
         return interest_part + principal_amort
-
 
     @staticmethod
     def _build_capacity_assessment(r: DebtCapacityResult) -> str:
@@ -399,8 +387,7 @@ class UnderwritingAnalyzer:
 
         if r.current_leverage is not None:
             parts.append(
-                f"Current leverage is {r.current_leverage:.2f}x debt/EBITDA "
-                f"(target max {r.max_leverage_target:.1f}x)."
+                f"Current leverage is {r.current_leverage:.2f}x debt/EBITDA (target max {r.max_leverage_target:.1f}x)."
             )
         else:
             parts.append("Insufficient data to calculate current leverage.")
@@ -414,40 +401,22 @@ class UnderwritingAnalyzer:
                 "coverage measures."
             )
         elif r.max_additional_debt > 0:
-            parts.append(
-                f"Estimated additional debt capacity: "
-                f"${r.max_additional_debt:,.0f}."
-            )
+            parts.append(f"Estimated additional debt capacity: ${r.max_additional_debt:,.0f}.")
         else:
-            parts.append(
-                "Company appears fully leveraged relative to the "
-                f"{r.max_leverage_target:.1f}x target."
-            )
+            parts.append(f"Company appears fully leveraged relative to the {r.max_leverage_target:.1f}x target.")
 
         if r.pro_forma_dscr is not None:
             if r.pro_forma_dscr >= 1.5:
-                parts.append(
-                    f"Pro-forma DSCR of {r.pro_forma_dscr:.2f}x is strong."
-                )
+                parts.append(f"Pro-forma DSCR of {r.pro_forma_dscr:.2f}x is strong.")
             elif r.pro_forma_dscr >= 1.2:
-                parts.append(
-                    f"Pro-forma DSCR of {r.pro_forma_dscr:.2f}x is adequate."
-                )
+                parts.append(f"Pro-forma DSCR of {r.pro_forma_dscr:.2f}x is adequate.")
             elif r.pro_forma_dscr >= 1.0:
-                parts.append(
-                    f"Pro-forma DSCR of {r.pro_forma_dscr:.2f}x is marginal."
-                )
+                parts.append(f"Pro-forma DSCR of {r.pro_forma_dscr:.2f}x is marginal.")
             else:
-                parts.append(
-                    f"Pro-forma DSCR of {r.pro_forma_dscr:.2f}x is below 1.0x "
-                    "-- debt service exceeds EBITDA."
-                )
+                parts.append(f"Pro-forma DSCR of {r.pro_forma_dscr:.2f}x is below 1.0x -- debt service exceeds EBITDA.")
 
         if r.pro_forma_leverage is not None and r.pro_forma_leverage > r.max_leverage_target:
-            parts.append(
-                "WARNING: pro-forma leverage exceeds target -- "
-                "loan may not be supportable."
-            )
+            parts.append("WARNING: pro-forma leverage exceeds target -- loan may not be supportable.")
 
         return " ".join(parts) if parts else "Insufficient data for assessment."
 
@@ -500,9 +469,9 @@ class UnderwritingAnalyzer:
     @staticmethod
     def _base_financial_covenants(tier: str) -> Dict[str, Dict[str, Any]]:
         thresholds = {
-            "light":    {"cr": 1.10, "de": 4.0, "ic": 2.0},
+            "light": {"cr": 1.10, "de": 4.0, "ic": 2.0},
             "standard": {"cr": 1.25, "de": 3.5, "ic": 2.5},
-            "heavy":    {"cr": 1.50, "de": 3.0, "ic": 3.0},
+            "heavy": {"cr": 1.50, "de": 3.0, "ic": 3.0},
         }
         t = thresholds.get(tier, thresholds["standard"])
         return {
@@ -578,8 +547,7 @@ class UnderwritingAnalyzer:
         loan: Optional[LoanStructure],
     ) -> str:
         lines: List[str] = [
-            f"Credit Score: {sc.total_score}/100 (Grade {sc.grade}) "
-            f"-- Recommendation: {sc.recommendation.upper()}.",
+            f"Credit Score: {sc.total_score}/100 (Grade {sc.grade}) -- Recommendation: {sc.recommendation.upper()}.",
         ]
 
         if sc.strengths:
@@ -588,9 +556,7 @@ class UnderwritingAnalyzer:
             lines.append(f"Weaknesses: {', '.join(sc.weaknesses)}.")
 
         if dc.current_leverage is not None:
-            lines.append(
-                f"Current leverage: {dc.current_leverage:.2f}x debt/EBITDA."
-            )
+            lines.append(f"Current leverage: {dc.current_leverage:.2f}x debt/EBITDA.")
 
         if loan is not None:
             lines.append(
@@ -600,9 +566,7 @@ class UnderwritingAnalyzer:
             if dc.pro_forma_dscr is not None:
                 lines.append(f"Pro-forma DSCR: {dc.pro_forma_dscr:.2f}x.")
             if dc.pro_forma_leverage is not None:
-                lines.append(
-                    f"Pro-forma leverage: {dc.pro_forma_leverage:.2f}x."
-                )
+                lines.append(f"Pro-forma leverage: {dc.pro_forma_leverage:.2f}x.")
 
         lines.append(f"Covenant tier: {cov.covenant_tier}.")
 

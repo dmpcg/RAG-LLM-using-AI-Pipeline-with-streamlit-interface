@@ -4,10 +4,11 @@ Tests for defensive_posture_analysis() and DefensivePostureResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DefensivePostureResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDefensivePostureDataclass:
     def test_defaults(self):
         r = DefensivePostureResult()
@@ -68,6 +70,7 @@ class TestDefensivePostureDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDefensivePostureAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -114,6 +117,7 @@ class TestDefensivePostureAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestDefensivePostureScoring:
     def test_strong_posture(self, analyzer, sample_data):
@@ -162,6 +166,7 @@ class TestDefensivePostureScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase133EdgeCases:
     def test_empty_data(self, analyzer):

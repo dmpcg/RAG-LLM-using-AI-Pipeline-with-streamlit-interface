@@ -7,13 +7,13 @@ Named after Charlie Munger who embodied the principles of rigorous financial ana
 import ast
 import logging
 import operator
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
-from datetime import datetime
 import re
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from structured_types import (
     AnalysisResults,
@@ -47,6 +47,7 @@ def safe_divide(
 @dataclass
 class VarianceResult:
     """Result of a variance calculation."""
+
     actual: float
     budget: float
     variance: float
@@ -59,6 +60,7 @@ class VarianceResult:
 @dataclass
 class TrendAnalysis:
     """Result of trend analysis."""
+
     metric_name: str
     values: List[float]
     periods: List[str]
@@ -75,6 +77,7 @@ class TrendAnalysis:
 @dataclass
 class CashFlowAnalysis:
     """Cash flow analysis results."""
+
     operating_cf: Optional[float]
     investing_cf: Optional[float]
     financing_cf: Optional[float]
@@ -88,6 +91,7 @@ class CashFlowAnalysis:
 @dataclass
 class WorkingCapitalAnalysis:
     """Working capital analysis results."""
+
     current_assets: Optional[float]
     current_liabilities: Optional[float]
     net_working_capital: Optional[float]
@@ -98,6 +102,7 @@ class WorkingCapitalAnalysis:
 @dataclass
 class BudgetAnalysis:
     """Comprehensive budget analysis."""
+
     total_budget: float
     total_actual: float
     total_variance: float
@@ -112,6 +117,7 @@ class BudgetAnalysis:
 @dataclass
 class Insight:
     """A generated insight."""
+
     category: str  # liquidity, profitability, efficiency, risk, trend
     severity: str  # info, warning, critical
     message: str
@@ -123,6 +129,7 @@ class Insight:
 @dataclass
 class Anomaly:
     """A detected anomaly."""
+
     metric_name: str
     value: float
     expected_range: Tuple[float, float]
@@ -133,6 +140,7 @@ class Anomaly:
 @dataclass
 class Forecast:
     """Simple forecast result."""
+
     metric_name: str
     historical_values: List[float]
     forecasted_values: List[float]
@@ -148,12 +156,13 @@ class DuPontAnalysis:
     3-factor: ROE = Net Margin × Asset Turnover × Equity Multiplier
     5-factor: adds Tax Burden (NI/EBT) and Interest Burden (EBT/EBIT)
     """
+
     roe: Optional[float] = None
     net_margin: Optional[float] = None
     asset_turnover: Optional[float] = None
     equity_multiplier: Optional[float] = None
     # 5-factor extensions
-    tax_burden: Optional[float] = None       # NI / EBT
+    tax_burden: Optional[float] = None  # NI / EBT
     interest_burden: Optional[float] = None  # EBT / EBIT
     # Diagnosis
     primary_driver: Optional[str] = None  # which factor drives ROE most
@@ -172,6 +181,7 @@ class AltmanZScore:
       X4 = Market Value of Equity / Total Liabilities (book value used as proxy)
       X5 = Sales / Total Assets
     """
+
     z_score: Optional[float] = None
     zone: str = "unknown"  # 'safe', 'grey', 'distress'
     components: Dict[str, Optional[float]] = field(default_factory=dict)
@@ -186,6 +196,7 @@ class PiotroskiFScore:
     Leverage/Liquidity (3 points): Delta Leverage<0, Delta Current Ratio>0, No dilution
     Operating Efficiency (2 points): Delta Gross Margin>0, Delta Asset Turnover>0
     """
+
     score: int = 0
     max_score: int = 9
     criteria: Dict[str, bool] = field(default_factory=dict)
@@ -203,6 +214,7 @@ class CompositeHealthScore:
       - Liquidity:        15 pts
       - Leverage:         15 pts
     """
+
     score: int = 0
     grade: str = "F"  # A, B, C, D, F
     component_scores: Dict[str, int] = field(default_factory=dict)
@@ -212,6 +224,7 @@ class CompositeHealthScore:
 @dataclass
 class PeriodComparison:
     """Result of comparing two financial periods."""
+
     current_ratios: Dict[str, Optional[float]] = field(default_factory=dict)
     prior_ratios: Dict[str, Optional[float]] = field(default_factory=dict)
     deltas: Dict[str, float] = field(default_factory=dict)
@@ -222,6 +235,7 @@ class PeriodComparison:
 @dataclass
 class ScenarioResult:
     """Result of a what-if scenario analysis comparing base vs adjusted data."""
+
     scenario_name: str = ""
     adjustments: Dict[str, float] = field(default_factory=dict)
     base_health: Optional[CompositeHealthScore] = None
@@ -238,6 +252,7 @@ class ScenarioResult:
 @dataclass
 class ProbabilityWeightedResult:
     """Result of probability-weighted multi-scenario analysis."""
+
     scenarios: List[ScenarioResult] = field(default_factory=list)
     probabilities: List[float] = field(default_factory=list)
     scenario_names: List[str] = field(default_factory=list)
@@ -250,6 +265,7 @@ class ProbabilityWeightedResult:
 @dataclass
 class SensitivityResult:
     """Result of sensitivity analysis across a range of adjustments."""
+
     variable_name: str = ""
     variable_labels: List[str] = field(default_factory=list)
     variable_multipliers: List[float] = field(default_factory=list)
@@ -259,6 +275,7 @@ class SensitivityResult:
 @dataclass
 class MonteCarloResult:
     """Result of a Monte Carlo simulation on financial metrics."""
+
     n_simulations: int = 0
     variable_assumptions: Dict[str, Dict[str, float]] = field(default_factory=dict)
     metric_distributions: Dict[str, List[float]] = field(default_factory=dict)
@@ -269,6 +286,7 @@ class MonteCarloResult:
 @dataclass
 class CashFlowForecast:
     """Multi-period cash flow projection."""
+
     periods: List[str] = field(default_factory=list)
     revenue_forecast: List[float] = field(default_factory=list)
     expense_forecast: List[float] = field(default_factory=list)
@@ -284,6 +302,7 @@ class CashFlowForecast:
 @dataclass
 class TornadoDriver:
     """A single driver's impact on a target metric."""
+
     variable: str = ""
     low_value: float = 0.0
     high_value: float = 0.0
@@ -294,6 +313,7 @@ class TornadoDriver:
 @dataclass
 class TornadoResult:
     """Result of tornado/driver ranking analysis."""
+
     target_metric: str = ""
     base_metric_value: float = 0.0
     drivers: List[TornadoDriver] = field(default_factory=list)
@@ -303,6 +323,7 @@ class TornadoResult:
 @dataclass
 class BreakevenResult:
     """Breakeven analysis result."""
+
     breakeven_revenue: Optional[float] = None
     current_revenue: Optional[float] = None
     margin_of_safety: Optional[float] = None  # (current - breakeven) / current
@@ -314,17 +335,19 @@ class BreakevenResult:
 @dataclass
 class CovenantCheck:
     """Result of a single covenant/KPI check."""
+
     name: str = ""
     current_value: Optional[float] = None
     threshold: float = 0.0
     direction: str = "above"  # 'above' = good if current >= threshold
-    status: str = "unknown"   # 'pass', 'warning', 'breach'
+    status: str = "unknown"  # 'pass', 'warning', 'breach'
     headroom: Optional[float] = None  # how far above/below threshold
 
 
 @dataclass
 class CovenantMonitorResult:
     """Result of covenant monitoring across all KPIs."""
+
     checks: List[CovenantCheck] = field(default_factory=list)
     passes: int = 0
     warnings: int = 0
@@ -335,10 +358,11 @@ class CovenantMonitorResult:
 @dataclass
 class WorkingCapitalResult:
     """Working capital efficiency metrics."""
-    dso: Optional[float] = None   # Days Sales Outstanding
-    dio: Optional[float] = None   # Days Inventory Outstanding
-    dpo: Optional[float] = None   # Days Payables Outstanding
-    ccc: Optional[float] = None   # Cash Conversion Cycle (DSO + DIO - DPO)
+
+    dso: Optional[float] = None  # Days Sales Outstanding
+    dio: Optional[float] = None  # Days Inventory Outstanding
+    dpo: Optional[float] = None  # Days Payables Outstanding
+    ccc: Optional[float] = None  # Cash Conversion Cycle (DSO + DIO - DPO)
     net_working_capital: Optional[float] = None
     working_capital_ratio: Optional[float] = None
     insights: List[str] = field(default_factory=list)
@@ -347,6 +371,7 @@ class WorkingCapitalResult:
 @dataclass
 class NarrativeReport:
     """Auto-generated narrative intelligence from financial analysis."""
+
     headline: str = ""
     strengths: List[str] = field(default_factory=list)
     weaknesses: List[str] = field(default_factory=list)
@@ -358,6 +383,7 @@ class NarrativeReport:
 @dataclass
 class RegressionForecast:
     """Result of regression-based trend forecasting."""
+
     metric_name: str = ""
     historical_values: List[float] = field(default_factory=list)
     forecast_values: List[float] = field(default_factory=list)
@@ -373,6 +399,7 @@ class RegressionForecast:
 @dataclass
 class BenchmarkComparison:
     """Single metric comparison against industry benchmark."""
+
     metric_name: str = ""
     company_value: Optional[float] = None
     industry_median: Optional[float] = None
@@ -385,6 +412,7 @@ class BenchmarkComparison:
 @dataclass
 class IndustryBenchmarkResult:
     """Full industry benchmarking result."""
+
     industry_name: str = ""
     comparisons: List[BenchmarkComparison] = field(default_factory=list)
     overall_percentile: Optional[float] = None
@@ -394,6 +422,7 @@ class IndustryBenchmarkResult:
 @dataclass
 class CustomKPIDefinition:
     """Definition of a user-defined KPI formula."""
+
     name: str = ""
     formula: str = ""  # e.g. "revenue / total_assets"
     description: str = ""
@@ -404,6 +433,7 @@ class CustomKPIDefinition:
 @dataclass
 class CustomKPIResult:
     """Result of evaluating a custom KPI."""
+
     name: str = ""
     formula: str = ""
     value: Optional[float] = None
@@ -414,6 +444,7 @@ class CustomKPIResult:
 @dataclass
 class CustomKPIReport:
     """Collection of custom KPI evaluation results."""
+
     results: List[CustomKPIResult] = field(default_factory=list)
     summary: str = ""
 
@@ -421,13 +452,15 @@ class CustomKPIReport:
 @dataclass
 class PeerCompanyData:
     """Financial data for a single peer in comparison."""
+
     name: str = ""
-    data: Optional['FinancialData'] = None
+    data: Optional["FinancialData"] = None
 
 
 @dataclass
 class PeerMetricComparison:
     """A single metric compared across peers."""
+
     metric_name: str = ""
     values: Dict[str, Optional[float]] = field(default_factory=dict)
     best_performer: str = ""
@@ -439,6 +472,7 @@ class PeerMetricComparison:
 @dataclass
 class PeerComparisonReport:
     """Full peer comparison analysis."""
+
     peer_names: List[str] = field(default_factory=list)
     comparisons: List[PeerMetricComparison] = field(default_factory=list)
     rankings: Dict[str, int] = field(default_factory=dict)
@@ -448,15 +482,17 @@ class PeerComparisonReport:
 @dataclass
 class RatioDecompositionNode:
     """A node in the ratio decomposition tree."""
+
     name: str = ""
     value: Optional[float] = None
     formula: str = ""
-    children: List['RatioDecompositionNode'] = field(default_factory=list)
+    children: List["RatioDecompositionNode"] = field(default_factory=list)
 
 
 @dataclass
 class RatioDecompositionTree:
     """Full ratio decomposition from ROE down to individual drivers."""
+
     root: Optional[RatioDecompositionNode] = None
     summary: str = ""
 
@@ -464,6 +500,7 @@ class RatioDecompositionTree:
 @dataclass
 class RatingCategory:
     """A scored category in the financial rating."""
+
     name: str = ""
     score: float = 0.0
     max_score: float = 10.0
@@ -474,6 +511,7 @@ class RatingCategory:
 @dataclass
 class FinancialRating:
     """Comprehensive financial rating scorecard."""
+
     overall_score: float = 0.0
     overall_grade: str = ""
     categories: List[RatingCategory] = field(default_factory=list)
@@ -483,6 +521,7 @@ class FinancialRating:
 @dataclass
 class WaterfallItem:
     """A single item in a variance waterfall."""
+
     label: str = ""
     value: float = 0.0
     cumulative: float = 0.0
@@ -492,6 +531,7 @@ class WaterfallItem:
 @dataclass
 class VarianceWaterfall:
     """Waterfall breakdown of variance between two periods."""
+
     start_value: float = 0.0
     end_value: float = 0.0
     items: List[WaterfallItem] = field(default_factory=list)
@@ -502,6 +542,7 @@ class VarianceWaterfall:
 @dataclass
 class EarningsQualityResult:
     """Earnings quality analysis result."""
+
     accrual_ratio: Optional[float] = None
     cash_to_income_ratio: Optional[float] = None
     quality_score: float = 0.0
@@ -513,6 +554,7 @@ class EarningsQualityResult:
 @dataclass
 class CapitalEfficiencyResult:
     """Capital efficiency and value creation analysis."""
+
     roic: Optional[float] = None
     invested_capital: Optional[float] = None
     nopat: Optional[float] = None
@@ -526,6 +568,7 @@ class CapitalEfficiencyResult:
 @dataclass
 class LiquidityStressResult:
     """Liquidity stress test result."""
+
     current_cash: float = 0.0
     monthly_burn: float = 0.0
     months_of_cash: Optional[float] = None
@@ -538,6 +581,7 @@ class LiquidityStressResult:
 @dataclass
 class HealthDimension:
     """A single dimension of the composite health score."""
+
     name: str = ""
     score: float = 0.0
     max_score: float = 100.0
@@ -549,6 +593,7 @@ class HealthDimension:
 @dataclass
 class ComprehensiveHealthResult:
     """Comprehensive financial health score aggregating all analyses."""
+
     overall_score: float = 0.0
     grade: str = ""  # A+ through F
     dimensions: List[HealthDimension] = field(default_factory=list)
@@ -558,6 +603,7 @@ class ComprehensiveHealthResult:
 @dataclass
 class OperatingLeverageResult:
     """Operating leverage and break-even analysis result."""
+
     degree_of_operating_leverage: Optional[float] = None
     contribution_margin: Optional[float] = None
     contribution_margin_ratio: Optional[float] = None
@@ -573,6 +619,7 @@ class OperatingLeverageResult:
 @dataclass
 class CashFlowQualityResult:
     """Cash flow quality and free cash flow analysis result."""
+
     fcf: Optional[float] = None
     fcf_yield: Optional[float] = None
     fcf_margin: Optional[float] = None
@@ -588,6 +635,7 @@ class CashFlowQualityResult:
 @dataclass
 class AssetEfficiencyResult:
     """Asset efficiency and turnover analysis result."""
+
     total_asset_turnover: Optional[float] = None
     fixed_asset_turnover: Optional[float] = None
     inventory_turnover: Optional[float] = None
@@ -603,6 +651,7 @@ class AssetEfficiencyResult:
 @dataclass
 class ProfitabilityDecompResult:
     """Profitability decomposition and return analysis result."""
+
     roe: Optional[float] = None
     roa: Optional[float] = None
     roic: Optional[float] = None
@@ -622,6 +671,7 @@ class ProfitabilityDecompResult:
 @dataclass
 class RiskAdjustedResult:
     """Risk-adjusted performance metrics result."""
+
     return_on_risk: Optional[float] = None  # ROE / leverage ratio
     risk_adjusted_roe: Optional[float] = None  # ROE adjusted for financial risk
     risk_adjusted_roa: Optional[float] = None  # ROA adjusted for operating risk
@@ -638,6 +688,7 @@ class RiskAdjustedResult:
 @dataclass
 class ValuationIndicatorsResult:
     """Valuation indicators and intrinsic value estimates."""
+
     earnings_yield: Optional[float] = None  # NI / Total Equity (proxy for E/P)
     book_value_per_share_proxy: Optional[float] = None  # Equity value
     ev_proxy: Optional[float] = None  # Equity + Debt - Cash
@@ -657,6 +708,7 @@ class ValuationIndicatorsResult:
 @dataclass
 class SustainableGrowthResult:
     """Sustainability and growth capacity analysis result."""
+
     sustainable_growth_rate: Optional[float] = None  # ROE × retention ratio
     internal_growth_rate: Optional[float] = None  # ROA × retention / (1 - ROA × retention)
     retention_ratio: Optional[float] = None  # 1 - payout ratio
@@ -676,6 +728,7 @@ class SustainableGrowthResult:
 @dataclass
 class ConcentrationRiskResult:
     """Concentration and structural risk analysis result."""
+
     revenue_asset_intensity: Optional[float] = None  # Revenue / TA (asset turnover)
     operating_dependency: Optional[float] = None  # OI / Revenue
     asset_composition_current: Optional[float] = None  # CA / TA
@@ -696,6 +749,7 @@ class ConcentrationRiskResult:
 @dataclass
 class MarginOfSafetyResult:
     """Margin of safety and intrinsic value cushion analysis result."""
+
     earnings_yield: Optional[float] = None  # NI / Market Cap or EPS/Price
     book_value_per_share: Optional[float] = None  # Equity / Shares
     price_to_book: Optional[float] = None  # Price / BV per share
@@ -715,6 +769,7 @@ class MarginOfSafetyResult:
 @dataclass
 class FinancialFlexibilityResult:
     """Financial flexibility and adaptive capacity analysis result."""
+
     cash_to_assets: Optional[float] = None  # Cash / TA
     cash_to_debt: Optional[float] = None  # Cash / Total Debt
     cash_to_revenue: Optional[float] = None  # Cash / Revenue
@@ -733,6 +788,7 @@ class FinancialFlexibilityResult:
 @dataclass
 class AltmanZScoreResult:
     """Altman Z-Score bankruptcy prediction result."""
+
     # Component ratios
     working_capital_to_assets: Optional[float] = None  # (CA - CL) / TA
     retained_earnings_to_assets: Optional[float] = None  # RE / TA
@@ -755,6 +811,7 @@ class AltmanZScoreResult:
 @dataclass
 class PiotroskiFScoreResult:
     """Piotroski F-Score value investing screen (adapted for single-period)."""
+
     # Profitability signals
     roa_positive: Optional[bool] = None  # NI / TA > 0
     ocf_positive: Optional[bool] = None  # OCF > 0
@@ -781,6 +838,7 @@ class PiotroskiFScoreResult:
 @dataclass
 class InterestCoverageResult:
     """Interest coverage and debt capacity analysis result."""
+
     ebit_coverage: Optional[float] = None  # EBIT / Interest
     ebitda_coverage: Optional[float] = None  # EBITDA / Interest
     debt_to_ebitda: Optional[float] = None  # Total Debt / EBITDA
@@ -799,6 +857,7 @@ class InterestCoverageResult:
 @dataclass
 class WACCResult:
     """Weighted Average Cost of Capital estimation from financial statements."""
+
     cost_of_debt: Optional[float] = None  # Interest / Debt
     after_tax_cost_of_debt: Optional[float] = None  # Rd * (1 - T)
     implied_cost_of_equity: Optional[float] = None  # Estimated from ROE/earnings yield
@@ -817,6 +876,7 @@ class WACCResult:
 @dataclass
 class EVAResult:
     """Economic Value Added analysis."""
+
     nopat: Optional[float] = None  # Net Operating Profit After Tax
     invested_capital: Optional[float] = None  # Total Assets - Current Liabilities (or Debt + Equity)
     wacc_used: Optional[float] = None  # WACC estimate used
@@ -833,6 +893,7 @@ class EVAResult:
 @dataclass
 class FCFYieldResult:
     """Free Cash Flow yield and quality metrics."""
+
     fcf: Optional[float] = None  # OCF - CapEx
     fcf_margin: Optional[float] = None  # FCF / Revenue
     fcf_to_net_income: Optional[float] = None  # FCF / NI (conversion quality)
@@ -849,6 +910,7 @@ class FCFYieldResult:
 @dataclass
 class CashConversionResult:
     """Phase 41: Cash Conversion Efficiency."""
+
     dso: Optional[float] = None  # Days Sales Outstanding
     dio: Optional[float] = None  # Days Inventory Outstanding
     dpo: Optional[float] = None  # Days Payable Outstanding
@@ -864,6 +926,7 @@ class CashConversionResult:
 @dataclass
 class ProfitRetentionPowerResult:
     """Phase 356: Profit Retention Power Analysis."""
+
     prp_ratio: Optional[float] = None
     re_to_equity: Optional[float] = None
     re_to_revenue: Optional[float] = None
@@ -878,6 +941,7 @@ class ProfitRetentionPowerResult:
 @dataclass
 class EarningsToDebtResult:
     """Phase 353: Earnings To Debt Analysis."""
+
     etd_ratio: Optional[float] = None
     ni_to_interest: Optional[float] = None
     ni_to_liabilities: Optional[float] = None
@@ -892,6 +956,7 @@ class EarningsToDebtResult:
 @dataclass
 class RevenueGrowthResult:
     """Phase 350: Revenue Growth Capacity Analysis."""
+
     rg_capacity: Optional[float] = None
     roe: Optional[float] = None
     plowback: Optional[float] = None
@@ -906,6 +971,7 @@ class RevenueGrowthResult:
 @dataclass
 class OperatingMarginResult:
     """Phase 349: Operating Margin Analysis."""
+
     operating_margin: Optional[float] = None
     oi_to_revenue: Optional[float] = None
     ebit_margin: Optional[float] = None
@@ -920,6 +986,7 @@ class OperatingMarginResult:
 @dataclass
 class DebtToEquityResult:
     """Phase 348: Debt To Equity Analysis."""
+
     dte_ratio: Optional[float] = None
     td_to_te: Optional[float] = None
     lt_debt_to_equity: Optional[float] = None
@@ -934,6 +1001,7 @@ class DebtToEquityResult:
 @dataclass
 class CashFlowToDebtResult:
     """Phase 347: Cash Flow To Debt Analysis."""
+
     cf_to_debt: Optional[float] = None
     ocf_to_td: Optional[float] = None
     fcf_to_td: Optional[float] = None
@@ -948,6 +1016,7 @@ class CashFlowToDebtResult:
 @dataclass
 class NetWorthGrowthResult:
     """Phase 346: Net Worth Growth Analysis."""
+
     nw_growth_ratio: Optional[float] = None
     re_to_equity: Optional[float] = None
     equity_to_assets: Optional[float] = None
@@ -962,6 +1031,7 @@ class NetWorthGrowthResult:
 @dataclass
 class AssetLightnessResult:
     """Phase 341: Asset Lightness Analysis."""
+
     lightness_ratio: Optional[float] = None
     ca_to_ta: Optional[float] = None
     revenue_to_assets: Optional[float] = None
@@ -976,6 +1046,7 @@ class AssetLightnessResult:
 @dataclass
 class InternalGrowthRateResult:
     """Phase 337: Internal Growth Rate Analysis."""
+
     igr: Optional[float] = None
     roa: Optional[float] = None
     retention_ratio: Optional[float] = None
@@ -990,6 +1061,7 @@ class InternalGrowthRateResult:
 @dataclass
 class OperatingExpenseRatioResult:
     """Phase 330: Operating Expense Ratio Analysis."""
+
     opex_ratio: Optional[float] = None
     opex_per_revenue: Optional[float] = None
     opex_to_gross_profit: Optional[float] = None
@@ -1004,6 +1076,7 @@ class OperatingExpenseRatioResult:
 @dataclass
 class NoncurrentAssetRatioResult:
     """Phase 327: Noncurrent Asset Ratio Analysis."""
+
     nca_ratio: Optional[float] = None
     current_asset_ratio: Optional[float] = None
     nca_to_equity: Optional[float] = None
@@ -1018,6 +1091,7 @@ class NoncurrentAssetRatioResult:
 @dataclass
 class PayoutResilienceResult:
     """Phase 317: Payout Resilience Analysis."""
+
     div_to_ni: Optional[float] = None
     div_to_ocf: Optional[float] = None
     div_to_revenue: Optional[float] = None
@@ -1032,6 +1106,7 @@ class PayoutResilienceResult:
 @dataclass
 class DebtBurdenIndexResult:
     """Phase 314: Debt Burden Index Analysis."""
+
     debt_to_ebitda: Optional[float] = None
     debt_to_assets: Optional[float] = None
     debt_to_equity: Optional[float] = None
@@ -1046,6 +1121,7 @@ class DebtBurdenIndexResult:
 @dataclass
 class InventoryCoverageResult:
     """Phase 309: Inventory Coverage Analysis."""
+
     inventory_to_revenue: Optional[float] = None
     inventory_to_cogs: Optional[float] = None
     inventory_to_assets: Optional[float] = None
@@ -1060,6 +1136,7 @@ class InventoryCoverageResult:
 @dataclass
 class CapexToRevenueResult:
     """Phase 307: CapEx to Revenue Analysis."""
+
     capex_to_revenue: Optional[float] = None
     capex_to_ocf: Optional[float] = None
     capex_to_ebitda: Optional[float] = None
@@ -1074,6 +1151,7 @@ class CapexToRevenueResult:
 @dataclass
 class InventoryHoldingCostResult:
     """Phase 294: Inventory Holding Cost Analysis."""
+
     inventory_to_revenue: Optional[float] = None
     inventory_to_current_assets: Optional[float] = None
     inventory_to_total_assets: Optional[float] = None
@@ -1088,6 +1166,7 @@ class InventoryHoldingCostResult:
 @dataclass
 class FundingMixBalanceResult:
     """Phase 293: Funding Mix Balance Analysis."""
+
     equity_to_total_capital: Optional[float] = None
     debt_to_equity: Optional[float] = None
     debt_to_total_capital: Optional[float] = None
@@ -1102,6 +1181,7 @@ class FundingMixBalanceResult:
 @dataclass
 class ExpenseRatioDisciplineResult:
     """Phase 292: Expense Ratio Discipline Analysis."""
+
     opex_to_revenue: Optional[float] = None
     cogs_to_revenue: Optional[float] = None
     sga_to_revenue: Optional[float] = None
@@ -1116,6 +1196,7 @@ class ExpenseRatioDisciplineResult:
 @dataclass
 class RevenueCashRealizationResult:
     """Phase 291: Revenue Cash Realization Analysis."""
+
     cash_to_revenue: Optional[float] = None
     ocf_to_revenue: Optional[float] = None
     collection_rate: Optional[float] = None
@@ -1130,6 +1211,7 @@ class RevenueCashRealizationResult:
 @dataclass
 class NetDebtPositionResult:
     """Phase 286: Net Debt Position Analysis."""
+
     net_debt: Optional[float] = None
     net_debt_to_ebitda: Optional[float] = None
     net_debt_to_equity: Optional[float] = None
@@ -1144,6 +1226,7 @@ class NetDebtPositionResult:
 @dataclass
 class LiabilityCoverageStrengthResult:
     """Phase 281: Liability Coverage Strength Analysis."""
+
     ocf_to_liabilities: Optional[float] = None
     ebitda_to_liabilities: Optional[float] = None
     assets_to_liabilities: Optional[float] = None
@@ -1158,6 +1241,7 @@ class LiabilityCoverageStrengthResult:
 @dataclass
 class CapitalAdequacyResult:
     """Phase 279: Capital Adequacy Analysis."""
+
     equity_ratio: Optional[float] = None
     equity_to_debt: Optional[float] = None
     retained_to_equity: Optional[float] = None
@@ -1172,6 +1256,7 @@ class CapitalAdequacyResult:
 @dataclass
 class OperatingIncomeQualityResult:
     """Phase 275: Operating Income Quality Analysis."""
+
     oi_to_revenue: Optional[float] = None
     oi_to_ebitda: Optional[float] = None
     oi_to_ocf: Optional[float] = None
@@ -1186,6 +1271,7 @@ class OperatingIncomeQualityResult:
 @dataclass
 class EbitdaToDebtCoverageResult:
     """Phase 274: EBITDA-to-Debt Coverage Analysis."""
+
     ebitda_to_debt: Optional[float] = None
     ebitda_to_interest: Optional[float] = None
     debt_to_ebitda: Optional[float] = None
@@ -1200,6 +1286,7 @@ class EbitdaToDebtCoverageResult:
 @dataclass
 class DebtQualityResult:
     """Phase 267: Debt Quality Assessment."""
+
     debt_to_equity: Optional[float] = None
     debt_to_assets: Optional[float] = None
     long_term_debt_ratio: Optional[float] = None
@@ -1214,6 +1301,7 @@ class DebtQualityResult:
 @dataclass
 class FixedAssetProductivityResult:
     """Phase 263: Fixed Asset Productivity Analysis."""
+
     fixed_asset_turnover: Optional[float] = None
     revenue_per_fixed_asset: Optional[float] = None
     fixed_to_total_assets: Optional[float] = None
@@ -1228,6 +1316,7 @@ class FixedAssetProductivityResult:
 @dataclass
 class DepreciationBurdenResult:
     """Phase 259: Depreciation Burden Analysis."""
+
     dep_to_revenue: Optional[float] = None
     dep_to_assets: Optional[float] = None
     dep_to_ebitda: Optional[float] = None
@@ -1242,6 +1331,7 @@ class DepreciationBurdenResult:
 @dataclass
 class DebtToCapitalResult:
     """Phase 258: Debt-to-Capital Analysis."""
+
     debt_to_capital: Optional[float] = None
     debt_to_equity: Optional[float] = None
     long_term_debt_to_capital: Optional[float] = None
@@ -1256,6 +1346,7 @@ class DebtToCapitalResult:
 @dataclass
 class DividendPayoutResult:
     """Phase 251: Dividend Payout Ratio Analysis."""
+
     div_to_ni: Optional[float] = None
     retention_ratio: Optional[float] = None
     div_to_ocf: Optional[float] = None
@@ -1270,6 +1361,7 @@ class DividendPayoutResult:
 @dataclass
 class OperatingCashFlowRatioResult:
     """Phase 249: Operating Cash Flow Ratio Analysis."""
+
     ocf_to_cl: Optional[float] = None
     ocf_to_tl: Optional[float] = None
     ocf_to_revenue: Optional[float] = None
@@ -1284,6 +1376,7 @@ class OperatingCashFlowRatioResult:
 @dataclass
 class CashConversionCycleResult:
     """Phase 248: Cash Conversion Cycle Analysis."""
+
     dso: Optional[float] = None
     dio: Optional[float] = None
     dpo: Optional[float] = None
@@ -1298,6 +1391,7 @@ class CashConversionCycleResult:
 @dataclass
 class InventoryTurnoverResult:
     """Phase 247: Inventory Turnover Analysis."""
+
     cogs_to_inv: Optional[float] = None
     dio: Optional[float] = None
     inv_to_ca: Optional[float] = None
@@ -1312,6 +1406,7 @@ class InventoryTurnoverResult:
 @dataclass
 class PayablesTurnoverResult:
     """Phase 246: Payables Turnover Analysis."""
+
     cogs_to_ap: Optional[float] = None
     dpo: Optional[float] = None
     ap_to_cl: Optional[float] = None
@@ -1326,6 +1421,7 @@ class PayablesTurnoverResult:
 @dataclass
 class ReceivablesTurnoverResult:
     """Phase 245: Receivables Turnover Analysis."""
+
     rev_to_ar: Optional[float] = None
     dso: Optional[float] = None
     ar_to_ca: Optional[float] = None
@@ -1340,6 +1436,7 @@ class ReceivablesTurnoverResult:
 @dataclass
 class CashConversionEfficiencyResult:
     """Phase 237: Cash Conversion Efficiency Analysis."""
+
     ocf_to_oi: Optional[float] = None
     ocf_to_ni: Optional[float] = None
     ocf_to_revenue: Optional[float] = None
@@ -1354,6 +1451,7 @@ class CashConversionEfficiencyResult:
 @dataclass
 class FixedCostLeverageRatioResult:
     """Phase 236: Fixed Cost Leverage Ratio Analysis."""
+
     dol: Optional[float] = None
     contribution_margin: Optional[float] = None
     oi_to_revenue: Optional[float] = None
@@ -1368,6 +1466,7 @@ class FixedCostLeverageRatioResult:
 @dataclass
 class RevenueQualityIndexResult:
     """Phase 232: Revenue Quality Index Analysis."""
+
     ocf_to_revenue: Optional[float] = None
     gross_margin: Optional[float] = None
     ni_to_revenue: Optional[float] = None
@@ -1382,6 +1481,7 @@ class RevenueQualityIndexResult:
 @dataclass
 class FixedAssetUtilizationResult:
     """Phase 221: Fixed Asset Utilization Analysis."""
+
     fixed_asset_turnover: Optional[float] = None
     depreciation_to_revenue: Optional[float] = None
     capex_to_depreciation: Optional[float] = None
@@ -1396,6 +1496,7 @@ class FixedAssetUtilizationResult:
 @dataclass
 class CostControlResult:
     """Phase 215: Cost Control Analysis."""
+
     opex_to_revenue: Optional[float] = None
     cogs_to_revenue: Optional[float] = None
     sga_to_revenue: Optional[float] = None
@@ -1410,6 +1511,7 @@ class CostControlResult:
 @dataclass
 class ValuationSignalResult:
     """Phase 212: Valuation Signal Analysis."""
+
     ev_to_ebitda: Optional[float] = None
     price_to_earnings: Optional[float] = None
     price_to_book: Optional[float] = None
@@ -1424,6 +1526,7 @@ class ValuationSignalResult:
 @dataclass
 class CapitalDisciplineResult:
     """Phase 211: Capital Discipline Analysis."""
+
     retained_to_equity: Optional[float] = None
     retained_to_assets: Optional[float] = None
     dividend_payout: Optional[float] = None
@@ -1438,6 +1541,7 @@ class CapitalDisciplineResult:
 @dataclass
 class ResourceOptimizationResult:
     """Phase 210: Resource Optimization Analysis."""
+
     fcf_to_revenue: Optional[float] = None
     ocf_to_revenue: Optional[float] = None
     capex_to_revenue: Optional[float] = None
@@ -1452,6 +1556,7 @@ class ResourceOptimizationResult:
 @dataclass
 class FinancialProductivityResult:
     """Phase 205: Financial Productivity Analysis."""
+
     revenue_per_asset: Optional[float] = None
     revenue_per_equity: Optional[float] = None
     ebitda_per_employee_proxy: Optional[float] = None
@@ -1466,6 +1571,7 @@ class FinancialProductivityResult:
 @dataclass
 class EquityPreservationResult:
     """Phase 198: Equity Preservation Analysis."""
+
     equity_to_assets: Optional[float] = None
     retained_to_equity: Optional[float] = None
     equity_growth_capacity: Optional[float] = None
@@ -1480,6 +1586,7 @@ class EquityPreservationResult:
 @dataclass
 class DebtManagementResult:
     """Phase 197: Debt Management Analysis."""
+
     debt_to_operating_income: Optional[float] = None
     debt_to_ocf: Optional[float] = None
     interest_to_revenue: Optional[float] = None
@@ -1494,6 +1601,7 @@ class DebtManagementResult:
 @dataclass
 class IncomeRetentionResult:
     """Phase 196: Income Retention Analysis."""
+
     net_to_gross_ratio: Optional[float] = None
     net_to_operating_ratio: Optional[float] = None
     net_to_ebitda_ratio: Optional[float] = None
@@ -1508,6 +1616,7 @@ class IncomeRetentionResult:
 @dataclass
 class OperationalEfficiencyResult:
     """Phase 195: Operational Efficiency Analysis."""
+
     oi_margin: Optional[float] = None
     revenue_to_assets: Optional[float] = None
     gross_profit_per_asset: Optional[float] = None
@@ -1522,6 +1631,7 @@ class OperationalEfficiencyResult:
 @dataclass
 class OperatingMomentumResult:
     """Phase 191: Operating Momentum Analysis."""
+
     ebitda_margin: Optional[float] = None
     ebit_margin: Optional[float] = None
     ocf_margin: Optional[float] = None
@@ -1536,6 +1646,7 @@ class OperatingMomentumResult:
 @dataclass
 class PayoutDisciplineResult:
     """Phase 185: Payout Discipline Analysis."""
+
     cash_dividend_coverage: Optional[float] = None
     payout_ratio: Optional[float] = None
     retention_ratio: Optional[float] = None
@@ -1550,6 +1661,7 @@ class PayoutDisciplineResult:
 @dataclass
 class IncomeResilienceResult:
     """Phase 184: Income Resilience Analysis."""
+
     operating_income_stability: Optional[float] = None
     ebit_coverage: Optional[float] = None
     net_margin_resilience: Optional[float] = None
@@ -1564,6 +1676,7 @@ class IncomeResilienceResult:
 @dataclass
 class StructuralStrengthResult:
     """Phase 182: Structural Strength Analysis."""
+
     equity_multiplier: Optional[float] = None
     debt_to_equity: Optional[float] = None
     liability_composition: Optional[float] = None
@@ -1578,6 +1691,7 @@ class StructuralStrengthResult:
 @dataclass
 class ProfitConversionResult:
     """Phase 179: Profit Conversion Analysis."""
+
     gross_conversion: Optional[float] = None
     operating_conversion: Optional[float] = None
     net_conversion: Optional[float] = None
@@ -1592,6 +1706,7 @@ class ProfitConversionResult:
 @dataclass
 class AssetDeploymentEfficiencyResult:
     """Phase 172: Asset Deployment Efficiency Analysis."""
+
     asset_turnover: Optional[float] = None
     fixed_asset_leverage: Optional[float] = None
     asset_income_yield: Optional[float] = None
@@ -1606,6 +1721,7 @@ class AssetDeploymentEfficiencyResult:
 @dataclass
 class ProfitSustainabilityResult:
     """Phase 171: Profit Sustainability Analysis."""
+
     profit_cash_backing: Optional[float] = None
     profit_margin_depth: Optional[float] = None
     profit_reinvestment: Optional[float] = None
@@ -1620,6 +1736,7 @@ class ProfitSustainabilityResult:
 @dataclass
 class DebtDisciplineResult:
     """Phase 170: Debt Discipline Analysis."""
+
     debt_prudence_ratio: Optional[float] = None
     debt_servicing_power: Optional[float] = None
     debt_coverage_spread: Optional[float] = None
@@ -1634,6 +1751,7 @@ class DebtDisciplineResult:
 @dataclass
 class CapitalPreservationResult:
     """Phase 168: Capital Preservation Analysis."""
+
     retained_earnings_power: Optional[float] = None
     capital_erosion_rate: Optional[float] = None
     asset_integrity_ratio: Optional[float] = None
@@ -1648,6 +1766,7 @@ class CapitalPreservationResult:
 @dataclass
 class ObligationCoverageResult:
     """Phase 160: Obligation Coverage Analysis."""
+
     ebitda_interest_coverage: Optional[float] = None
     cash_interest_coverage: Optional[float] = None
     debt_amortization_capacity: Optional[float] = None
@@ -1662,6 +1781,7 @@ class ObligationCoverageResult:
 @dataclass
 class InternalGrowthCapacityResult:
     """Phase 159: Internal Growth Capacity Analysis."""
+
     sustainable_growth_rate: Optional[float] = None
     internal_growth_rate: Optional[float] = None
     plowback_ratio: Optional[float] = None
@@ -1676,6 +1796,7 @@ class InternalGrowthCapacityResult:
 @dataclass
 class LiabilityManagementResult:
     """Phase 146: Liability Management Analysis."""
+
     liability_to_assets: Optional[float] = None
     liability_to_equity: Optional[float] = None
     current_liability_ratio: Optional[float] = None
@@ -1690,6 +1811,7 @@ class LiabilityManagementResult:
 @dataclass
 class RevenuePredictabilityResult:
     """Phase 142: Revenue Predictability Analysis."""
+
     revenue_to_assets: Optional[float] = None
     revenue_to_equity: Optional[float] = None
     revenue_to_debt: Optional[float] = None
@@ -1704,6 +1826,7 @@ class RevenuePredictabilityResult:
 @dataclass
 class EquityReinvestmentResult:
     """Phase 139: Equity Reinvestment Analysis."""
+
     retention_ratio: Optional[float] = None
     reinvestment_rate: Optional[float] = None
     equity_growth_proxy: Optional[float] = None
@@ -1718,6 +1841,7 @@ class EquityReinvestmentResult:
 @dataclass
 class FixedAssetEfficiencyResult:
     """Phase 138: Fixed Asset Efficiency Analysis."""
+
     fixed_asset_ratio: Optional[float] = None
     fixed_asset_turnover: Optional[float] = None
     fixed_to_equity: Optional[float] = None
@@ -1732,6 +1856,7 @@ class FixedAssetEfficiencyResult:
 @dataclass
 class IncomeStabilityResult:
     """Phase 134: Income Stability Analysis."""
+
     net_income_margin: Optional[float] = None
     retained_earnings_ratio: Optional[float] = None
     operating_income_cushion: Optional[float] = None
@@ -1746,6 +1871,7 @@ class IncomeStabilityResult:
 @dataclass
 class DefensivePostureResult:
     """Phase 133: Defensive Posture Analysis."""
+
     defensive_interval: Optional[float] = None
     cash_ratio: Optional[float] = None
     quick_ratio: Optional[float] = None
@@ -1760,6 +1886,7 @@ class DefensivePostureResult:
 @dataclass
 class FundingEfficiencyResult:
     """Phase 131: Funding Efficiency Analysis."""
+
     debt_to_capitalization: Optional[float] = None
     equity_multiplier: Optional[float] = None
     interest_coverage_ebitda: Optional[float] = None
@@ -1774,6 +1901,7 @@ class FundingEfficiencyResult:
 @dataclass
 class CashFlowStabilityResult:
     """Phase 125: Cash Flow Stability Analysis."""
+
     ocf_margin: Optional[float] = None
     ocf_to_ebitda: Optional[float] = None
     ocf_to_debt_service: Optional[float] = None
@@ -1788,6 +1916,7 @@ class CashFlowStabilityResult:
 @dataclass
 class IncomeQualityResult:
     """Phase 124: Income Quality Analysis."""
+
     ocf_to_net_income: Optional[float] = None
     accruals_ratio: Optional[float] = None
     cash_earnings_ratio: Optional[float] = None
@@ -1802,6 +1931,7 @@ class IncomeQualityResult:
 @dataclass
 class ReceivablesManagementResult:
     """Phase 114: Receivables Management Analysis."""
+
     dso: Optional[float] = None
     ar_to_revenue: Optional[float] = None
     ar_to_current_assets: Optional[float] = None
@@ -1816,6 +1946,7 @@ class ReceivablesManagementResult:
 @dataclass
 class SolvencyDepthResult:
     """Phase 109: Solvency Depth Analysis."""
+
     debt_to_equity: Optional[float] = None
     debt_to_assets: Optional[float] = None
     equity_to_assets: Optional[float] = None
@@ -1830,6 +1961,7 @@ class SolvencyDepthResult:
 @dataclass
 class OperationalLeverageDepthResult:
     """Phase 105: Operational Leverage Depth Analysis."""
+
     fixed_cost_ratio: Optional[float] = None
     variable_cost_ratio: Optional[float] = None
     contribution_margin: Optional[float] = None
@@ -1844,6 +1976,7 @@ class OperationalLeverageDepthResult:
 @dataclass
 class ProfitabilityDepthResult:
     """Phase 103: Profitability Depth Analysis."""
+
     gross_margin: Optional[float] = None
     operating_margin: Optional[float] = None
     ebitda_margin: Optional[float] = None
@@ -1858,6 +1991,7 @@ class ProfitabilityDepthResult:
 @dataclass
 class RevenueEfficiencyResult:
     """Phase 102: Revenue Efficiency Analysis."""
+
     revenue_per_asset: Optional[float] = None
     cash_conversion_efficiency: Optional[float] = None
     gross_margin_efficiency: Optional[float] = None
@@ -1872,6 +2006,7 @@ class RevenueEfficiencyResult:
 @dataclass
 class DebtCompositionResult:
     """Phase 101: Debt Composition Analysis."""
+
     debt_to_equity: Optional[float] = None
     debt_to_assets: Optional[float] = None
     long_term_debt_ratio: Optional[float] = None
@@ -1886,6 +2021,7 @@ class DebtCompositionResult:
 @dataclass
 class OperationalRiskResult:
     """Phase 92: Operational Risk Analysis."""
+
     operating_leverage: Optional[float] = None
     cost_rigidity: Optional[float] = None
     breakeven_ratio: Optional[float] = None
@@ -1900,6 +2036,7 @@ class OperationalRiskResult:
 @dataclass
 class FinancialHealthScoreResult:
     """Phase 90: Financial Health Score Analysis."""
+
     profitability_score: Optional[float] = None
     liquidity_score: Optional[float] = None
     solvency_score: Optional[float] = None
@@ -1914,12 +2051,13 @@ class FinancialHealthScoreResult:
 @dataclass
 class AssetQualityResult:
     """Phase 86: Asset Quality Analysis."""
-    tangible_asset_ratio: Optional[float] = None       # (TA - Intangibles) / TA
-    fixed_asset_ratio: Optional[float] = None          # Fixed Assets / TA (approx TA - CA)
-    current_asset_ratio: Optional[float] = None        # CA / TA
-    cash_to_current_assets: Optional[float] = None     # Cash / CA
-    receivables_to_assets: Optional[float] = None      # AR / TA
-    inventory_to_assets: Optional[float] = None        # Inv / TA
+
+    tangible_asset_ratio: Optional[float] = None  # (TA - Intangibles) / TA
+    fixed_asset_ratio: Optional[float] = None  # Fixed Assets / TA (approx TA - CA)
+    current_asset_ratio: Optional[float] = None  # CA / TA
+    cash_to_current_assets: Optional[float] = None  # Cash / CA
+    receivables_to_assets: Optional[float] = None  # AR / TA
+    inventory_to_assets: Optional[float] = None  # Inv / TA
     aq_score: float = 0.0
     aq_grade: str = ""
     summary: str = ""
@@ -1928,12 +2066,13 @@ class AssetQualityResult:
 @dataclass
 class FinancialResilienceResult:
     """Phase 82: Financial Resilience Analysis."""
-    cash_to_assets: Optional[float] = None              # Cash / Total Assets
-    cash_to_debt: Optional[float] = None                # Cash / Total Debt
-    operating_cash_coverage: Optional[float] = None     # OCF / Total Liabilities
-    interest_coverage_cash: Optional[float] = None      # OCF / Interest Expense
-    free_cash_margin: Optional[float] = None            # FCF / Revenue
-    resilience_buffer: Optional[float] = None           # (Cash + OCF) / Annual OpEx
+
+    cash_to_assets: Optional[float] = None  # Cash / Total Assets
+    cash_to_debt: Optional[float] = None  # Cash / Total Debt
+    operating_cash_coverage: Optional[float] = None  # OCF / Total Liabilities
+    interest_coverage_cash: Optional[float] = None  # OCF / Interest Expense
+    free_cash_margin: Optional[float] = None  # FCF / Revenue
+    resilience_buffer: Optional[float] = None  # (Cash + OCF) / Annual OpEx
     fr_score: float = 0.0
     fr_grade: str = ""
     summary: str = ""
@@ -1942,12 +2081,13 @@ class FinancialResilienceResult:
 @dataclass
 class EquityMultiplierResult:
     """Phase 81: Equity Multiplier Analysis."""
-    equity_multiplier: Optional[float] = None        # TA / Equity
-    debt_ratio: Optional[float] = None               # TL / TA
-    equity_ratio: Optional[float] = None             # Equity / TA
+
+    equity_multiplier: Optional[float] = None  # TA / Equity
+    debt_ratio: Optional[float] = None  # TL / TA
+    equity_ratio: Optional[float] = None  # Equity / TA
     financial_leverage_index: Optional[float] = None  # ROE / ROA
-    dupont_roe: Optional[float] = None               # Margin * Turnover * EM
-    leverage_spread: Optional[float] = None          # ROA - Cost of Debt
+    dupont_roe: Optional[float] = None  # Margin * Turnover * EM
+    leverage_spread: Optional[float] = None  # ROA - Cost of Debt
     em_score: float = 0.0
     em_grade: str = ""
     summary: str = ""
@@ -1956,11 +2096,12 @@ class EquityMultiplierResult:
 @dataclass
 class DefensiveIntervalResult:
     """Phase 80: Defensive Interval Analysis."""
-    defensive_interval_days: Optional[float] = None   # Liquid Assets / Daily OpEx
-    cash_interval_days: Optional[float] = None        # Cash / Daily OpEx
-    liquid_assets_ratio: Optional[float] = None       # Liquid Assets / Total Assets
-    days_cash_on_hand: Optional[float] = None         # Cash / (Annual OpEx / 365)
-    liquid_reserve_adequacy: Optional[float] = None   # Liquid Assets / CL
+
+    defensive_interval_days: Optional[float] = None  # Liquid Assets / Daily OpEx
+    cash_interval_days: Optional[float] = None  # Cash / Daily OpEx
+    liquid_assets_ratio: Optional[float] = None  # Liquid Assets / Total Assets
+    days_cash_on_hand: Optional[float] = None  # Cash / (Annual OpEx / 365)
+    liquid_reserve_adequacy: Optional[float] = None  # Liquid Assets / CL
     operating_expense_coverage: Optional[float] = None  # Liquid Assets / Annual OpEx
     di_score: float = 0.0
     di_grade: str = ""
@@ -1970,12 +2111,13 @@ class DefensiveIntervalResult:
 @dataclass
 class CashBurnResult:
     """Phase 79: Cash Burn Analysis."""
-    ocf_margin: Optional[float] = None              # OCF / Revenue
-    capex_intensity: Optional[float] = None         # CapEx / Revenue
-    fcf_margin: Optional[float] = None              # (OCF - CapEx) / Revenue
-    cash_self_sufficiency: Optional[float] = None   # OCF / (CapEx + Div)
-    cash_runway_months: Optional[float] = None      # Cash / Monthly Burn (if burning)
-    net_cash_position: Optional[float] = None       # Cash - Total Debt
+
+    ocf_margin: Optional[float] = None  # OCF / Revenue
+    capex_intensity: Optional[float] = None  # CapEx / Revenue
+    fcf_margin: Optional[float] = None  # (OCF - CapEx) / Revenue
+    cash_self_sufficiency: Optional[float] = None  # OCF / (CapEx + Div)
+    cash_runway_months: Optional[float] = None  # Cash / Monthly Burn (if burning)
+    net_cash_position: Optional[float] = None  # Cash - Total Debt
     cb_score: float = 0.0
     cb_grade: str = ""
     summary: str = ""
@@ -1984,12 +2126,13 @@ class CashBurnResult:
 @dataclass
 class ProfitRetentionResult:
     """Phase 78: Profit Retention Analysis."""
-    retention_ratio: Optional[float] = None         # (NI - Div) / NI
-    payout_ratio: Optional[float] = None            # Div / NI
-    re_to_equity: Optional[float] = None            # Retained Earnings / Equity
+
+    retention_ratio: Optional[float] = None  # (NI - Div) / NI
+    payout_ratio: Optional[float] = None  # Div / NI
+    re_to_equity: Optional[float] = None  # Retained Earnings / Equity
     sustainable_growth_rate: Optional[float] = None  # ROE * retention
-    internal_growth_rate: Optional[float] = None     # ROA * retention / (1 - ROA * retention)
-    plowback_amount: Optional[float] = None          # NI - Dividends
+    internal_growth_rate: Optional[float] = None  # ROA * retention / (1 - ROA * retention)
+    plowback_amount: Optional[float] = None  # NI - Dividends
     pr_score: float = 0.0
     pr_grade: str = ""
     summary: str = ""
@@ -1998,12 +2141,13 @@ class ProfitRetentionResult:
 @dataclass
 class DebtServiceCoverageResult:
     """Phase 76: Debt Service Coverage Analysis."""
-    dscr: Optional[float] = None                   # EBITDA / Total Debt Service
-    ocf_to_debt_service: Optional[float] = None    # OCF / Total Debt Service
-    ebitda_to_interest: Optional[float] = None     # EBITDA / IE (interest coverage)
-    fcf_to_debt_service: Optional[float] = None    # FCF / Total Debt Service
+
+    dscr: Optional[float] = None  # EBITDA / Total Debt Service
+    ocf_to_debt_service: Optional[float] = None  # OCF / Total Debt Service
+    ebitda_to_interest: Optional[float] = None  # EBITDA / IE (interest coverage)
+    fcf_to_debt_service: Optional[float] = None  # FCF / Total Debt Service
     debt_service_to_revenue: Optional[float] = None  # Total Debt Service / Revenue
-    coverage_cushion: Optional[float] = None       # DSCR - 1.0 (excess coverage)
+    coverage_cushion: Optional[float] = None  # DSCR - 1.0 (excess coverage)
     dsc_score: float = 0.0
     dsc_grade: str = ""
     summary: str = ""
@@ -2012,12 +2156,13 @@ class DebtServiceCoverageResult:
 @dataclass
 class CapitalAllocationResult:
     """Phase 73: Capital Allocation Analysis."""
-    capex_to_revenue: Optional[float] = None          # CapEx / Revenue
-    capex_to_ocf: Optional[float] = None              # CapEx / OCF (reinvestment rate)
-    shareholder_return_ratio: Optional[float] = None   # (Div+BB) / NI
-    reinvestment_rate: Optional[float] = None          # CapEx / Depreciation
-    fcf_yield: Optional[float] = None                  # FCF / Revenue
-    total_payout_to_fcf: Optional[float] = None        # (Div+BB) / FCF
+
+    capex_to_revenue: Optional[float] = None  # CapEx / Revenue
+    capex_to_ocf: Optional[float] = None  # CapEx / OCF (reinvestment rate)
+    shareholder_return_ratio: Optional[float] = None  # (Div+BB) / NI
+    reinvestment_rate: Optional[float] = None  # CapEx / Depreciation
+    fcf_yield: Optional[float] = None  # FCF / Revenue
+    total_payout_to_fcf: Optional[float] = None  # (Div+BB) / FCF
     ca_score: float = 0.0
     ca_grade: str = ""
     summary: str = ""
@@ -2026,12 +2171,13 @@ class CapitalAllocationResult:
 @dataclass
 class TaxEfficiencyResult:
     """Phase 70: Tax Efficiency Analysis."""
-    effective_tax_rate: Optional[float] = None        # TaxExp / PreTaxIncome
-    tax_to_revenue: Optional[float] = None            # TaxExp / Revenue
-    tax_to_ebitda: Optional[float] = None             # TaxExp / EBITDA
-    after_tax_margin: Optional[float] = None          # NI / Revenue
-    tax_shield_ratio: Optional[float] = None          # (IE * ETR) / NI
-    pretax_to_ebit: Optional[float] = None            # PreTaxIncome / EBIT
+
+    effective_tax_rate: Optional[float] = None  # TaxExp / PreTaxIncome
+    tax_to_revenue: Optional[float] = None  # TaxExp / Revenue
+    tax_to_ebitda: Optional[float] = None  # TaxExp / EBITDA
+    after_tax_margin: Optional[float] = None  # NI / Revenue
+    tax_shield_ratio: Optional[float] = None  # (IE * ETR) / NI
+    pretax_to_ebit: Optional[float] = None  # PreTaxIncome / EBIT
     te_score: float = 0.0
     te_grade: str = ""
     summary: str = ""
@@ -2040,6 +2186,7 @@ class TaxEfficiencyResult:
 @dataclass
 class ROICResult:
     """Phase 56: Return on Invested Capital Analysis."""
+
     roic_pct: Optional[float] = None
     nopat: Optional[float] = None
     invested_capital: Optional[float] = None
@@ -2054,6 +2201,7 @@ class ROICResult:
 @dataclass
 class ROAQualityResult:
     """Phase 55: Return on Assets Quality Analysis."""
+
     roa_pct: Optional[float] = None
     operating_roa_pct: Optional[float] = None
     cash_roa_pct: Optional[float] = None
@@ -2068,6 +2216,7 @@ class ROAQualityResult:
 @dataclass
 class ROEAnalysisResult:
     """Phase 54: Return on Equity Analysis."""
+
     roe_pct: Optional[float] = None
     net_margin_pct: Optional[float] = None
     asset_turnover: Optional[float] = None
@@ -2083,52 +2232,56 @@ class ROEAnalysisResult:
 @dataclass
 class NetProfitMarginResult:
     """Phase 53: Net Profit Margin Analysis."""
-    net_margin_pct: Optional[float] = None          # NI / Revenue
-    ebitda_margin_pct: Optional[float] = None       # EBITDA / Revenue
-    ebit_margin_pct: Optional[float] = None         # EBIT / Revenue
-    tax_burden: Optional[float] = None              # NI / EBT (1 - effective tax rate)
-    interest_burden: Optional[float] = None         # EBT / EBIT
-    net_to_ebitda: Optional[float] = None           # NI / EBITDA (retention ratio)
-    npm_score: float = 0.0                          # 0-10 (higher = better)
-    npm_grade: str = ""                             # "Excellent", "Good", "Adequate", "Weak"
+
+    net_margin_pct: Optional[float] = None  # NI / Revenue
+    ebitda_margin_pct: Optional[float] = None  # EBITDA / Revenue
+    ebit_margin_pct: Optional[float] = None  # EBIT / Revenue
+    tax_burden: Optional[float] = None  # NI / EBT (1 - effective tax rate)
+    interest_burden: Optional[float] = None  # EBT / EBIT
+    net_to_ebitda: Optional[float] = None  # NI / EBITDA (retention ratio)
+    npm_score: float = 0.0  # 0-10 (higher = better)
+    npm_grade: str = ""  # "Excellent", "Good", "Adequate", "Weak"
     summary: str = ""
 
 
 @dataclass
 class EbitdaMarginQualityResult:
     """Phase 52: EBITDA Margin Quality Analysis."""
-    ebitda_margin_pct: Optional[float] = None       # EBITDA / Revenue
-    operating_margin_pct: Optional[float] = None    # OI / Revenue
-    da_intensity: Optional[float] = None            # D&A / Revenue
-    ebitda_oi_spread: Optional[float] = None        # EBITDA margin - OI margin (= D&A/Rev)
-    ebitda_to_gp: Optional[float] = None            # EBITDA / Gross Profit
-    ebitda_score: float = 0.0                       # 0-10 (higher = better)
-    ebitda_grade: str = ""                          # "Excellent", "Good", "Adequate", "Weak"
+
+    ebitda_margin_pct: Optional[float] = None  # EBITDA / Revenue
+    operating_margin_pct: Optional[float] = None  # OI / Revenue
+    da_intensity: Optional[float] = None  # D&A / Revenue
+    ebitda_oi_spread: Optional[float] = None  # EBITDA margin - OI margin (= D&A/Rev)
+    ebitda_to_gp: Optional[float] = None  # EBITDA / Gross Profit
+    ebitda_score: float = 0.0  # 0-10 (higher = better)
+    ebitda_grade: str = ""  # "Excellent", "Good", "Adequate", "Weak"
     summary: str = ""
 
 
 @dataclass
 class GrossMarginStabilityResult:
     """Phase 51: Gross Margin Stability Analysis."""
-    gross_margin_pct: Optional[float] = None       # GP / Revenue
-    cogs_ratio: Optional[float] = None             # COGS / Revenue
-    operating_margin_pct: Optional[float] = None   # Operating Income / Revenue
-    margin_spread: Optional[float] = None          # Gross Margin - Operating Margin
-    opex_coverage: Optional[float] = None          # GP / Operating Expenses
-    margin_buffer: Optional[float] = None          # Distance to breakeven (= gross margin)
-    gm_stability_score: float = 0.0                # 0-10 (higher = better)
-    gm_stability_grade: str = ""                   # "Excellent", "Good", "Adequate", "Weak"
+
+    gross_margin_pct: Optional[float] = None  # GP / Revenue
+    cogs_ratio: Optional[float] = None  # COGS / Revenue
+    operating_margin_pct: Optional[float] = None  # Operating Income / Revenue
+    margin_spread: Optional[float] = None  # Gross Margin - Operating Margin
+    opex_coverage: Optional[float] = None  # GP / Operating Expenses
+    margin_buffer: Optional[float] = None  # Distance to breakeven (= gross margin)
+    gm_stability_score: float = 0.0  # 0-10 (higher = better)
+    gm_stability_grade: str = ""  # "Excellent", "Good", "Adequate", "Weak"
     summary: str = ""
 
 
 @dataclass
 class BeneishMScoreResult:
     """Phase 43: Beneish M-Score (Earnings Manipulation Detection)."""
+
     m_score: Optional[float] = None
     dsri: Optional[float] = None  # Days Sales in Receivables Index
-    gmi: Optional[float] = None   # Gross Margin Index
-    aqi: Optional[float] = None   # Asset Quality Index
-    sgi: Optional[float] = None   # Sales Growth Index
+    gmi: Optional[float] = None  # Gross Margin Index
+    aqi: Optional[float] = None  # Asset Quality Index
+    sgi: Optional[float] = None  # Sales Growth Index
     depi: Optional[float] = None  # Depreciation Index
     sgai: Optional[float] = None  # SGA Expense Index
     lvgi: Optional[float] = None  # Leverage Index
@@ -2141,6 +2294,7 @@ class BeneishMScoreResult:
 @dataclass
 class FinancialReport:
     """Structured financial analysis report."""
+
     sections: Dict[str, str] = field(default_factory=dict)
     executive_summary: str = ""
     generated_at: str = ""
@@ -2149,6 +2303,7 @@ class FinancialReport:
 @dataclass
 class FinancialData:
     """Container for financial data used in analysis."""
+
     # Balance Sheet items
     total_assets: Optional[float] = None
     current_assets: Optional[float] = None
@@ -2219,6 +2374,7 @@ class CharlieAnalyzer:
 
     def __init__(self, tax_rate: Optional[float] = None):
         from config import settings
+
         self._tax_rate = tax_rate if tax_rate is not None else settings.default_tax_rate
         self.ratio_definitions = self._load_ratio_definitions()
         self.insight_templates = self._load_insight_templates()
@@ -2226,86 +2382,86 @@ class CharlieAnalyzer:
     def _load_ratio_definitions(self) -> Dict[str, Dict[str, Any]]:
         """Load standard financial ratio definitions."""
         return {
-            'current_ratio': {
-                'name': 'Current Ratio',
-                'formula': 'Current Assets / Current Liabilities',
-                'benchmark': {'good': 1.5, 'warning': 1.0},
-                'interpretation': 'Measures ability to pay short-term obligations'
+            "current_ratio": {
+                "name": "Current Ratio",
+                "formula": "Current Assets / Current Liabilities",
+                "benchmark": {"good": 1.5, "warning": 1.0},
+                "interpretation": "Measures ability to pay short-term obligations",
             },
-            'quick_ratio': {
-                'name': 'Quick Ratio (Acid Test)',
-                'formula': '(Current Assets - Inventory) / Current Liabilities',
-                'benchmark': {'good': 1.0, 'warning': 0.5},
-                'interpretation': 'Measures ability to pay short-term obligations without selling inventory'
+            "quick_ratio": {
+                "name": "Quick Ratio (Acid Test)",
+                "formula": "(Current Assets - Inventory) / Current Liabilities",
+                "benchmark": {"good": 1.0, "warning": 0.5},
+                "interpretation": "Measures ability to pay short-term obligations without selling inventory",
             },
-            'cash_ratio': {
-                'name': 'Cash Ratio',
-                'formula': 'Cash / Current Liabilities',
-                'benchmark': {'good': 0.5, 'warning': 0.2},
-                'interpretation': 'Most conservative liquidity measure'
+            "cash_ratio": {
+                "name": "Cash Ratio",
+                "formula": "Cash / Current Liabilities",
+                "benchmark": {"good": 0.5, "warning": 0.2},
+                "interpretation": "Most conservative liquidity measure",
             },
-            'gross_margin': {
-                'name': 'Gross Margin',
-                'formula': '(Revenue - COGS) / Revenue',
-                'benchmark': {'varies': True},
-                'interpretation': 'Profitability after direct costs'
+            "gross_margin": {
+                "name": "Gross Margin",
+                "formula": "(Revenue - COGS) / Revenue",
+                "benchmark": {"varies": True},
+                "interpretation": "Profitability after direct costs",
             },
-            'operating_margin': {
-                'name': 'Operating Margin',
-                'formula': 'Operating Income / Revenue',
-                'benchmark': {'good': 0.15, 'warning': 0.05},
-                'interpretation': 'Profitability from core operations'
+            "operating_margin": {
+                "name": "Operating Margin",
+                "formula": "Operating Income / Revenue",
+                "benchmark": {"good": 0.15, "warning": 0.05},
+                "interpretation": "Profitability from core operations",
             },
-            'net_margin': {
-                'name': 'Net Profit Margin',
-                'formula': 'Net Income / Revenue',
-                'benchmark': {'good': 0.10, 'warning': 0.02},
-                'interpretation': 'Bottom-line profitability'
+            "net_margin": {
+                "name": "Net Profit Margin",
+                "formula": "Net Income / Revenue",
+                "benchmark": {"good": 0.10, "warning": 0.02},
+                "interpretation": "Bottom-line profitability",
             },
-            'roe': {
-                'name': 'Return on Equity',
-                'formula': 'Net Income / Shareholders Equity',
-                'benchmark': {'good': 0.15, 'warning': 0.08},
-                'interpretation': 'Return generated on shareholder investment'
+            "roe": {
+                "name": "Return on Equity",
+                "formula": "Net Income / Shareholders Equity",
+                "benchmark": {"good": 0.15, "warning": 0.08},
+                "interpretation": "Return generated on shareholder investment",
             },
-            'roa': {
-                'name': 'Return on Assets',
-                'formula': 'Net Income / Total Assets',
-                'benchmark': {'good': 0.05, 'warning': 0.02},
-                'interpretation': 'Efficiency in using assets to generate profit'
+            "roa": {
+                "name": "Return on Assets",
+                "formula": "Net Income / Total Assets",
+                "benchmark": {"good": 0.05, "warning": 0.02},
+                "interpretation": "Efficiency in using assets to generate profit",
             },
-            'debt_to_equity': {
-                'name': 'Debt-to-Equity Ratio',
-                'formula': 'Total Debt / Total Equity',
-                'benchmark': {'good': 1.0, 'warning': 2.0},
-                'interpretation': 'Financial leverage and risk'
+            "debt_to_equity": {
+                "name": "Debt-to-Equity Ratio",
+                "formula": "Total Debt / Total Equity",
+                "benchmark": {"good": 1.0, "warning": 2.0},
+                "interpretation": "Financial leverage and risk",
             },
-            'interest_coverage': {
-                'name': 'Interest Coverage Ratio',
-                'formula': 'EBIT / Interest Expense',
-                'benchmark': {'good': 3.0, 'warning': 1.5},
-                'interpretation': 'Ability to pay interest on debt'
+            "interest_coverage": {
+                "name": "Interest Coverage Ratio",
+                "formula": "EBIT / Interest Expense",
+                "benchmark": {"good": 3.0, "warning": 1.5},
+                "interpretation": "Ability to pay interest on debt",
             },
-            'asset_turnover': {
-                'name': 'Asset Turnover',
-                'formula': 'Revenue / Average Total Assets',
-                'benchmark': {'varies': True},
-                'interpretation': 'Efficiency in using assets to generate sales'
-            }
+            "asset_turnover": {
+                "name": "Asset Turnover",
+                "formula": "Revenue / Average Total Assets",
+                "benchmark": {"varies": True},
+                "interpretation": "Efficiency in using assets to generate sales",
+            },
         }
 
     def _load_insight_templates(self) -> Dict[str, str]:
         """Load insight generation templates."""
         return {
-            'high_liquidity': "Strong liquidity position with {ratio_name} of {value:.2f}. The company can comfortably meet short-term obligations.",
-            'low_liquidity': "Liquidity concern: {ratio_name} of {value:.2f} is below the recommended threshold of {threshold}. Consider improving working capital management.",
-            'improving_margin': "Profitability improving: {metric} increased from {old_value:.1%} to {new_value:.1%}, indicating better operational efficiency.",
-            'declining_margin': "Margin pressure: {metric} declined from {old_value:.1%} to {new_value:.1%}. Investigate cost structure and pricing.",
-            'high_leverage': "Elevated leverage: Debt-to-equity of {value:.2f} exceeds typical comfort levels. Monitor debt service capacity.",
-            'strong_cash_generation': "Robust cash generation: Free cash flow of {value:,.0f} provides strategic flexibility.",
-            'cash_conversion_concern': "Cash conversion cycle of {value:.0f} days may tie up working capital. Consider optimizing AR/AP terms.",
-            'favorable_variance': "Favorable budget variance in {category}: {percent:.1%} under budget, saving {amount:,.0f}.",
-            'unfavorable_variance': "Budget overrun in {category}: {percent:.1%} over budget. Review spending controls."
+            "high_liquidity": "Strong liquidity position with {ratio_name} of {value:.2f}. The company can comfortably meet short-term obligations.",
+            "low_liquidity": "Liquidity concern: {ratio_name} of {value:.2f} is below the recommended threshold of {threshold}. Consider improving working capital management.",
+            "improving_margin": "Profitability improving: {metric} increased from {old_value:.1%} to {new_value:.1%}, indicating better operational efficiency.",
+            "declining_margin": "Margin pressure: {metric} declined from {old_value:.1%} to {new_value:.1%}. Investigate cost structure and pricing.",
+            "high_leverage": "Elevated leverage: Debt-to-equity of {value:.2f} exceeds typical comfort levels. Monitor debt service capacity.",
+            "strong_cash_generation": "Robust cash generation: Free cash flow of {value:,.0f} provides strategic flexibility.",
+            "cash_conversion_concern": "Cash conversion cycle of {value:.0f} days may tie up working capital. Consider optimizing AR/AP terms.",
+            "favorable_variance": "Favorable budget variance in {category}: {percent:.1%} under budget, saving {amount:,.0f}.",
+            "unfavorable_variance": "Budget overrun in {category}: {percent:.1%} over budget. Review spending controls.",
         }
 
     # ===== LIQUIDITY RATIOS =====
@@ -2319,16 +2475,16 @@ class CharlieAnalyzer:
         """
         ratios = {}
 
-        ratios['current_ratio'] = safe_divide(data.current_assets, data.current_liabilities)
+        ratios["current_ratio"] = safe_divide(data.current_assets, data.current_liabilities)
 
         quick_numerator = (
             (data.current_assets - data.inventory)
             if data.current_assets is not None and data.inventory is not None
             else None
         )
-        ratios['quick_ratio'] = safe_divide(quick_numerator, data.current_liabilities)
+        ratios["quick_ratio"] = safe_divide(quick_numerator, data.current_liabilities)
 
-        ratios['cash_ratio'] = safe_divide(data.cash, data.current_liabilities)
+        ratios["cash_ratio"] = safe_divide(data.cash, data.current_liabilities)
 
         return ratios
 
@@ -2346,22 +2502,22 @@ class CharlieAnalyzer:
             gross_numerator = data.revenue - data.cogs
         elif data.gross_profit is not None:
             gross_numerator = data.gross_profit
-        ratios['gross_margin'] = safe_divide(gross_numerator, data.revenue)
+        ratios["gross_margin"] = safe_divide(gross_numerator, data.revenue)
 
         # Operating Margin
-        ratios['operating_margin'] = safe_divide(data.operating_income, data.revenue)
+        ratios["operating_margin"] = safe_divide(data.operating_income, data.revenue)
 
         # Net Margin
-        ratios['net_margin'] = safe_divide(data.net_income, data.revenue)
+        ratios["net_margin"] = safe_divide(data.net_income, data.revenue)
 
         # ROE
-        ratios['roe'] = safe_divide(data.net_income, data.total_equity)
+        ratios["roe"] = safe_divide(data.net_income, data.total_equity)
 
         # ROA
         roa = safe_divide(data.net_income, data.total_assets)
         if roa is None:
             roa = safe_divide(data.net_income, data.avg_total_assets)
-        ratios['roa'] = roa
+        ratios["roa"] = roa
 
         # ROIC (Return on Invested Capital)
         invested_capital = (
@@ -2369,12 +2525,8 @@ class CharlieAnalyzer:
             if data.total_equity is not None and data.total_debt is not None
             else None
         )
-        nopat = (
-            data.operating_income * (1 - self._tax_rate)
-            if data.operating_income is not None
-            else None
-        )
-        ratios['roic'] = safe_divide(nopat, invested_capital)
+        nopat = data.operating_income * (1 - self._tax_rate) if data.operating_income is not None else None
+        ratios["roic"] = safe_divide(nopat, invested_capital)
 
         return ratios
 
@@ -2386,13 +2538,13 @@ class CharlieAnalyzer:
         """
         ratios = {}
 
-        ratios['debt_to_equity'] = safe_divide(data.total_debt, data.total_equity)
-        ratios['debt_to_assets'] = safe_divide(data.total_debt, data.total_assets)
+        ratios["debt_to_equity"] = safe_divide(data.total_debt, data.total_equity)
+        ratios["debt_to_assets"] = safe_divide(data.total_debt, data.total_assets)
 
         interest_cov = safe_divide(data.ebit, data.interest_expense)
         if interest_cov is None:
             interest_cov = safe_divide(data.operating_income, data.interest_expense)
-        ratios['interest_coverage'] = interest_cov
+        ratios["interest_coverage"] = interest_cov
 
         return ratios
 
@@ -2407,29 +2559,30 @@ class CharlieAnalyzer:
         asset_turn = safe_divide(data.revenue, data.avg_total_assets)
         if asset_turn is None:
             asset_turn = safe_divide(data.revenue, data.total_assets)
-        ratios['asset_turnover'] = asset_turn
+        ratios["asset_turnover"] = asset_turn
 
         inv_turn = safe_divide(data.cogs, data.avg_inventory)
         if inv_turn is None:
             inv_turn = safe_divide(data.cogs, data.inventory)
-        ratios['inventory_turnover'] = inv_turn
+        ratios["inventory_turnover"] = inv_turn
 
         recv_turn = safe_divide(data.revenue, data.avg_receivables)
         if recv_turn is None:
             recv_turn = safe_divide(data.revenue, data.accounts_receivable)
-        ratios['receivables_turnover'] = recv_turn
+        ratios["receivables_turnover"] = recv_turn
 
         pay_turn = safe_divide(data.cogs, data.avg_payables)
         if pay_turn is None:
             pay_turn = safe_divide(data.cogs, data.accounts_payable)
-        ratios['payables_turnover'] = pay_turn
+        ratios["payables_turnover"] = pay_turn
 
         return ratios
 
     # ===== TREND ANALYSIS =====
 
-    def analyze_trends(self, time_series: pd.DataFrame, metric_column: str,
-                      period_column: Optional[str] = None) -> TrendAnalysis:
+    def analyze_trends(
+        self, time_series: pd.DataFrame, metric_column: str, period_column: Optional[str] = None
+    ) -> TrendAnalysis:
         """
         Analyze trends in a time series.
         """
@@ -2439,7 +2592,7 @@ class CharlieAnalyzer:
         if period_column and period_column in time_series.columns:
             periods = time_series.loc[mask, period_column].tolist()
         else:
-            periods = [f"Period {i+1}" for i in range(len(values))]
+            periods = [f"Period {i + 1}" for i in range(len(values))]
 
         # Calculate growth rates
         yoy_growth = None
@@ -2474,13 +2627,13 @@ class CharlieAnalyzer:
             recent_avg = np.mean(values[-3:])
             older_avg = np.mean(values[:3])
             if recent_avg > older_avg * 1.05:
-                trend_direction = 'up'
+                trend_direction = "up"
             elif recent_avg < older_avg * 0.95:
-                trend_direction = 'down'
+                trend_direction = "down"
             else:
-                trend_direction = 'stable'
+                trend_direction = "stable"
         else:
-            trend_direction = 'insufficient_data'
+            trend_direction = "insufficient_data"
 
         # Simple seasonality detection
         seasonality_detected = self._detect_seasonality(values)
@@ -2496,7 +2649,7 @@ class CharlieAnalyzer:
             moving_avg_3=ma_3,
             moving_avg_12=ma_12,
             trend_direction=trend_direction,
-            seasonality_detected=seasonality_detected
+            seasonality_detected=seasonality_detected,
         )
 
     def _calculate_moving_average(self, values: List[float], window: int) -> List[float]:
@@ -2521,8 +2674,7 @@ class CharlieAnalyzer:
         except (ValueError, IndexError, TypeError):
             return False
 
-    def calculate_variance(self, actual: float, budget: float,
-                          category: str = "General") -> VarianceResult:
+    def calculate_variance(self, actual: float, budget: float, category: str = "General") -> VarianceResult:
         """
         Calculate budget variance.
         """
@@ -2531,7 +2683,7 @@ class CharlieAnalyzer:
 
         # For expenses, under budget is favorable
         # For revenue, over budget is favorable
-        is_expense = category.lower() in ['expense', 'cost', 'cogs', 'opex', 'sg&a']
+        is_expense = category.lower() in ["expense", "cost", "cogs", "opex", "sg&a"]
         favorable = (variance < 0) if is_expense else (variance > 0)
 
         return VarianceResult(
@@ -2540,11 +2692,10 @@ class CharlieAnalyzer:
             variance=variance,
             variance_percent=variance_percent,
             favorable=favorable,
-            category=category
+            category=category,
         )
 
-    def forecast_simple(self, historical: List[float], periods: int = 3,
-                       method: str = 'linear') -> Forecast:
+    def forecast_simple(self, historical: List[float], periods: int = 3, method: str = "linear") -> Forecast:
         """
         Simple forecasting methods.
         """
@@ -2555,12 +2706,12 @@ class CharlieAnalyzer:
                 forecasted_values=[],
                 forecast_periods=[],
                 method=method,
-                confidence_interval=(0, 0)
+                confidence_interval=(0, 0),
             )
 
         forecasted = []
 
-        if method == 'linear':
+        if method == "linear":
             # Linear trend extrapolation (normalize x to avoid conditioning issues)
             n_hist = len(historical)
             x = np.arange(n_hist, dtype=float)
@@ -2571,16 +2722,17 @@ class CharlieAnalyzer:
             for i in range(periods):
                 forecasted.append(coeffs[0] * (n_hist + i - x_mean) + coeffs[1])
 
-        elif method == 'moving_average':
+        elif method == "moving_average":
             # Moving average projection
             window = min(3, len(historical))
             ma = np.mean(historical[-window:])
             forecasted = [ma] * periods
 
-        elif method == 'growth_rate':
+        elif method == "growth_rate":
             # Apply average growth rate
             growth_rates = [
-                r - 1 for i in range(1, len(historical))
+                r - 1
+                for i in range(1, len(historical))
                 if (r := safe_divide(historical[i], historical[i - 1])) is not None
             ]
             if growth_rates:
@@ -2597,7 +2749,7 @@ class CharlieAnalyzer:
         mean_forecast = np.mean(forecasted) if forecasted else 0
         ci = (mean_forecast - 2 * std, mean_forecast + 2 * std)
 
-        forecast_periods = [f"Forecast {i+1}" for i in range(periods)]
+        forecast_periods = [f"Forecast {i + 1}" for i in range(periods)]
 
         return Forecast(
             metric_name="unknown",
@@ -2605,27 +2757,27 @@ class CharlieAnalyzer:
             forecasted_values=forecasted,
             forecast_periods=forecast_periods,
             method=method,
-            confidence_interval=ci
+            confidence_interval=ci,
         )
 
     # ===== BUDGET VS ACTUAL ANALYSIS =====
 
-    def analyze_budget_variance(self, actual_df: pd.DataFrame, budget_df: pd.DataFrame,
-                               item_column: str, actual_column: str,
-                               budget_column: str) -> BudgetAnalysis:
+    def analyze_budget_variance(
+        self, actual_df: pd.DataFrame, budget_df: pd.DataFrame, item_column: str, actual_column: str, budget_column: str
+    ) -> BudgetAnalysis:
         """
         Comprehensive budget analysis.
         """
         line_items = []
 
         # Merge on item column
-        merged = actual_df.merge(budget_df, on=item_column, how='outer', suffixes=('_actual', '_budget'))
+        merged = actual_df.merge(budget_df, on=item_column, how="outer", suffixes=("_actual", "_budget"))
 
         unmatched_items: list = []
         for _, row in merged.iterrows():
             category = row[item_column]
-            actual = row.get(actual_column, row.get(f'{actual_column}_actual', None))
-            budget = row.get(budget_column, row.get(f'{budget_column}_budget', None))
+            actual = row.get(actual_column, row.get(f"{actual_column}_actual", None))
+            budget = row.get(budget_column, row.get(f"{budget_column}_budget", None))
 
             # Flag line items present in only one dataset
             actual_missing = actual is None or (isinstance(actual, float) and np.isnan(actual))
@@ -2702,7 +2854,7 @@ class CharlieAnalyzer:
             dso=dso,
             dio=dio,
             dpo=dpo,
-            cash_conversion_cycle=ccc
+            cash_conversion_cycle=ccc,
         )
 
     # ===== WORKING CAPITAL ANALYSIS =====
@@ -2723,7 +2875,7 @@ class CharlieAnalyzer:
             current_liabilities=data.current_liabilities,
             net_working_capital=nwc,
             working_capital_ratio=wc_ratio,
-            working_capital_turnover=wc_turnover
+            working_capital_turnover=wc_turnover,
         )
 
     # ===== ADVANCED SCORING MODELS =====
@@ -2756,9 +2908,9 @@ class CharlieAnalyzer:
         primary_driver = None
         if all(v is not None for v in [net_margin, asset_turnover, equity_multiplier]):
             drivers = {
-                'net_margin': abs(net_margin) if net_margin else 0,
-                'asset_turnover': abs(asset_turnover) if asset_turnover else 0,
-                'equity_multiplier': abs(equity_multiplier - 1) if equity_multiplier else 0,
+                "net_margin": abs(net_margin) if net_margin else 0,
+                "asset_turnover": abs(asset_turnover) if asset_turnover else 0,
+                "equity_multiplier": abs(equity_multiplier - 1) if equity_multiplier else 0,
             }
             primary_driver = max(drivers, key=drivers.get)
 
@@ -2818,45 +2970,39 @@ class CharlieAnalyzer:
         # X5: Sales / Total Assets
         x5 = safe_divide(data.revenue, data.total_assets)
 
-        components = {'x1': x1, 'x2': x2, 'x3': x3, 'x4': x4, 'x5': x5}
+        components = {"x1": x1, "x2": x2, "x3": x3, "x4": x4, "x5": x5}
 
         # Calculate Z-Score only with available components
         available = {k: v for k, v in components.items() if v is not None}
         if not available:
-            return AltmanZScore(
-                components=components,
-                interpretation="Insufficient data for Z-Score calculation."
-            )
+            return AltmanZScore(components=components, interpretation="Insufficient data for Z-Score calculation.")
 
-        weights = {'x1': 1.2, 'x2': 1.4, 'x3': 3.3, 'x4': 0.6, 'x5': 1.0}
+        weights = {"x1": 1.2, "x2": 1.4, "x3": 3.3, "x4": 0.6, "x5": 1.0}
         z = sum(weights[k] * v for k, v in available.items())
 
         # Classify zone
         if len(available) == 5:
             if z > 2.99:
-                zone = 'safe'
+                zone = "safe"
                 interp = f"Z-Score of {z:.2f} indicates low bankruptcy risk (safe zone >2.99)."
             elif z >= 1.81:
-                zone = 'grey'
+                zone = "grey"
                 interp = f"Z-Score of {z:.2f} is in the grey zone (1.81-2.99). Monitor closely."
             else:
-                zone = 'distress'
+                zone = "distress"
                 interp = f"Z-Score of {z:.2f} signals financial distress (<1.81). Immediate attention required."
         else:
             # Partial data — still flag likely distress when score is very low
             if z < 1.81:
-                zone = 'partial_distress'
+                zone = "partial_distress"
                 interp = (
                     f"Partial Z-Score of {z:.2f} (using {len(available)}/5 components) "
                     "suggests possible distress (<1.81). Interpret with caution — "
                     "missing components may raise or lower the score."
                 )
             else:
-                zone = 'partial'
-                interp = (
-                    f"Partial Z-Score of {z:.2f} (using {len(available)}/5 components). "
-                    "Interpret with caution."
-                )
+                zone = "partial"
+                interp = f"Partial Z-Score of {z:.2f} (using {len(available)}/5 components). Interpret with caution."
 
         return AltmanZScore(
             z_score=z,
@@ -2865,8 +3011,7 @@ class CharlieAnalyzer:
             interpretation=interp,
         )
 
-    def piotroski_f_score(self, data: FinancialData,
-                          prior_data: Optional[FinancialData] = None) -> PiotroskiFScore:
+    def piotroski_f_score(self, data: FinancialData, prior_data: Optional[FinancialData] = None) -> PiotroskiFScore:
         """Piotroski F-Score: 9-criteria financial strength model.
 
         Profitability (4 pts):
@@ -2891,31 +3036,31 @@ class CharlieAnalyzer:
 
         # 1. ROA > 0
         roa = safe_divide(data.net_income, data.total_assets)
-        criteria['positive_roa'] = roa is not None and roa > 0
-        if criteria['positive_roa']:
+        criteria["positive_roa"] = roa is not None and roa > 0
+        if criteria["positive_roa"]:
             score += 1
 
         # 2. Operating Cash Flow > 0
-        criteria['positive_ocf'] = (data.operating_cash_flow is not None
-                                     and data.operating_cash_flow > 0)
-        if criteria['positive_ocf']:
+        criteria["positive_ocf"] = data.operating_cash_flow is not None and data.operating_cash_flow > 0
+        if criteria["positive_ocf"]:
             score += 1
 
         # 3. Delta ROA > 0 (improving profitability)
         if prior_data is not None:
             prior_roa = safe_divide(prior_data.net_income, prior_data.total_assets)
-            criteria['improving_roa'] = (roa is not None and prior_roa is not None
-                                          and roa > prior_roa)
+            criteria["improving_roa"] = roa is not None and prior_roa is not None and roa > prior_roa
         else:
-            criteria['improving_roa'] = False  # Can't assess without prior data
-        if criteria['improving_roa']:
+            criteria["improving_roa"] = False  # Can't assess without prior data
+        if criteria["improving_roa"]:
             score += 1
 
         # 4. Accruals: OCF > Net Income (quality of earnings)
-        criteria['quality_earnings'] = (data.operating_cash_flow is not None
-                                         and data.net_income is not None
-                                         and data.operating_cash_flow > data.net_income)
-        if criteria['quality_earnings']:
+        criteria["quality_earnings"] = (
+            data.operating_cash_flow is not None
+            and data.net_income is not None
+            and data.operating_cash_flow > data.net_income
+        )
+        if criteria["quality_earnings"]:
             score += 1
 
         # --- Leverage / Liquidity (3 points) ---
@@ -2924,63 +3069,65 @@ class CharlieAnalyzer:
         leverage = safe_divide(data.total_debt, data.total_assets)
         if prior_data is not None:
             prior_leverage = safe_divide(prior_data.total_debt, prior_data.total_assets)
-            criteria['decreasing_leverage'] = (leverage is not None and prior_leverage is not None
-                                                and leverage < prior_leverage)
+            criteria["decreasing_leverage"] = (
+                leverage is not None and prior_leverage is not None and leverage < prior_leverage
+            )
         else:
-            criteria['decreasing_leverage'] = False
-        if criteria['decreasing_leverage']:
+            criteria["decreasing_leverage"] = False
+        if criteria["decreasing_leverage"]:
             score += 1
 
         # 6. Delta Current Ratio > 0 (improving liquidity)
         current_ratio = safe_divide(data.current_assets, data.current_liabilities)
         if prior_data is not None:
             prior_cr = safe_divide(prior_data.current_assets, prior_data.current_liabilities)
-            criteria['improving_liquidity'] = (current_ratio is not None and prior_cr is not None
-                                                and current_ratio > prior_cr)
+            criteria["improving_liquidity"] = (
+                current_ratio is not None and prior_cr is not None and current_ratio > prior_cr
+            )
         else:
-            criteria['improving_liquidity'] = False
-        if criteria['improving_liquidity']:
+            criteria["improving_liquidity"] = False
+        if criteria["improving_liquidity"]:
             score += 1
 
         # 7. No dilution (no new shares - heuristic: equity didn't jump without income)
         # Without share count, approximate: equity growth < net income suggests no dilution
         if prior_data is not None and data.total_equity is not None and prior_data.total_equity is not None:
             equity_change = data.total_equity - prior_data.total_equity
-            criteria['no_dilution'] = (data.net_income is not None
-                                        and equity_change <= (data.net_income or 0) * 1.1)
+            criteria["no_dilution"] = data.net_income is not None and equity_change <= (data.net_income or 0) * 1.1
         else:
-            criteria['no_dilution'] = True  # Assume no dilution if unknown
-        if criteria['no_dilution']:
+            criteria["no_dilution"] = True  # Assume no dilution if unknown
+        if criteria["no_dilution"]:
             score += 1
 
         # --- Operating Efficiency (2 points) ---
 
         # 8. Delta Gross Margin > 0
         gross_margin = safe_divide(
-            (data.revenue - data.cogs) if data.revenue and data.cogs else data.gross_profit,
-            data.revenue
+            (data.revenue - data.cogs) if data.revenue and data.cogs else data.gross_profit, data.revenue
         )
         if prior_data is not None:
             prior_gm = safe_divide(
-                (prior_data.revenue - prior_data.cogs) if prior_data.revenue and prior_data.cogs else prior_data.gross_profit,
-                prior_data.revenue
+                (prior_data.revenue - prior_data.cogs)
+                if prior_data.revenue and prior_data.cogs
+                else prior_data.gross_profit,
+                prior_data.revenue,
             )
-            criteria['improving_gross_margin'] = (gross_margin is not None and prior_gm is not None
-                                                   and gross_margin > prior_gm)
+            criteria["improving_gross_margin"] = (
+                gross_margin is not None and prior_gm is not None and gross_margin > prior_gm
+            )
         else:
-            criteria['improving_gross_margin'] = False
-        if criteria['improving_gross_margin']:
+            criteria["improving_gross_margin"] = False
+        if criteria["improving_gross_margin"]:
             score += 1
 
         # 9. Delta Asset Turnover > 0
         at = safe_divide(data.revenue, data.total_assets)
         if prior_data is not None:
             prior_at = safe_divide(prior_data.revenue, prior_data.total_assets)
-            criteria['improving_asset_turnover'] = (at is not None and prior_at is not None
-                                                     and at > prior_at)
+            criteria["improving_asset_turnover"] = at is not None and prior_at is not None and at > prior_at
         else:
-            criteria['improving_asset_turnover'] = False
-        if criteria['improving_asset_turnover']:
+            criteria["improving_asset_turnover"] = False
+        if criteria["improving_asset_turnover"]:
             score += 1
 
         # Interpretation
@@ -3002,8 +3149,9 @@ class CharlieAnalyzer:
 
     # ===== COMPOSITE HEALTH SCORE =====
 
-    def composite_health_score(self, data: FinancialData,
-                                prior_data: Optional[FinancialData] = None) -> CompositeHealthScore:
+    def composite_health_score(
+        self, data: FinancialData, prior_data: Optional[FinancialData] = None
+    ) -> CompositeHealthScore:
         """Compute a weighted 0-100 composite financial health score with letter grade.
 
         Components (100 total):
@@ -3017,31 +3165,31 @@ class CharlieAnalyzer:
 
         # 1. Z-Score component (25 points)
         z = self.altman_z_score(data)
-        if z.zone == 'safe':
+        if z.zone == "safe":
             z_pts = 25
-        elif z.zone == 'grey':
+        elif z.zone == "grey":
             z_pts = 15
-        elif z.zone == 'partial':
+        elif z.zone == "partial":
             z_pts = 10
-        elif z.zone == 'distress':
+        elif z.zone == "distress":
             z_pts = 0
-        elif z.zone == 'partial_distress':
+        elif z.zone == "partial_distress":
             # Partial data with low score — penalize less than confirmed distress
             z_pts = 8
         else:
             z_pts = 5
-        component_scores['z_score'] = z_pts
+        component_scores["z_score"] = z_pts
 
         # 2. F-Score component (25 points)
         f = self.piotroski_f_score(data, prior_data)
         f_pts = round(f.score / f.max_score * 25)
-        component_scores['f_score'] = f_pts
+        component_scores["f_score"] = f_pts
 
         # 3. Profitability component (20 points)
         prof = self.calculate_profitability_ratios(data)
         prof_pts = 0
 
-        nm = prof.get('net_margin')
+        nm = prof.get("net_margin")
         if nm is not None:
             if nm > 0.15:
                 prof_pts += 8
@@ -3050,7 +3198,7 @@ class CharlieAnalyzer:
             elif nm > 0:
                 prof_pts += 3
 
-        roa_val = prof.get('roa')
+        roa_val = prof.get("roa")
         if roa_val is not None:
             if roa_val > 0.05:
                 prof_pts += 6
@@ -3059,7 +3207,7 @@ class CharlieAnalyzer:
             elif roa_val > 0:
                 prof_pts += 2
 
-        roe_val = prof.get('roe')
+        roe_val = prof.get("roe")
         if roe_val is not None:
             if roe_val > 0.15:
                 prof_pts += 6
@@ -3068,11 +3216,11 @@ class CharlieAnalyzer:
             elif roe_val > 0:
                 prof_pts += 2
 
-        component_scores['profitability'] = prof_pts
+        component_scores["profitability"] = prof_pts
 
         # 4. Liquidity component (15 points)
         liq = self.calculate_liquidity_ratios(data)
-        cr = liq.get('current_ratio')
+        cr = liq.get("current_ratio")
         if cr is not None:
             if cr >= 2.0:
                 liq_pts = 15
@@ -3086,11 +3234,11 @@ class CharlieAnalyzer:
                 liq_pts = 0
         else:
             liq_pts = 0
-        component_scores['liquidity'] = liq_pts
+        component_scores["liquidity"] = liq_pts
 
         # 5. Leverage component (15 points)
         lev = self.calculate_leverage_ratios(data)
-        de = lev.get('debt_to_equity')
+        de = lev.get("debt_to_equity")
         if de is not None:
             if de <= 0.5:
                 lev_pts = 15
@@ -3104,21 +3252,21 @@ class CharlieAnalyzer:
                 lev_pts = 0
         else:
             lev_pts = 0
-        component_scores['leverage'] = lev_pts
+        component_scores["leverage"] = lev_pts
 
         total = sum(component_scores.values())
 
         # Letter grade
         if total >= 80:
-            grade = 'A'
+            grade = "A"
         elif total >= 65:
-            grade = 'B'
+            grade = "B"
         elif total >= 50:
-            grade = 'C'
+            grade = "C"
         elif total >= 35:
-            grade = 'D'
+            grade = "D"
         else:
-            grade = 'F'
+            grade = "F"
 
         strongest = max(component_scores, key=component_scores.get)
         weakest = min(component_scores, key=component_scores.get)
@@ -3137,17 +3285,16 @@ class CharlieAnalyzer:
 
     # ===== MULTI-PERIOD COMPARISON =====
 
-    def compare_periods(self, current: FinancialData,
-                         prior: FinancialData) -> PeriodComparison:
+    def compare_periods(self, current: FinancialData, prior: FinancialData) -> PeriodComparison:
         """Compare two periods and compute deltas for all financial metrics."""
         current_ratios: Dict[str, Optional[float]] = {}
         prior_ratios: Dict[str, Optional[float]] = {}
 
         for category_name, method in [
-            ('liquidity', self.calculate_liquidity_ratios),
-            ('profitability', self.calculate_profitability_ratios),
-            ('leverage', self.calculate_leverage_ratios),
-            ('efficiency', self.calculate_efficiency_ratios),
+            ("liquidity", self.calculate_liquidity_ratios),
+            ("profitability", self.calculate_profitability_ratios),
+            ("leverage", self.calculate_leverage_ratios),
+            ("efficiency", self.calculate_efficiency_ratios),
         ]:
             c = method(current)
             p = method(prior)
@@ -3159,20 +3306,20 @@ class CharlieAnalyzer:
         # Scoring models
         c_z = self.altman_z_score(current)
         p_z = self.altman_z_score(prior)
-        current_ratios['altman_z_score'] = c_z.z_score
-        prior_ratios['altman_z_score'] = p_z.z_score
+        current_ratios["altman_z_score"] = c_z.z_score
+        prior_ratios["altman_z_score"] = p_z.z_score
 
         c_f = self.piotroski_f_score(current, prior)
         p_f = self.piotroski_f_score(prior)
-        current_ratios['piotroski_f_score'] = float(c_f.score)
-        prior_ratios['piotroski_f_score'] = float(p_f.score)
+        current_ratios["piotroski_f_score"] = float(c_f.score)
+        prior_ratios["piotroski_f_score"] = float(p_f.score)
 
         # Compute deltas
         deltas: Dict[str, float] = {}
         improvements: List[str] = []
         deteriorations: List[str] = []
 
-        lower_is_better = {'leverage_debt_to_equity', 'leverage_debt_to_assets'}
+        lower_is_better = {"leverage_debt_to_equity", "leverage_debt_to_assets"}
 
         for key in current_ratios:
             cv = current_ratios.get(key)
@@ -3202,8 +3349,7 @@ class CharlieAnalyzer:
 
     # ===== REPORT GENERATION =====
 
-    def generate_report(self, data: FinancialData,
-                         prior_data: Optional[FinancialData] = None) -> FinancialReport:
+    def generate_report(self, data: FinancialData, prior_data: Optional[FinancialData] = None) -> FinancialReport:
         """Generate a structured financial analysis report.
 
         Returns a FinancialReport with sections for executive summary,
@@ -3217,47 +3363,47 @@ class CharlieAnalyzer:
         if prior_data is not None:
             health = self.composite_health_score(data, prior_data)
         else:
-            health = results['composite_health']
+            health = results["composite_health"]
 
         # --- Executive Summary ---
         lines = [f"Overall Financial Health: {health.grade} ({health.score}/100)"]
-        z = results['altman_z_score']
+        z = results["altman_z_score"]
         if z.z_score is not None:
             lines.append(f"Bankruptcy Risk: {z.zone.title()} (Z-Score: {z.z_score:.2f})")
-        f_result = results['piotroski_f_score']
+        f_result = results["piotroski_f_score"]
         lines.append(f"Financial Strength: {f_result.score}/{f_result.max_score} (Piotroski F-Score)")
 
-        prof = results['profitability_ratios']
-        if prof.get('net_margin') is not None:
+        prof = results["profitability_ratios"]
+        if prof.get("net_margin") is not None:
             lines.append(f"Net Margin: {prof['net_margin']:.1%}")
-        if prof.get('roe') is not None:
+        if prof.get("roe") is not None:
             lines.append(f"Return on Equity: {prof['roe']:.1%}")
 
-        sections['executive_summary'] = '\n'.join(lines)
+        sections["executive_summary"] = "\n".join(lines)
 
         # --- Ratio Analysis ---
         ratio_lines: List[str] = []
         for category, ratios in [
-            ('Liquidity', results['liquidity_ratios']),
-            ('Profitability', results['profitability_ratios']),
-            ('Leverage', results['leverage_ratios']),
-            ('Efficiency', results['efficiency_ratios']),
+            ("Liquidity", results["liquidity_ratios"]),
+            ("Profitability", results["profitability_ratios"]),
+            ("Leverage", results["leverage_ratios"]),
+            ("Efficiency", results["efficiency_ratios"]),
         ]:
             available = {k: v for k, v in ratios.items() if v is not None}
             if available:
                 ratio_lines.append(f"\n{category}:")
                 for k, v in available.items():
-                    label = k.replace('_', ' ').title()
-                    if any(x in k for x in ('margin', 'roe', 'roa', 'roic')):
+                    label = k.replace("_", " ").title()
+                    if any(x in k for x in ("margin", "roe", "roa", "roic")):
                         ratio_lines.append(f"  {label}: {v:.1%}")
                     else:
                         ratio_lines.append(f"  {label}: {v:.2f}")
 
-        sections['ratio_analysis'] = '\n'.join(ratio_lines) if ratio_lines else 'Insufficient data for ratio analysis.'
+        sections["ratio_analysis"] = "\n".join(ratio_lines) if ratio_lines else "Insufficient data for ratio analysis."
 
         # --- Scoring Models ---
         scoring_lines: List[str] = []
-        dupont = results['dupont']
+        dupont = results["dupont"]
         if dupont.roe is not None:
             scoring_lines.append(f"DuPont ROE: {dupont.roe:.1%}")
             if dupont.net_margin is not None:
@@ -3272,25 +3418,23 @@ class CharlieAnalyzer:
         scoring_lines.append(f"Piotroski F-Score: {f_result.score}/{f_result.max_score}")
         scoring_lines.append(f"Composite Health: {health.score}/100 (Grade {health.grade})")
 
-        sections['scoring_models'] = '\n'.join(scoring_lines)
+        sections["scoring_models"] = "\n".join(scoring_lines)
 
         # --- Risk Assessment ---
         risk_lines: List[str] = []
-        insights = results['insights']
-        warnings = [i for i in insights if i.severity in ('warning', 'critical')]
+        insights = results["insights"]
+        warnings = [i for i in insights if i.severity in ("warning", "critical")]
         if warnings:
             for w in warnings:
                 risk_lines.append(f"[{w.severity.upper()}] {w.message}")
         else:
             risk_lines.append("No significant risk factors identified.")
-        sections['risk_assessment'] = '\n'.join(risk_lines)
+        sections["risk_assessment"] = "\n".join(risk_lines)
 
         # --- Recommendations ---
         recs = [i.recommendation for i in insights if i.recommendation]
-        sections['recommendations'] = (
-            '\n'.join(f"- {r}" for r in recs)
-            if recs
-            else 'No specific recommendations at this time.'
+        sections["recommendations"] = (
+            "\n".join(f"- {r}" for r in recs) if recs else "No specific recommendations at this time."
         )
 
         # --- Period Comparison (if prior data available) ---
@@ -3307,15 +3451,11 @@ class CharlieAnalyzer:
                 for m in comparison.deteriorations[:5]:
                     delta = comparison.deltas[m]
                     comp_lines.append(f"  - {m.replace('_', ' ').title()}: {delta:+.4f}")
-            sections['period_comparison'] = (
-                '\n'.join(comp_lines)
-                if comp_lines
-                else 'No significant changes detected.'
-            )
+            sections["period_comparison"] = "\n".join(comp_lines) if comp_lines else "No significant changes detected."
 
         return FinancialReport(
             sections=sections,
-            executive_summary=sections['executive_summary'],
+            executive_summary=sections["executive_summary"],
             generated_at=datetime.now().isoformat(),
         )
 
@@ -3328,177 +3468,204 @@ class CharlieAnalyzer:
         insights = []
 
         # Liquidity insights
-        ratios = analysis_results.get('liquidity_ratios', {})
-        if ratios.get('current_ratio') is not None:
-            cr = ratios['current_ratio']
+        ratios = analysis_results.get("liquidity_ratios", {})
+        if ratios.get("current_ratio") is not None:
+            cr = ratios["current_ratio"]
             if cr >= 1.5:
-                insights.append(Insight(
-                    category='liquidity',
-                    severity='info',
-                    message=f"Strong liquidity: Current ratio of {cr:.2f} indicates healthy ability to meet short-term obligations.",
-                    metric_name='current_ratio',
-                    metric_value=cr
-                ))
+                insights.append(
+                    Insight(
+                        category="liquidity",
+                        severity="info",
+                        message=f"Strong liquidity: Current ratio of {cr:.2f} indicates healthy ability to meet short-term obligations.",
+                        metric_name="current_ratio",
+                        metric_value=cr,
+                    )
+                )
             elif cr < 1.0:
-                insights.append(Insight(
-                    category='liquidity',
-                    severity='warning',
-                    message=f"Liquidity concern: Current ratio of {cr:.2f} below 1.0 suggests potential difficulty meeting short-term obligations.",
-                    metric_name='current_ratio',
-                    metric_value=cr,
-                    recommendation="Review working capital management and consider improving collection cycles or negotiating extended payment terms."
-                ))
+                insights.append(
+                    Insight(
+                        category="liquidity",
+                        severity="warning",
+                        message=f"Liquidity concern: Current ratio of {cr:.2f} below 1.0 suggests potential difficulty meeting short-term obligations.",
+                        metric_name="current_ratio",
+                        metric_value=cr,
+                        recommendation="Review working capital management and consider improving collection cycles or negotiating extended payment terms.",
+                    )
+                )
 
         # Profitability insights
-        prof_ratios = analysis_results.get('profitability_ratios', {})
-        if prof_ratios.get('net_margin') is not None:
-            margin = prof_ratios['net_margin']
+        prof_ratios = analysis_results.get("profitability_ratios", {})
+        if prof_ratios.get("net_margin") is not None:
+            margin = prof_ratios["net_margin"]
             if margin > 0.15:
-                insights.append(Insight(
-                    category='profitability',
-                    severity='info',
-                    message=f"Strong profitability: Net margin of {margin:.1%} indicates excellent bottom-line performance.",
-                    metric_name='net_margin',
-                    metric_value=margin
-                ))
+                insights.append(
+                    Insight(
+                        category="profitability",
+                        severity="info",
+                        message=f"Strong profitability: Net margin of {margin:.1%} indicates excellent bottom-line performance.",
+                        metric_name="net_margin",
+                        metric_value=margin,
+                    )
+                )
             elif margin < 0.02:
-                insights.append(Insight(
-                    category='profitability',
-                    severity='warning',
-                    message=f"Thin margins: Net margin of {margin:.1%} leaves little room for error.",
-                    metric_name='net_margin',
-                    metric_value=margin,
-                    recommendation="Analyze cost structure and pricing strategy. Consider operational efficiency improvements."
-                ))
+                insights.append(
+                    Insight(
+                        category="profitability",
+                        severity="warning",
+                        message=f"Thin margins: Net margin of {margin:.1%} leaves little room for error.",
+                        metric_name="net_margin",
+                        metric_value=margin,
+                        recommendation="Analyze cost structure and pricing strategy. Consider operational efficiency improvements.",
+                    )
+                )
 
         # ROE insights (Charlie Munger focus)
-        if prof_ratios.get('roe') is not None:
-            roe = prof_ratios['roe']
+        if prof_ratios.get("roe") is not None:
+            roe = prof_ratios["roe"]
             if roe > 0.20:
-                insights.append(Insight(
-                    category='profitability',
-                    severity='info',
-                    message=f"Excellent capital efficiency: ROE of {roe:.1%} suggests strong competitive advantages.",
-                    metric_name='roe',
-                    metric_value=roe,
-                    recommendation="Investigate sources of high returns - sustainable competitive moats or temporary factors?"
-                ))
+                insights.append(
+                    Insight(
+                        category="profitability",
+                        severity="info",
+                        message=f"Excellent capital efficiency: ROE of {roe:.1%} suggests strong competitive advantages.",
+                        metric_name="roe",
+                        metric_value=roe,
+                        recommendation="Investigate sources of high returns - sustainable competitive moats or temporary factors?",
+                    )
+                )
 
         # Leverage insights
-        lev_ratios = analysis_results.get('leverage_ratios', {})
-        if lev_ratios.get('debt_to_equity') is not None:
-            de = lev_ratios['debt_to_equity']
+        lev_ratios = analysis_results.get("leverage_ratios", {})
+        if lev_ratios.get("debt_to_equity") is not None:
+            de = lev_ratios["debt_to_equity"]
             if de > 2.0:
-                insights.append(Insight(
-                    category='risk',
-                    severity='warning',
-                    message=f"High leverage: Debt-to-equity of {de:.2f} increases financial risk.",
-                    metric_name='debt_to_equity',
-                    metric_value=de,
-                    recommendation="Monitor debt service coverage. Consider deleveraging if cash flows are volatile."
-                ))
+                insights.append(
+                    Insight(
+                        category="risk",
+                        severity="warning",
+                        message=f"High leverage: Debt-to-equity of {de:.2f} increases financial risk.",
+                        metric_name="debt_to_equity",
+                        metric_value=de,
+                        recommendation="Monitor debt service coverage. Consider deleveraging if cash flows are volatile.",
+                    )
+                )
 
         # Cash flow insights (Charlie Munger emphasis)
-        cf_analysis = analysis_results.get('cash_flow', None)
+        cf_analysis = analysis_results.get("cash_flow", None)
         if cf_analysis and cf_analysis.free_cash_flow is not None:
             fcf = cf_analysis.free_cash_flow
             if fcf > 0:
-                insights.append(Insight(
-                    category='cash_flow',
-                    severity='info',
-                    message=f"Positive free cash flow of {fcf:,.0f} provides strategic flexibility.",
-                    metric_name='free_cash_flow',
-                    metric_value=fcf,
-                    recommendation="Strong cash generation enables reinvestment, debt reduction, or shareholder returns."
-                ))
+                insights.append(
+                    Insight(
+                        category="cash_flow",
+                        severity="info",
+                        message=f"Positive free cash flow of {fcf:,.0f} provides strategic flexibility.",
+                        metric_name="free_cash_flow",
+                        metric_value=fcf,
+                        recommendation="Strong cash generation enables reinvestment, debt reduction, or shareholder returns.",
+                    )
+                )
             else:
-                insights.append(Insight(
-                    category='cash_flow',
-                    severity='warning',
-                    message=f"Negative free cash flow of {fcf:,.0f} requires external financing or asset monetization.",
-                    metric_name='free_cash_flow',
-                    metric_value=fcf,
-                    recommendation="Investigate cash burn drivers. Assess sustainability of current capital structure."
-                ))
+                insights.append(
+                    Insight(
+                        category="cash_flow",
+                        severity="warning",
+                        message=f"Negative free cash flow of {fcf:,.0f} requires external financing or asset monetization.",
+                        metric_name="free_cash_flow",
+                        metric_value=fcf,
+                        recommendation="Investigate cash burn drivers. Assess sustainability of current capital structure.",
+                    )
+                )
 
         # Cash conversion cycle
         if cf_analysis and cf_analysis.cash_conversion_cycle is not None:
             ccc = cf_analysis.cash_conversion_cycle
             if ccc > 60:
-                insights.append(Insight(
-                    category='efficiency',
-                    severity='warning',
-                    message=f"Extended cash conversion cycle of {ccc:.0f} days ties up working capital.",
-                    metric_name='cash_conversion_cycle',
-                    metric_value=ccc,
-                    recommendation="Optimize inventory management, accelerate collections, and negotiate better payment terms."
-                ))
+                insights.append(
+                    Insight(
+                        category="efficiency",
+                        severity="warning",
+                        message=f"Extended cash conversion cycle of {ccc:.0f} days ties up working capital.",
+                        metric_name="cash_conversion_cycle",
+                        metric_value=ccc,
+                        recommendation="Optimize inventory management, accelerate collections, and negotiate better payment terms.",
+                    )
+                )
 
         # DuPont decomposition insights
-        dupont = analysis_results.get('dupont')
+        dupont = analysis_results.get("dupont")
         if dupont and dupont.roe is not None:
-            insights.append(Insight(
-                category='profitability',
-                severity='info',
-                message=dupont.interpretation or f"DuPont ROE: {dupont.roe:.1%}",
-                metric_name='dupont_roe',
-                metric_value=dupont.roe,
-                recommendation=(
-                    f"Primary ROE driver is {dupont.primary_driver.replace('_', ' ')}. "
-                    "Focus improvement efforts there."
-                ) if dupont.primary_driver else None
-            ))
+            insights.append(
+                Insight(
+                    category="profitability",
+                    severity="info",
+                    message=dupont.interpretation or f"DuPont ROE: {dupont.roe:.1%}",
+                    metric_name="dupont_roe",
+                    metric_value=dupont.roe,
+                    recommendation=(
+                        f"Primary ROE driver is {dupont.primary_driver.replace('_', ' ')}. "
+                        "Focus improvement efforts there."
+                    )
+                    if dupont.primary_driver
+                    else None,
+                )
+            )
 
         # Altman Z-Score insights
-        z_result = analysis_results.get('altman_z_score')
+        z_result = analysis_results.get("altman_z_score")
         if z_result and z_result.z_score is not None:
-            severity = 'info'
-            if z_result.zone == 'distress':
-                severity = 'critical'
-            elif z_result.zone == 'grey':
-                severity = 'warning'
+            severity = "info"
+            if z_result.zone == "distress":
+                severity = "critical"
+            elif z_result.zone == "grey":
+                severity = "warning"
 
             rec = None
-            if z_result.zone == 'distress':
+            if z_result.zone == "distress":
                 rec = "Urgent: Review capital structure, reduce leverage, and improve profitability immediately."
-            elif z_result.zone == 'grey':
+            elif z_result.zone == "grey":
                 rec = "Monitor closely. Strengthen working capital and profitability to move into the safe zone."
 
-            insights.append(Insight(
-                category='risk',
-                severity=severity,
-                message=z_result.interpretation or f"Altman Z-Score: {z_result.z_score:.2f}",
-                metric_name='altman_z_score',
-                metric_value=z_result.z_score,
-                recommendation=rec
-            ))
+            insights.append(
+                Insight(
+                    category="risk",
+                    severity=severity,
+                    message=z_result.interpretation or f"Altman Z-Score: {z_result.z_score:.2f}",
+                    metric_name="altman_z_score",
+                    metric_value=z_result.z_score,
+                    recommendation=rec,
+                )
+            )
 
         # Piotroski F-Score insights
-        f_result = analysis_results.get('piotroski_f_score')
+        f_result = analysis_results.get("piotroski_f_score")
         if f_result and f_result.score is not None:
-            severity = 'info'
+            severity = "info"
             if f_result.score <= 3:
-                severity = 'warning'
+                severity = "warning"
 
             # Find weak criteria
-            weak = [k.replace('_', ' ') for k, v in f_result.criteria.items() if not v]
+            weak = [k.replace("_", " ") for k, v in f_result.criteria.items() if not v]
             rec = None
             if weak:
                 rec = f"Weak areas: {', '.join(weak[:3])}. Address these to strengthen financial position."
 
-            insights.append(Insight(
-                category='risk',
-                severity=severity,
-                message=f_result.interpretation or f"Piotroski F-Score: {f_result.score}/9",
-                metric_name='piotroski_f_score',
-                metric_value=float(f_result.score),
-                recommendation=rec
-            ))
+            insights.append(
+                Insight(
+                    category="risk",
+                    severity=severity,
+                    message=f_result.interpretation or f"Piotroski F-Score: {f_result.score}/9",
+                    metric_name="piotroski_f_score",
+                    metric_value=float(f_result.score),
+                    recommendation=rec,
+                )
+            )
 
         return insights
 
-    def detect_anomalies(self, data: pd.DataFrame, columns: Optional[List[str]] = None,
-                         method: str = 'zscore', threshold: float = 2.0) -> List[Anomaly]:
+    def detect_anomalies(
+        self, data: pd.DataFrame, columns: Optional[List[str]] = None, method: str = "zscore", threshold: float = 2.0
+    ) -> List[Anomaly]:
         """Flag unusual patterns using z-score or IQR method.
 
         Args:
@@ -3521,7 +3688,7 @@ class CharlieAnalyzer:
             # Use the underlying numpy array directly (avoids copy from to_numpy)
             arr: np.ndarray = series.values.astype(float, copy=False)
 
-            if method == 'iqr':
+            if method == "iqr":
                 q1, q3 = np.percentile(arr, [25, 75])  # single pass
                 iqr = q3 - q1
                 if iqr == 0:
@@ -3539,14 +3706,15 @@ class CharlieAnalyzer:
                 z_scores = (outlier_vals - mean) / std
 
                 for value, z in zip(outlier_vals.tolist(), z_scores.tolist()):
-                    anomalies.append(Anomaly(
-                        metric_name=col,
-                        value=value,
-                        expected_range=(lower, upper),
-                        z_score=z,
-                        description=(f"IQR anomaly in {col}: {value:.2f} outside "
-                                     f"[{lower:.2f}, {upper:.2f}]")
-                    ))
+                    anomalies.append(
+                        Anomaly(
+                            metric_name=col,
+                            value=value,
+                            expected_range=(lower, upper),
+                            z_score=z,
+                            description=(f"IQR anomaly in {col}: {value:.2f} outside [{lower:.2f}, {upper:.2f}]"),
+                        )
+                    )
             else:
                 # Default z-score method
                 mean = float(arr.mean())
@@ -3562,21 +3730,24 @@ class CharlieAnalyzer:
                 upper_bound = mean + threshold * std
 
                 for value, z_score in zip(outlier_vals.tolist(), outlier_zs.tolist()):
-                    anomalies.append(Anomaly(
-                        metric_name=col,
-                        value=value,
-                        expected_range=(lower_bound, upper_bound),
-                        z_score=z_score,
-                        description=(f"Unusual value in {col}: {value:.2f} is "
-                                     f"{abs(z_score):.1f} standard deviations from mean")
-                    ))
+                    anomalies.append(
+                        Anomaly(
+                            metric_name=col,
+                            value=value,
+                            expected_range=(lower_bound, upper_bound),
+                            z_score=z_score,
+                            description=(
+                                f"Unusual value in {col}: {value:.2f} is "
+                                f"{abs(z_score):.1f} standard deviations from mean"
+                            ),
+                        )
+                    )
 
         return anomalies
 
     # ===== SCENARIO / WHAT-IF ANALYSIS =====
 
-    def _apply_adjustments(self, data: FinancialData,
-                           adjustments: Dict[str, float]) -> FinancialData:
+    def _apply_adjustments(self, data: FinancialData, adjustments: Dict[str, float]) -> FinancialData:
         """Create a copy of FinancialData with percentage adjustments applied.
 
         Args:
@@ -3590,6 +3761,7 @@ class CharlieAnalyzer:
             (and therefore could not be adjusted).
         """
         from dataclasses import fields as dc_fields
+
         # Shallow copy all fields via dict - FinancialData has only scalar/None fields
         field_values = {f.name: getattr(data, f.name) for f in dc_fields(data)}
         skipped: List[str] = []
@@ -3603,9 +3775,9 @@ class CharlieAnalyzer:
         adjusted._skipped_adjustments = skipped  # type: ignore[attr-defined]
         return adjusted
 
-    def scenario_analysis(self, data: FinancialData,
-                          adjustments: Dict[str, float],
-                          scenario_name: str = "Custom Scenario") -> ScenarioResult:
+    def scenario_analysis(
+        self, data: FinancialData, adjustments: Dict[str, float], scenario_name: str = "Custom Scenario"
+    ) -> ScenarioResult:
         """Run what-if analysis by applying adjustments and comparing all metrics.
 
         Args:
@@ -3638,36 +3810,35 @@ class CharlieAnalyzer:
         base_ratios: Dict[str, Optional[float]] = {}
         scenario_ratios: Dict[str, Optional[float]] = {}
         for prefix, base_r, scen_r in [
-            ('', base_liq, scen_liq),
-            ('', base_prof, scen_prof),
-            ('', base_lev, scen_lev),
+            ("", base_liq, scen_liq),
+            ("", base_prof, scen_prof),
+            ("", base_lev, scen_lev),
         ]:
             for k, v in base_r.items():
                 base_ratios[k] = v
             for k, v in scen_r.items():
                 scenario_ratios[k] = v
 
-        base_ratios['health_score'] = float(base_health.score)
-        scenario_ratios['health_score'] = float(scen_health.score)
-        base_ratios['z_score'] = base_z.z_score
-        scenario_ratios['z_score'] = scen_z.z_score
+        base_ratios["health_score"] = float(base_health.score)
+        scenario_ratios["health_score"] = float(scen_health.score)
+        base_ratios["z_score"] = base_z.z_score
+        scenario_ratios["z_score"] = scen_z.z_score
 
         # Build impact summary
         health_delta = scen_health.score - base_health.score
-        z_delta = ((scen_z.z_score or 0) - (base_z.z_score or 0))
-        adj_strs = [f"{k} {'+'if v>=1 else ''}{(v-1)*100:+.0f}%"
-                    for k, v in adjustments.items()]
-        skipped = getattr(adjusted, '_skipped_adjustments', [])
+        z_delta = (scen_z.z_score or 0) - (base_z.z_score or 0)
+        adj_strs = [f"{k} {'+' if v >= 1 else ''}{(v - 1) * 100:+.0f}%" for k, v in adjustments.items()]
+        skipped = getattr(adjusted, "_skipped_adjustments", [])
         summary_parts = [
             f"Scenario '{scenario_name}': {', '.join(adj_strs)}.",
             f"Health score: {base_health.score} -> {scen_health.score} ({health_delta:+d}).",
-            f"Z-Score: {base_z.z_score:.2f} -> {scen_z.z_score:.2f} ({z_delta:+.2f})." if base_z.z_score and scen_z.z_score else "",
+            f"Z-Score: {base_z.z_score:.2f} -> {scen_z.z_score:.2f} ({z_delta:+.2f})."
+            if base_z.z_score and scen_z.z_score
+            else "",
             f"Grade: {base_health.grade} -> {scen_health.grade}.",
         ]
         if skipped:
-            summary_parts.append(
-                f"WARNING: Adjustments skipped (base value is None): {', '.join(skipped)}."
-            )
+            summary_parts.append(f"WARNING: Adjustments skipped (base value is None): {', '.join(skipped)}.")
 
         return ScenarioResult(
             scenario_name=scenario_name,
@@ -3680,7 +3851,7 @@ class CharlieAnalyzer:
             scenario_f_score=scen_f.score,
             base_ratios=base_ratios,
             scenario_ratios=scenario_ratios,
-            impact_summary=' '.join(p for p in summary_parts if p),
+            impact_summary=" ".join(p for p in summary_parts if p),
         )
 
     def multi_scenario_analysis(
@@ -3737,19 +3908,12 @@ class CharlieAnalyzer:
             names.append(name)
 
         # Expected values
-        expected_health = sum(
-            p * (r.scenario_health.score if r.scenario_health else 0)
-            for p, r in zip(probs, results)
-        )
-        expected_z = sum(
-            p * (r.scenario_z_score or 0)
-            for p, r in zip(probs, results)
-        )
+        expected_health = sum(p * (r.scenario_health.score if r.scenario_health else 0) for p, r in zip(probs, results))
+        expected_z = sum(p * (r.scenario_z_score or 0) for p, r in zip(probs, results))
 
         # Distress probability: sum of probs where Z-Score < 1.81
         distress_prob = sum(
-            p for p, r in zip(probs, results)
-            if r.scenario_z_score is not None and r.scenario_z_score < 1.81
+            p for p, r in zip(probs, results) if r.scenario_z_score is not None and r.scenario_z_score < 1.81
         )
 
         parts = [f"Prob-weighted across {len(results)} scenarios."]
@@ -3767,8 +3931,9 @@ class CharlieAnalyzer:
             summary=" ".join(parts),
         )
 
-    def sensitivity_analysis(self, data: FinancialData, variable: str,
-                             pct_range: Optional[List[float]] = None) -> SensitivityResult:
+    def sensitivity_analysis(
+        self, data: FinancialData, variable: str, pct_range: Optional[List[float]] = None
+    ) -> SensitivityResult:
         """Vary a single financial variable and measure impact on key metrics.
 
         Args:
@@ -3787,13 +3952,13 @@ class CharlieAnalyzer:
         multipliers = [1 + p / 100.0 for p in pct_range]
 
         metrics: Dict[str, List[Optional[float]]] = {
-            'health_score': [],
-            'z_score': [],
-            'f_score': [],
-            'current_ratio': [],
-            'net_margin': [],
-            'debt_to_equity': [],
-            'roe': [],
+            "health_score": [],
+            "z_score": [],
+            "f_score": [],
+            "current_ratio": [],
+            "net_margin": [],
+            "debt_to_equity": [],
+            "roe": [],
         }
 
         for mult in multipliers:
@@ -3805,13 +3970,13 @@ class CharlieAnalyzer:
             prof = self.calculate_profitability_ratios(adjusted)
             lev = self.calculate_leverage_ratios(adjusted)
 
-            metrics['health_score'].append(float(health.score))
-            metrics['z_score'].append(z.z_score)
-            metrics['f_score'].append(float(f.score))
-            metrics['current_ratio'].append(liq.get('current_ratio'))
-            metrics['net_margin'].append(prof.get('net_margin'))
-            metrics['debt_to_equity'].append(lev.get('debt_to_equity'))
-            metrics['roe'].append(prof.get('roe'))
+            metrics["health_score"].append(float(health.score))
+            metrics["z_score"].append(z.z_score)
+            metrics["f_score"].append(float(f.score))
+            metrics["current_ratio"].append(liq.get("current_ratio"))
+            metrics["net_margin"].append(prof.get("net_margin"))
+            metrics["debt_to_equity"].append(lev.get("debt_to_equity"))
+            metrics["roe"].append(prof.get("roe"))
 
         return SensitivityResult(
             variable_name=variable,
@@ -3848,9 +4013,9 @@ class CharlieAnalyzer:
 
         if assumptions is None:
             assumptions = {}
-            for fld in ['revenue', 'cogs', 'operating_expenses']:
+            for fld in ["revenue", "cogs", "operating_expenses"]:
                 if getattr(data, fld, None) is not None:
-                    assumptions[fld] = {'mean_pct': 0.0, 'std_pct': 10.0}
+                    assumptions[fld] = {"mean_pct": 0.0, "std_pct": 10.0}
 
         if not assumptions:
             return MonteCarloResult(
@@ -3865,20 +4030,17 @@ class CharlieAnalyzer:
         # 1. Cache dataclasses.fields() once rather than re-calling inside
         #    _apply_adjustments on every iteration.
         from dataclasses import fields as _dc_fields
-        _base_field_values: Dict[str, Any] = {
-            f.name: getattr(data, f.name) for f in _dc_fields(data)
-        }
+
+        _base_field_values: Dict[str, Any] = {f.name: getattr(data, f.name) for f in _dc_fields(data)}
         # Pre-compute assumption keys and per-field draw parameters (once).
         _assumption_keys: List[str] = list(assumptions.keys())
         _k = len(_assumption_keys)
         _mean_mults = np.array(
-            [1.0 + assumptions[fld].get('mean_pct', 0.0) / 100.0
-             for fld in _assumption_keys],
+            [1.0 + assumptions[fld].get("mean_pct", 0.0) / 100.0 for fld in _assumption_keys],
             dtype=float,
         )
         _std_mults = np.array(
-            [assumptions[fld].get('std_pct', 10.0) / 100.0
-             for fld in _assumption_keys],
+            [assumptions[fld].get("std_pct", 10.0) / 100.0 for fld in _assumption_keys],
             dtype=float,
         )
         # 2. Batch-draw all random samples in one call.
@@ -3892,19 +4054,18 @@ class CharlieAnalyzer:
         )
 
         metrics_collected: Dict[str, List[float]] = {
-            'health_score': [],
-            'z_score': [],
-            'f_score': [],
-            'net_margin': [],
-            'current_ratio': [],
-            'roe': [],
+            "health_score": [],
+            "z_score": [],
+            "f_score": [],
+            "net_margin": [],
+            "current_ratio": [],
+            "roe": [],
         }
 
         for _sim_idx in range(n_simulations):
             # Build adjustments dict from pre-drawn row
             adjustments: Dict[str, float] = {
-                _assumption_keys[_j]: float(_all_samples[_sim_idx, _j])
-                for _j in range(_k)
+                _assumption_keys[_j]: float(_all_samples[_sim_idx, _j]) for _j in range(_k)
             }
 
             # Apply adjustments using the cached field-values dict
@@ -3925,29 +4086,29 @@ class CharlieAnalyzer:
             prof = self.calculate_profitability_ratios(adjusted)
             liq = self.calculate_liquidity_ratios(adjusted)
 
-            metrics_collected['health_score'].append(float(health.score))
-            metrics_collected['z_score'].append(z.z_score if z.z_score is not None else 0.0)
-            metrics_collected['f_score'].append(float(f.score))
-            metrics_collected['net_margin'].append(prof.get('net_margin') or 0.0)
-            metrics_collected['current_ratio'].append(liq.get('current_ratio') or 0.0)
-            metrics_collected['roe'].append(prof.get('roe') or 0.0)
+            metrics_collected["health_score"].append(float(health.score))
+            metrics_collected["z_score"].append(z.z_score if z.z_score is not None else 0.0)
+            metrics_collected["f_score"].append(float(f.score))
+            metrics_collected["net_margin"].append(prof.get("net_margin") or 0.0)
+            metrics_collected["current_ratio"].append(liq.get("current_ratio") or 0.0)
+            metrics_collected["roe"].append(prof.get("roe") or 0.0)
 
         # Compute percentiles
         percentiles: Dict[str, Dict[str, float]] = {}
         for metric, values in metrics_collected.items():
             arr = np.array(values)
             percentiles[metric] = {
-                'p10': float(np.percentile(arr, 10)),
-                'p25': float(np.percentile(arr, 25)),
-                'p50': float(np.percentile(arr, 50)),
-                'p75': float(np.percentile(arr, 75)),
-                'p90': float(np.percentile(arr, 90)),
-                'mean': float(np.mean(arr)),
-                'std': float(np.std(arr)),
+                "p10": float(np.percentile(arr, 10)),
+                "p25": float(np.percentile(arr, 25)),
+                "p50": float(np.percentile(arr, 50)),
+                "p75": float(np.percentile(arr, 75)),
+                "p90": float(np.percentile(arr, 90)),
+                "mean": float(np.mean(arr)),
+                "std": float(np.std(arr)),
             }
 
         # Summary
-        hs = percentiles.get('health_score', {})
+        hs = percentiles.get("health_score", {})
         summary = (
             f"Monte Carlo ({n_simulations} simulations): "
             f"Health Score median={hs.get('p50', 0):.0f}, "
@@ -4094,35 +4255,48 @@ class CharlieAnalyzer:
         # Auto-detect variables if not provided
         if variables is None:
             candidate_fields = [
-                'revenue', 'cogs', 'operating_expenses', 'net_income',
-                'total_assets', 'total_liabilities', 'total_equity',
-                'current_assets', 'current_liabilities', 'total_debt',
-                'ebit', 'ebitda', 'interest_expense', 'depreciation',
-                'inventory', 'accounts_receivable', 'accounts_payable',
-                'capex', 'operating_cash_flow', 'retained_earnings',
+                "revenue",
+                "cogs",
+                "operating_expenses",
+                "net_income",
+                "total_assets",
+                "total_liabilities",
+                "total_equity",
+                "current_assets",
+                "current_liabilities",
+                "total_debt",
+                "ebit",
+                "ebitda",
+                "interest_expense",
+                "depreciation",
+                "inventory",
+                "accounts_receivable",
+                "accounts_payable",
+                "capex",
+                "operating_cash_flow",
+                "retained_earnings",
             ]
-            variables = [f for f in candidate_fields
-                         if getattr(data, f, None) is not None]
+            variables = [f for f in candidate_fields if getattr(data, f, None) is not None]
 
         if not variables:
             return TornadoResult(target_metric=target_metric)
 
         def _get_metric_value(d: FinancialData) -> float:
             """Extract a single metric value from FinancialData."""
-            if target_metric == 'health_score':
+            if target_metric == "health_score":
                 return float(self.composite_health_score(d).score)
-            elif target_metric == 'z_score':
+            elif target_metric == "z_score":
                 return self.altman_z_score(d).z_score or 0.0
-            elif target_metric == 'f_score':
+            elif target_metric == "f_score":
                 return float(self.piotroski_f_score(d).score)
-            elif target_metric == 'net_margin':
-                return self.calculate_profitability_ratios(d).get('net_margin') or 0.0
-            elif target_metric == 'current_ratio':
-                return self.calculate_liquidity_ratios(d).get('current_ratio') or 0.0
-            elif target_metric == 'roe':
-                return self.calculate_profitability_ratios(d).get('roe') or 0.0
-            elif target_metric == 'debt_to_equity':
-                return self.calculate_leverage_ratios(d).get('debt_to_equity') or 0.0
+            elif target_metric == "net_margin":
+                return self.calculate_profitability_ratios(d).get("net_margin") or 0.0
+            elif target_metric == "current_ratio":
+                return self.calculate_liquidity_ratios(d).get("current_ratio") or 0.0
+            elif target_metric == "roe":
+                return self.calculate_profitability_ratios(d).get("roe") or 0.0
+            elif target_metric == "debt_to_equity":
+                return self.calculate_leverage_ratios(d).get("debt_to_equity") or 0.0
             return 0.0
 
         base_value = _get_metric_value(data)
@@ -4136,13 +4310,15 @@ class CharlieAnalyzer:
             low_val = _get_metric_value(low_data)
             high_val = _get_metric_value(high_data)
             spread = abs(high_val - low_val)
-            drivers.append(TornadoDriver(
-                variable=var,
-                low_value=round(low_val, 4),
-                high_value=round(high_val, 4),
-                base_value=round(base_value, 4),
-                spread=round(spread, 4),
-            ))
+            drivers.append(
+                TornadoDriver(
+                    variable=var,
+                    low_value=round(low_val, 4),
+                    high_value=round(high_val, 4),
+                    base_value=round(base_value, 4),
+                    spread=round(spread, 4),
+                )
+            )
 
         # Sort by spread descending (most impactful first)
         drivers.sort(key=lambda d: d.spread, reverse=True)
@@ -4195,9 +4371,7 @@ class CharlieAnalyzer:
         breakeven_rev = safe_divide(fixed_costs, contribution_margin_ratio, default=None)
         margin_of_safety = None
         if breakeven_rev is not None and revenue > 0:
-            margin_of_safety = safe_divide(
-                revenue - breakeven_rev, revenue, default=None
-            )
+            margin_of_safety = safe_divide(revenue - breakeven_rev, revenue, default=None)
 
         return BreakevenResult(
             breakeven_revenue=round(breakeven_rev, 2) if breakeven_rev is not None else None,
@@ -4238,16 +4412,11 @@ class CharlieAnalyzer:
         """
         if covenants is None:
             covenants = [
-                {'name': 'Current Ratio', 'metric': 'current_ratio',
-                 'threshold': 1.5, 'direction': 'above'},
-                {'name': 'Debt-to-Equity', 'metric': 'debt_to_equity',
-                 'threshold': 2.0, 'direction': 'below'},
-                {'name': 'Net Margin', 'metric': 'net_margin',
-                 'threshold': 0.05, 'direction': 'above'},
-                {'name': 'Interest Coverage', 'metric': 'interest_coverage',
-                 'threshold': 3.0, 'direction': 'above'},
-                {'name': 'Health Score', 'metric': 'health_score',
-                 'threshold': 50.0, 'direction': 'above'},
+                {"name": "Current Ratio", "metric": "current_ratio", "threshold": 1.5, "direction": "above"},
+                {"name": "Debt-to-Equity", "metric": "debt_to_equity", "threshold": 2.0, "direction": "below"},
+                {"name": "Net Margin", "metric": "net_margin", "threshold": 0.05, "direction": "above"},
+                {"name": "Interest Coverage", "metric": "interest_coverage", "threshold": 3.0, "direction": "above"},
+                {"name": "Health Score", "metric": "health_score", "threshold": 50.0, "direction": "above"},
             ]
 
         # Gather all metric values
@@ -4261,16 +4430,16 @@ class CharlieAnalyzer:
         dscr = safe_divide(data.ebitda, data.interest_expense, default=None)
 
         metric_values = {
-            'current_ratio': liq.get('current_ratio'),
-            'quick_ratio': liq.get('quick_ratio'),
-            'debt_to_equity': lev.get('debt_to_equity'),
-            'debt_to_assets': lev.get('debt_to_assets'),
-            'net_margin': prof.get('net_margin'),
-            'roe': prof.get('roe'),
-            'roa': prof.get('roa'),
-            'interest_coverage': lev.get('interest_coverage'),
-            'health_score': float(health.score),
-            'dscr': dscr,
+            "current_ratio": liq.get("current_ratio"),
+            "quick_ratio": liq.get("quick_ratio"),
+            "debt_to_equity": lev.get("debt_to_equity"),
+            "debt_to_assets": lev.get("debt_to_assets"),
+            "net_margin": prof.get("net_margin"),
+            "roe": prof.get("roe"),
+            "roa": prof.get("roa"),
+            "interest_coverage": lev.get("interest_coverage"),
+            "health_score": float(health.score),
+            "dscr": dscr,
         }
 
         checks: List[CovenantCheck] = []
@@ -4279,57 +4448,64 @@ class CharlieAnalyzer:
         breaches = 0
 
         for cov in covenants:
-            name = cov.get('name', cov.get('metric', 'Unknown'))
-            metric_key = cov.get('metric', '')
-            threshold = float(cov.get('threshold', 0))
-            direction = cov.get('direction', 'above')
+            name = cov.get("name", cov.get("metric", "Unknown"))
+            metric_key = cov.get("metric", "")
+            threshold = float(cov.get("threshold", 0))
+            direction = cov.get("direction", "above")
 
             current = metric_values.get(metric_key)
 
             if current is None:
-                checks.append(CovenantCheck(
-                    name=name, current_value=None,
-                    threshold=threshold, direction=direction,
-                    status='unknown', headroom=None,
-                ))
+                checks.append(
+                    CovenantCheck(
+                        name=name,
+                        current_value=None,
+                        threshold=threshold,
+                        direction=direction,
+                        status="unknown",
+                        headroom=None,
+                    )
+                )
                 continue
 
             # Determine pass/warning/breach
             warning_zone = threshold * 0.10  # 10% of threshold
 
-            if direction == 'above':
+            if direction == "above":
                 headroom = current - threshold
                 if current >= threshold:
                     if current < threshold + warning_zone:
-                        status = 'warning'
+                        status = "warning"
                         warnings += 1
                     else:
-                        status = 'pass'
+                        status = "pass"
                         passes += 1
                 else:
-                    status = 'breach'
+                    status = "breach"
                     breaches += 1
             else:  # 'below'
                 headroom = threshold - current
                 if current <= threshold:
                     if current > threshold - warning_zone:
-                        status = 'warning'
+                        status = "warning"
                         warnings += 1
                     else:
-                        status = 'pass'
+                        status = "pass"
                         passes += 1
                 else:
-                    status = 'breach'
+                    status = "breach"
                     breaches += 1
 
-            checks.append(CovenantCheck(
-                name=name,
-                current_value=round(current, 4),
-                threshold=threshold,
-                direction=direction,
-                status=status,
-                headroom=round(headroom, 4),
-            ))
+            checks.append(
+                CovenantCheck(
+                    name=name,
+                    current_value=round(current, 4),
+                    threshold=threshold,
+                    direction=direction,
+                    status=status,
+                    headroom=round(headroom, 4),
+                )
+            )
 
         # Build summary
         total = len(checks)
@@ -4385,7 +4561,9 @@ class CharlieAnalyzer:
                 dso = round(raw_dso * 365, 1)
             if dso is not None:
                 if dso > 60:
-                    insights.append(f"DSO of {dso:.0f} days is high; consider tightening payment terms or improving collections.")
+                    insights.append(
+                        f"DSO of {dso:.0f} days is high; consider tightening payment terms or improving collections."
+                    )
                 elif dso > 45:
                     insights.append(f"DSO of {dso:.0f} days is moderate; monitor for deterioration.")
                 else:
@@ -4422,7 +4600,9 @@ class CharlieAnalyzer:
         if dso is not None and dio is not None and dpo is not None:
             ccc = round(dso + dio - dpo, 1)
             if ccc < 0:
-                insights.append(f"CCC of {ccc:.0f} days (negative): company collects cash before paying suppliers -- favorable.")
+                insights.append(
+                    f"CCC of {ccc:.0f} days (negative): company collects cash before paying suppliers -- favorable."
+                )
             elif ccc < 30:
                 insights.append(f"CCC of {ccc:.0f} days is efficient.")
             elif ccc < 60:
@@ -4486,36 +4666,38 @@ class CharlieAnalyzer:
 
         # Z-Score
         z = self.altman_z_score(data)
-        if z.zone == 'safe':
-            strengths.append(f"Altman Z-Score of {z.z_score:.2f} places company in the safe zone (low bankruptcy risk).")
-        elif z.zone == 'grey':
+        if z.zone == "safe":
+            strengths.append(
+                f"Altman Z-Score of {z.z_score:.2f} places company in the safe zone (low bankruptcy risk)."
+            )
+        elif z.zone == "grey":
             risks.append(f"Z-Score of {z.z_score:.2f} is in the grey zone; monitor for deterioration.")
-        elif z.zone == 'distress':
+        elif z.zone == "distress":
             risks.append(f"Z-Score of {z.z_score:.2f} indicates financial distress; immediate attention needed.")
 
         # Profitability
         prof = self.calculate_profitability_ratios(data)
-        nm = prof.get('net_margin')
+        nm = prof.get("net_margin")
         if nm is not None:
             if nm > 0.15:
-                strengths.append(f"Net margin of {nm*100:.1f}% demonstrates strong profitability.")
+                strengths.append(f"Net margin of {nm * 100:.1f}% demonstrates strong profitability.")
             elif nm > 0.05:
-                strengths.append(f"Net margin of {nm*100:.1f}% is adequate.")
+                strengths.append(f"Net margin of {nm * 100:.1f}% is adequate.")
             elif nm > 0:
-                weaknesses.append(f"Thin net margin of {nm*100:.1f}% leaves little room for error.")
+                weaknesses.append(f"Thin net margin of {nm * 100:.1f}% leaves little room for error.")
             else:
-                weaknesses.append(f"Negative net margin of {nm*100:.1f}% indicates the company is unprofitable.")
+                weaknesses.append(f"Negative net margin of {nm * 100:.1f}% indicates the company is unprofitable.")
 
-        roe = prof.get('roe')
+        roe = prof.get("roe")
         if roe is not None:
             if roe > 0.15:
-                strengths.append(f"ROE of {roe*100:.1f}% shows efficient use of shareholder equity.")
+                strengths.append(f"ROE of {roe * 100:.1f}% shows efficient use of shareholder equity.")
             elif roe < 0:
-                weaknesses.append(f"Negative ROE of {roe*100:.1f}% means equity is being destroyed.")
+                weaknesses.append(f"Negative ROE of {roe * 100:.1f}% means equity is being destroyed.")
 
         # Liquidity
         liq = self.calculate_liquidity_ratios(data)
-        cr = liq.get('current_ratio')
+        cr = liq.get("current_ratio")
         if cr is not None:
             if cr >= 2.0:
                 strengths.append(f"Current ratio of {cr:.2f} provides strong short-term liquidity.")
@@ -4526,14 +4708,14 @@ class CharlieAnalyzer:
 
         # Leverage
         lev = self.calculate_leverage_ratios(data)
-        dte = lev.get('debt_to_equity')
+        dte = lev.get("debt_to_equity")
         if dte is not None:
             if dte > 2.0:
                 risks.append(f"High debt-to-equity of {dte:.2f} increases financial risk and interest burden.")
             elif dte < 0.5:
                 strengths.append(f"Conservative leverage (D/E: {dte:.2f}) provides financial flexibility.")
 
-        ic = lev.get('interest_coverage')
+        ic = lev.get("interest_coverage")
         if ic is not None:
             if ic > 5:
                 strengths.append(f"Strong interest coverage of {ic:.1f}x comfortably services debt obligations.")
@@ -4544,28 +4726,40 @@ class CharlieAnalyzer:
         wc = self.working_capital_analysis(data)
         if wc.ccc is not None:
             if wc.ccc < 0:
-                strengths.append(f"Negative cash conversion cycle ({wc.ccc:.0f} days) means the business generates cash quickly.")
+                strengths.append(
+                    f"Negative cash conversion cycle ({wc.ccc:.0f} days) means the business generates cash quickly."
+                )
             elif wc.ccc > 60:
-                opportunities.append(f"CCC of {wc.ccc:.0f} days can be improved through better AR/AP/inventory management.")
+                opportunities.append(
+                    f"CCC of {wc.ccc:.0f} days can be improved through better AR/AP/inventory management."
+                )
 
         # Breakeven
         be = self.breakeven_analysis(data)
         if be.margin_of_safety is not None:
             if be.margin_of_safety > 0.3:
-                strengths.append(f"Margin of safety of {be.margin_of_safety*100:.0f}% above breakeven revenue.")
+                strengths.append(f"Margin of safety of {be.margin_of_safety * 100:.0f}% above breakeven revenue.")
             elif be.margin_of_safety > 0:
-                opportunities.append(f"Operating {be.margin_of_safety*100:.0f}% above breakeven; work to widen this buffer.")
+                opportunities.append(
+                    f"Operating {be.margin_of_safety * 100:.0f}% above breakeven; work to widen this buffer."
+                )
             else:
                 risks.append("Operating below breakeven revenue level.")
 
         # Generate recommendation
         if score >= 70 and len(risks) == 0:
-            recommendation = "Company is in strong financial health. Maintain current trajectory and look for growth opportunities."
+            recommendation = (
+                "Company is in strong financial health. Maintain current trajectory and look for growth opportunities."
+            )
         elif score >= 50:
             top_weakness = weaknesses[0] if weaknesses else "overall efficiency"
-            recommendation = f"Address key weakness: {top_weakness} Focus on improving profitability and reducing leverage."
+            recommendation = (
+                f"Address key weakness: {top_weakness} Focus on improving profitability and reducing leverage."
+            )
         else:
-            recommendation = "Urgent attention needed. Prioritize cash preservation, debt restructuring, and operational efficiency."
+            recommendation = (
+                "Urgent attention needed. Prioritize cash preservation, debt restructuring, and operational efficiency."
+            )
 
         return NarrativeReport(
             headline=headline,
@@ -4619,7 +4813,7 @@ class CharlieAnalyzer:
             slope_log, intercept_log = coeffs
             fitted = np.exp(intercept_log + slope_log * x)
             residuals = y - fitted
-            ss_res = np.sum(residuals ** 2)
+            ss_res = np.sum(residuals**2)
             ss_tot = np.sum((y - np.mean(y)) ** 2)
             r2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
             future_x = np.arange(n, n + periods_ahead, dtype=float)
@@ -4639,7 +4833,7 @@ class CharlieAnalyzer:
             poly = np.poly1d(coeffs)
             fitted = poly(x)
             residuals = y - fitted
-            ss_res = np.sum(residuals ** 2)
+            ss_res = np.sum(residuals**2)
             ss_tot = np.sum((y - np.mean(y)) ** 2)
             r2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
             future_x = np.arange(n, n + periods_ahead, dtype=float)
@@ -4658,7 +4852,7 @@ class CharlieAnalyzer:
             slope, intercept = coeffs
             fitted = intercept + slope * x
             residuals = y - fitted
-            ss_res = np.sum(residuals ** 2)
+            ss_res = np.sum(residuals**2)
             ss_tot = np.sum((y - np.mean(y)) ** 2)
             r2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
             future_x = np.arange(n, n + periods_ahead, dtype=float)
@@ -4677,46 +4871,46 @@ class CharlieAnalyzer:
     # Industry benchmark medians (representative defaults)
     INDUSTRY_BENCHMARKS: Dict[str, Dict[str, Dict[str, float]]] = {
         "general": {
-            "current_ratio":      {"p25": 1.2, "median": 1.8, "p75": 2.5},
-            "quick_ratio":        {"p25": 0.8, "median": 1.2, "p75": 1.8},
-            "gross_margin":       {"p25": 0.25, "median": 0.40, "p75": 0.55},
-            "net_margin":         {"p25": 0.03, "median": 0.08, "p75": 0.15},
-            "roe":                {"p25": 0.06, "median": 0.12, "p75": 0.20},
-            "roa":                {"p25": 0.03, "median": 0.06, "p75": 0.12},
-            "debt_to_equity":     {"p25": 0.3, "median": 0.8, "p75": 1.5},
-            "interest_coverage":  {"p25": 2.0, "median": 5.0, "p75": 10.0},
-            "asset_turnover":     {"p25": 0.4, "median": 0.8, "p75": 1.2},
+            "current_ratio": {"p25": 1.2, "median": 1.8, "p75": 2.5},
+            "quick_ratio": {"p25": 0.8, "median": 1.2, "p75": 1.8},
+            "gross_margin": {"p25": 0.25, "median": 0.40, "p75": 0.55},
+            "net_margin": {"p25": 0.03, "median": 0.08, "p75": 0.15},
+            "roe": {"p25": 0.06, "median": 0.12, "p75": 0.20},
+            "roa": {"p25": 0.03, "median": 0.06, "p75": 0.12},
+            "debt_to_equity": {"p25": 0.3, "median": 0.8, "p75": 1.5},
+            "interest_coverage": {"p25": 2.0, "median": 5.0, "p75": 10.0},
+            "asset_turnover": {"p25": 0.4, "median": 0.8, "p75": 1.2},
         },
         "technology": {
-            "current_ratio":      {"p25": 1.5, "median": 2.5, "p75": 4.0},
-            "gross_margin":       {"p25": 0.50, "median": 0.65, "p75": 0.80},
-            "net_margin":         {"p25": 0.05, "median": 0.15, "p75": 0.25},
-            "roe":                {"p25": 0.08, "median": 0.18, "p75": 0.30},
-            "roa":                {"p25": 0.04, "median": 0.10, "p75": 0.18},
-            "debt_to_equity":     {"p25": 0.1, "median": 0.3, "p75": 0.7},
+            "current_ratio": {"p25": 1.5, "median": 2.5, "p75": 4.0},
+            "gross_margin": {"p25": 0.50, "median": 0.65, "p75": 0.80},
+            "net_margin": {"p25": 0.05, "median": 0.15, "p75": 0.25},
+            "roe": {"p25": 0.08, "median": 0.18, "p75": 0.30},
+            "roa": {"p25": 0.04, "median": 0.10, "p75": 0.18},
+            "debt_to_equity": {"p25": 0.1, "median": 0.3, "p75": 0.7},
         },
         "manufacturing": {
-            "current_ratio":      {"p25": 1.0, "median": 1.5, "p75": 2.0},
-            "gross_margin":       {"p25": 0.20, "median": 0.30, "p75": 0.40},
-            "net_margin":         {"p25": 0.02, "median": 0.05, "p75": 0.10},
-            "roe":                {"p25": 0.05, "median": 0.10, "p75": 0.15},
-            "debt_to_equity":     {"p25": 0.5, "median": 1.0, "p75": 2.0},
-            "asset_turnover":     {"p25": 0.6, "median": 1.0, "p75": 1.5},
+            "current_ratio": {"p25": 1.0, "median": 1.5, "p75": 2.0},
+            "gross_margin": {"p25": 0.20, "median": 0.30, "p75": 0.40},
+            "net_margin": {"p25": 0.02, "median": 0.05, "p75": 0.10},
+            "roe": {"p25": 0.05, "median": 0.10, "p75": 0.15},
+            "debt_to_equity": {"p25": 0.5, "median": 1.0, "p75": 2.0},
+            "asset_turnover": {"p25": 0.6, "median": 1.0, "p75": 1.5},
         },
         "retail": {
-            "current_ratio":      {"p25": 0.8, "median": 1.3, "p75": 1.8},
-            "gross_margin":       {"p25": 0.25, "median": 0.35, "p75": 0.50},
-            "net_margin":         {"p25": 0.01, "median": 0.04, "p75": 0.08},
-            "roe":                {"p25": 0.08, "median": 0.15, "p75": 0.25},
-            "debt_to_equity":     {"p25": 0.4, "median": 1.0, "p75": 2.0},
-            "asset_turnover":     {"p25": 1.0, "median": 1.8, "p75": 2.5},
+            "current_ratio": {"p25": 0.8, "median": 1.3, "p75": 1.8},
+            "gross_margin": {"p25": 0.25, "median": 0.35, "p75": 0.50},
+            "net_margin": {"p25": 0.01, "median": 0.04, "p75": 0.08},
+            "roe": {"p25": 0.08, "median": 0.15, "p75": 0.25},
+            "debt_to_equity": {"p25": 0.4, "median": 1.0, "p75": 2.0},
+            "asset_turnover": {"p25": 1.0, "median": 1.8, "p75": 2.5},
         },
         "healthcare": {
-            "current_ratio":      {"p25": 1.2, "median": 1.8, "p75": 3.0},
-            "gross_margin":       {"p25": 0.30, "median": 0.45, "p75": 0.60},
-            "net_margin":         {"p25": 0.02, "median": 0.08, "p75": 0.15},
-            "roe":                {"p25": 0.05, "median": 0.12, "p75": 0.20},
-            "debt_to_equity":     {"p25": 0.3, "median": 0.7, "p75": 1.5},
+            "current_ratio": {"p25": 1.2, "median": 1.8, "p75": 3.0},
+            "gross_margin": {"p25": 0.30, "median": 0.45, "p75": 0.60},
+            "net_margin": {"p25": 0.02, "median": 0.08, "p75": 0.15},
+            "roe": {"p25": 0.05, "median": 0.12, "p75": 0.20},
+            "debt_to_equity": {"p25": 0.3, "median": 0.7, "p75": 1.5},
         },
     }
 
@@ -4734,9 +4928,7 @@ class CharlieAnalyzer:
         Returns:
             IndustryBenchmarkResult with per-metric comparison and overall percentile.
         """
-        benchmarks = self.INDUSTRY_BENCHMARKS.get(
-            industry.lower(), self.INDUSTRY_BENCHMARKS["general"]
-        )
+        benchmarks = self.INDUSTRY_BENCHMARKS.get(industry.lower(), self.INDUSTRY_BENCHMARKS["general"])
 
         # Gather company metrics
         liquidity = self.calculate_liquidity_ratios(data)
@@ -4801,15 +4993,17 @@ class CharlieAnalyzer:
             else:
                 rating = "below average"
 
-            comparisons.append(BenchmarkComparison(
-                metric_name=metric_name,
-                company_value=val,
-                industry_median=median,
-                industry_p25=p25,
-                industry_p75=p75,
-                percentile_rank=pct,
-                rating=rating,
-            ))
+            comparisons.append(
+                BenchmarkComparison(
+                    metric_name=metric_name,
+                    company_value=val,
+                    industry_median=median,
+                    industry_p25=p25,
+                    industry_p75=p75,
+                    percentile_rank=pct,
+                    rating=rating,
+                )
+            )
             percentile_ranks.append(pct)
 
         overall = float(np.mean(percentile_ranks)) if percentile_ranks else None
@@ -4819,14 +5013,20 @@ class CharlieAnalyzer:
         total = len(comparisons)
 
         if overall is not None and overall >= 60:
-            summary = (f"Company ranks in the {overall:.0f}th percentile overall vs {industry} peers. "
-                       f"{above}/{total} metrics above average.")
+            summary = (
+                f"Company ranks in the {overall:.0f}th percentile overall vs {industry} peers. "
+                f"{above}/{total} metrics above average."
+            )
         elif overall is not None and overall >= 40:
-            summary = (f"Company performs near industry median ({overall:.0f}th percentile). "
-                       f"{below}/{total} metrics need attention.")
+            summary = (
+                f"Company performs near industry median ({overall:.0f}th percentile). "
+                f"{below}/{total} metrics need attention."
+            )
         elif overall is not None:
-            summary = (f"Company underperforms {industry} peers ({overall:.0f}th percentile). "
-                       f"{below}/{total} metrics below average.")
+            summary = (
+                f"Company underperforms {industry} peers ({overall:.0f}th percentile). "
+                f"{below}/{total} metrics below average."
+            )
         else:
             summary = "Insufficient data for industry comparison."
 
@@ -4842,15 +5042,36 @@ class CharlieAnalyzer:
     # ------------------------------------------------------------------ #
 
     # Fields that can be referenced in custom KPI formulas
-    _KPI_ALLOWED_FIELDS = frozenset({
-        'revenue', 'cogs', 'gross_profit', 'operating_income', 'operating_expenses',
-        'ebit', 'ebitda', 'interest_expense', 'net_income', 'ebt',
-        'retained_earnings', 'depreciation',
-        'total_assets', 'current_assets', 'cash', 'inventory',
-        'accounts_receivable', 'total_liabilities', 'current_liabilities',
-        'accounts_payable', 'total_debt', 'total_equity',
-        'operating_cash_flow', 'investing_cash_flow', 'financing_cash_flow', 'capex',
-    })
+    _KPI_ALLOWED_FIELDS = frozenset(
+        {
+            "revenue",
+            "cogs",
+            "gross_profit",
+            "operating_income",
+            "operating_expenses",
+            "ebit",
+            "ebitda",
+            "interest_expense",
+            "net_income",
+            "ebt",
+            "retained_earnings",
+            "depreciation",
+            "total_assets",
+            "current_assets",
+            "cash",
+            "inventory",
+            "accounts_receivable",
+            "total_liabilities",
+            "current_liabilities",
+            "accounts_payable",
+            "total_debt",
+            "total_equity",
+            "operating_cash_flow",
+            "investing_cash_flow",
+            "financing_cash_flow",
+            "capex",
+        }
+    )
 
     _AST_OPS = {
         ast.Add: operator.add,
@@ -4941,9 +5162,9 @@ class CharlieAnalyzer:
             # Remove valid tokens to check for leftovers
             temp = sanitized
             for fname in sorted(self._KPI_ALLOWED_FIELDS, key=len, reverse=True):
-                temp = temp.replace(fname, '')
+                temp = temp.replace(fname, "")
             # Remove numbers, operators, whitespace, parentheses, dots
-            temp = re.sub(r'[\d+\-*/().\s]', '', temp)
+            temp = re.sub(r"[\d+\-*/().\s]", "", temp)
             if temp:
                 r.error = f"Invalid tokens in formula: {temp}"
                 results.append(r)
@@ -5010,18 +5231,24 @@ class CharlieAnalyzer:
 
         if metrics is None:
             metrics = [
-                "current_ratio", "gross_margin", "net_margin", "roe",
-                "roa", "debt_to_equity", "asset_turnover",
-                "operating_margin", "interest_coverage",
+                "current_ratio",
+                "gross_margin",
+                "net_margin",
+                "roe",
+                "roa",
+                "debt_to_equity",
+                "asset_turnover",
+                "operating_margin",
+                "interest_coverage",
             ]
 
-        peer_names = [p.name or f"Peer {i+1}" for i, p in enumerate(peers)]
+        peer_names = [p.name or f"Peer {i + 1}" for i, p in enumerate(peers)]
         comparisons: List[PeerMetricComparison] = []
 
         for metric_name in metrics:
             values: Dict[str, Optional[float]] = {}
             for peer in peers:
-                name = peer.name or f"Peer {peers.index(peer)+1}"
+                name = peer.name or f"Peer {peers.index(peer) + 1}"
                 val = self._compute_peer_metric(peer.data, metric_name)
                 values[name] = val
 
@@ -5041,14 +5268,16 @@ class CharlieAnalyzer:
                 worst = ""
                 median_val = None
 
-            comparisons.append(PeerMetricComparison(
-                metric_name=metric_name,
-                values=values,
-                best_performer=best,
-                worst_performer=worst,
-                average=avg,
-                median=median_val,
-            ))
+            comparisons.append(
+                PeerMetricComparison(
+                    metric_name=metric_name,
+                    values=values,
+                    best_performer=best,
+                    worst_performer=worst,
+                    average=avg,
+                    median=median_val,
+                )
+            )
 
         # Compute overall ranking: count how many metrics each peer is best at
         best_counts: Dict[str, int] = {n: 0 for n in peer_names}
@@ -5073,9 +5302,7 @@ class CharlieAnalyzer:
             summary=summary,
         )
 
-    def _compute_peer_metric(
-        self, data: Optional[FinancialData], metric_name: str
-    ) -> Optional[float]:
+    def _compute_peer_metric(self, data: Optional[FinancialData], metric_name: str) -> Optional[float]:
         """Compute a single named metric from FinancialData."""
         if data is None:
             return None
@@ -5150,11 +5377,13 @@ class CharlieAnalyzer:
             ),
         ]
         if tax_burden is not None:
-            net_margin_children.append(RatioDecompositionNode(
-                name="Tax Retention",
-                value=tax_burden,
-                formula="net_income / ebt",
-            ))
+            net_margin_children.append(
+                RatioDecompositionNode(
+                    name="Tax Retention",
+                    value=tax_burden,
+                    formula="net_income / ebt",
+                )
+            )
 
         # Level 2: Asset Turnover decomposition
         receivables_turnover = safe_divide(data.revenue, data.accounts_receivable)
@@ -5177,11 +5406,13 @@ class CharlieAnalyzer:
             ),
         ]
         if fixed_asset_ratio is not None:
-            at_children.append(RatioDecompositionNode(
-                name="Fixed Asset Turnover",
-                value=fixed_asset_ratio,
-                formula="revenue / fixed_assets",
-            ))
+            at_children.append(
+                RatioDecompositionNode(
+                    name="Fixed Asset Turnover",
+                    value=fixed_asset_ratio,
+                    formula="revenue / fixed_assets",
+                )
+            )
 
         # Level 2: Equity Multiplier decomposition
         debt_ratio = safe_divide(data.total_liabilities, data.total_assets)
@@ -5246,9 +5477,15 @@ class CharlieAnalyzer:
     # ------------------------------------------------------------------
 
     _GRADE_THRESHOLDS = [
-        (9.0, "AAA"), (8.0, "AA"), (7.0, "A"),
-        (6.0, "BBB"), (5.0, "BB"), (4.0, "B"),
-        (3.0, "CCC"), (2.0, "CC"), (0.0, "C"),
+        (9.0, "AAA"),
+        (8.0, "AA"),
+        (7.0, "A"),
+        (6.0, "BBB"),
+        (5.0, "BB"),
+        (4.0, "B"),
+        (3.0, "CCC"),
+        (2.0, "CC"),
+        (0.0, "C"),
     ]
 
     @staticmethod
@@ -5349,7 +5586,7 @@ class CharlieAnalyzer:
             ratios[field_name] = val
 
         # Step 2: Compute derived fields
-        for field_name, compute_fn in (derived or []):
+        for field_name, compute_fn in derived or []:
             val = compute_fn(ratios, data)
             setattr(result, field_name, val)
             ratios[field_name] = val
@@ -5395,7 +5632,7 @@ class CharlieAnalyzer:
 
         # Step 5: Apply adjustments
         adj = 0.0
-        for cond_fn, delta in (adjustments or []):
+        for cond_fn, delta in adjustments or []:
             if cond_fn(ratios, data):
                 adj += delta
 
@@ -5415,10 +5652,7 @@ class CharlieAnalyzer:
 
         # Step 7: Summary
         primary_str = f"{primary_val:.4f}" if primary_val is not None else "N/A"
-        result.summary = (
-            f"{label}: {primary}={primary_str}. "
-            f"Score={score}/10 ({grade})."
-        )
+        result.summary = f"{label}: {primary}={primary_str}. Score={score}/10 ({grade})."
 
         return result
 
@@ -5480,10 +5714,14 @@ class CharlieAnalyzer:
             else:
                 liq_score += 1.0
             liq_details.append(f"Quick Ratio: {qr:.2f}")
-        categories.append(RatingCategory(
-            name="Liquidity", score=liq_score, grade=self._score_to_grade(liq_score),
-            details="; ".join(liq_details) if liq_details else "Insufficient data",
-        ))
+        categories.append(
+            RatingCategory(
+                name="Liquidity",
+                score=liq_score,
+                grade=self._score_to_grade(liq_score),
+                details="; ".join(liq_details) if liq_details else "Insufficient data",
+            )
+        )
 
         # 2. Profitability (25%)
         gm = safe_divide(data.gross_profit, data.revenue)
@@ -5503,11 +5741,14 @@ class CharlieAnalyzer:
             s = min(3.4, max(0, roe * 20))
             prof_score += s
             prof_details.append(f"ROE: {roe:.1%}")
-        categories.append(RatingCategory(
-            name="Profitability", score=min(10, prof_score),
-            grade=self._score_to_grade(min(10, prof_score)),
-            details="; ".join(prof_details) if prof_details else "Insufficient data",
-        ))
+        categories.append(
+            RatingCategory(
+                name="Profitability",
+                score=min(10, prof_score),
+                grade=self._score_to_grade(min(10, prof_score)),
+                details="; ".join(prof_details) if prof_details else "Insufficient data",
+            )
+        )
 
         # 3. Leverage (20%)
         de = safe_divide(data.total_debt, data.total_equity)
@@ -5535,11 +5776,14 @@ class CharlieAnalyzer:
             else:
                 lev_score += 1.0
             lev_details.append(f"Interest Coverage: {ic:.1f}x")
-        categories.append(RatingCategory(
-            name="Leverage", score=lev_score,
-            grade=self._score_to_grade(lev_score),
-            details="; ".join(lev_details) if lev_details else "Insufficient data",
-        ))
+        categories.append(
+            RatingCategory(
+                name="Leverage",
+                score=lev_score,
+                grade=self._score_to_grade(lev_score),
+                details="; ".join(lev_details) if lev_details else "Insufficient data",
+            )
+        )
 
         # 4. Efficiency (20%)
         at = safe_divide(data.revenue, data.total_assets)
@@ -5554,11 +5798,14 @@ class CharlieAnalyzer:
             s = min(5.0, max(0, inv_t / 2))
             eff_score += s
             eff_details.append(f"Inventory Turnover: {inv_t:.1f}x")
-        categories.append(RatingCategory(
-            name="Efficiency", score=min(10, eff_score),
-            grade=self._score_to_grade(min(10, eff_score)),
-            details="; ".join(eff_details) if eff_details else "Insufficient data",
-        ))
+        categories.append(
+            RatingCategory(
+                name="Efficiency",
+                score=min(10, eff_score),
+                grade=self._score_to_grade(min(10, eff_score)),
+                details="; ".join(eff_details) if eff_details else "Insufficient data",
+            )
+        )
 
         # 5. Cash Flow (15%)
         cf_score = 0.0
@@ -5578,11 +5825,14 @@ class CharlieAnalyzer:
         elif fcf is not None:
             cf_score += 1.0
             cf_details.append(f"FCF: {fcf:,.0f} (negative)")
-        categories.append(RatingCategory(
-            name="Cash Flow", score=min(10, cf_score),
-            grade=self._score_to_grade(min(10, cf_score)),
-            details="; ".join(cf_details) if cf_details else "Insufficient data",
-        ))
+        categories.append(
+            RatingCategory(
+                name="Cash Flow",
+                score=min(10, cf_score),
+                grade=self._score_to_grade(min(10, cf_score)),
+                details="; ".join(cf_details) if cf_details else "Insufficient data",
+            )
+        )
 
         # Weighted average
         weights = [0.20, 0.25, 0.20, 0.20, 0.15]
@@ -5629,70 +5879,84 @@ class CharlieAnalyzer:
         items: List[WaterfallItem] = []
         cumulative = start
 
-        items.append(WaterfallItem(
-            label="Prior Net Income",
-            value=start,
-            cumulative=start,
-            item_type="start",
-        ))
+        items.append(
+            WaterfallItem(
+                label="Prior Net Income",
+                value=start,
+                cumulative=start,
+                item_type="start",
+            )
+        )
 
         # Revenue change
         rev_delta = (current.revenue or 0) - (previous.revenue or 0)
         cumulative += rev_delta
-        items.append(WaterfallItem(
-            label="Revenue Change",
-            value=rev_delta,
-            cumulative=cumulative,
-            item_type="delta",
-        ))
+        items.append(
+            WaterfallItem(
+                label="Revenue Change",
+                value=rev_delta,
+                cumulative=cumulative,
+                item_type="delta",
+            )
+        )
 
         # COGS change (negative = favorable if COGS decreased)
         cogs_delta = -((current.cogs or 0) - (previous.cogs or 0))
         cumulative += cogs_delta
-        items.append(WaterfallItem(
-            label="COGS Impact",
-            value=cogs_delta,
-            cumulative=cumulative,
-            item_type="delta",
-        ))
+        items.append(
+            WaterfallItem(
+                label="COGS Impact",
+                value=cogs_delta,
+                cumulative=cumulative,
+                item_type="delta",
+            )
+        )
 
         # OpEx change (negative = favorable if OpEx decreased)
         opex_delta = -((current.operating_expenses or 0) - (previous.operating_expenses or 0))
         cumulative += opex_delta
-        items.append(WaterfallItem(
-            label="OpEx Impact",
-            value=opex_delta,
-            cumulative=cumulative,
-            item_type="delta",
-        ))
+        items.append(
+            WaterfallItem(
+                label="OpEx Impact",
+                value=opex_delta,
+                cumulative=cumulative,
+                item_type="delta",
+            )
+        )
 
         # Interest change (negative = favorable if interest decreased)
         int_delta = -((current.interest_expense or 0) - (previous.interest_expense or 0))
         cumulative += int_delta
-        items.append(WaterfallItem(
-            label="Interest Impact",
-            value=int_delta,
-            cumulative=cumulative,
-            item_type="delta",
-        ))
+        items.append(
+            WaterfallItem(
+                label="Interest Impact",
+                value=int_delta,
+                cumulative=cumulative,
+                item_type="delta",
+            )
+        )
 
         # Other / residual
         residual = end - cumulative
         if abs(residual) > 0.01:
             cumulative += residual
-            items.append(WaterfallItem(
-                label="Other / Tax",
-                value=residual,
-                cumulative=cumulative,
-                item_type="delta",
-            ))
+            items.append(
+                WaterfallItem(
+                    label="Other / Tax",
+                    value=residual,
+                    cumulative=cumulative,
+                    item_type="delta",
+                )
+            )
 
-        items.append(WaterfallItem(
-            label="Current Net Income",
-            value=end,
-            cumulative=end,
-            item_type="total",
-        ))
+        items.append(
+            WaterfallItem(
+                label="Current Net Income",
+                value=end,
+                cumulative=end,
+                item_type="total",
+            )
+        )
 
         total_var = end - start
         pct = (total_var / abs(start) * 100) if start != 0 else 0
@@ -5968,17 +6232,19 @@ class CharlieAnalyzer:
             if stressed_cf < 0 and cash_proxy > 0:
                 survival_months = cash_proxy / abs(stressed_cf)
             elif stressed_cf >= 0:
-                survival_months = float('inf')
+                survival_months = float("inf")
             else:
                 survival_months = 0.0
 
-            scenarios.append({
-                "shock_pct": shock,
-                "label": f"{shock:.0%} revenue decline",
-                "monthly_cash_flow": round(stressed_cf, 2),
-                "survival_months": round(survival_months, 1) if survival_months != float('inf') else None,
-                "survives_12m": survival_months >= 12,
-            })
+            scenarios.append(
+                {
+                    "shock_pct": shock,
+                    "label": f"{shock:.0%} revenue decline",
+                    "monthly_cash_flow": round(stressed_cf, 2),
+                    "survival_months": round(survival_months, 1) if survival_months != float("inf") else None,
+                    "survives_12m": survival_months >= 12,
+                }
+            )
 
         # Risk level
         worst_survival = min(
@@ -6017,8 +6283,14 @@ class CharlieAnalyzer:
     # ------------------------------------------------------------------
 
     _HEALTH_GRADES = [
-        (90, "A+"), (80, "A"), (70, "B+"), (60, "B"),
-        (50, "C+"), (40, "C"), (30, "D"), (0, "F"),
+        (90, "A+"),
+        (80, "A"),
+        (70, "B+"),
+        (60, "B"),
+        (50, "C+"),
+        (40, "C"),
+        (30, "D"),
+        (0, "F"),
     ]
 
     @staticmethod
@@ -6092,19 +6364,27 @@ class CharlieAnalyzer:
             elif roe < 0:
                 prof_score -= 10
         prof_score = max(0, min(100, prof_score))
-        dimensions.append(HealthDimension(
-            name="Profitability", score=prof_score, weight=0.20,
-            status=self._traffic_light(prof_score),
-            detail=f"GM={gm:.1%}" if gm is not None else "N/A",
-        ))
+        dimensions.append(
+            HealthDimension(
+                name="Profitability",
+                score=prof_score,
+                weight=0.20,
+                status=self._traffic_light(prof_score),
+                detail=f"GM={gm:.1%}" if gm is not None else "N/A",
+            )
+        )
 
         # --- 2. Liquidity (15%) ---
         liq_score = 50.0
         cr = safe_divide(data.current_assets, data.current_liabilities)
-        qr = safe_divide(
-            (data.current_assets or 0) - (data.inventory or 0),
-            data.current_liabilities,
-        ) if data.current_liabilities and data.current_liabilities > 0 else None
+        qr = (
+            safe_divide(
+                (data.current_assets or 0) - (data.inventory or 0),
+                data.current_liabilities,
+            )
+            if data.current_liabilities and data.current_liabilities > 0
+            else None
+        )
         if cr is not None:
             if cr >= 2.0:
                 liq_score += 25
@@ -6122,11 +6402,15 @@ class CharlieAnalyzer:
             elif qr < 0.5:
                 liq_score -= 15
         liq_score = max(0, min(100, liq_score))
-        dimensions.append(HealthDimension(
-            name="Liquidity", score=liq_score, weight=0.15,
-            status=self._traffic_light(liq_score),
-            detail=f"CR={cr:.2f}" if cr is not None else "N/A",
-        ))
+        dimensions.append(
+            HealthDimension(
+                name="Liquidity",
+                score=liq_score,
+                weight=0.15,
+                status=self._traffic_light(liq_score),
+                detail=f"CR={cr:.2f}" if cr is not None else "N/A",
+            )
+        )
 
         # --- 3. Leverage / Solvency (15%) ---
         lev_score = 50.0
@@ -6149,11 +6433,15 @@ class CharlieAnalyzer:
             elif da > 0.80:
                 lev_score -= 15
         lev_score = max(0, min(100, lev_score))
-        dimensions.append(HealthDimension(
-            name="Leverage", score=lev_score, weight=0.15,
-            status=self._traffic_light(lev_score),
-            detail=f"D/E={de:.2f}" if de is not None else "N/A",
-        ))
+        dimensions.append(
+            HealthDimension(
+                name="Leverage",
+                score=lev_score,
+                weight=0.15,
+                status=self._traffic_light(lev_score),
+                detail=f"D/E={de:.2f}" if de is not None else "N/A",
+            )
+        )
 
         # --- 4. Efficiency (10%) ---
         eff_score = 50.0
@@ -6166,11 +6454,15 @@ class CharlieAnalyzer:
             elif at < 0.2:
                 eff_score -= 15
         eff_score = max(0, min(100, eff_score))
-        dimensions.append(HealthDimension(
-            name="Efficiency", score=eff_score, weight=0.10,
-            status=self._traffic_light(eff_score),
-            detail=f"AT={at:.2f}x" if at is not None else "N/A",
-        ))
+        dimensions.append(
+            HealthDimension(
+                name="Efficiency",
+                score=eff_score,
+                weight=0.10,
+                status=self._traffic_light(eff_score),
+                detail=f"AT={at:.2f}x" if at is not None else "N/A",
+            )
+        )
 
         # --- 5. Cash Flow Quality (15%) ---
         cf_score = 50.0
@@ -6197,11 +6489,15 @@ class CharlieAnalyzer:
             else:
                 cf_score -= 10
         cf_score = max(0, min(100, cf_score))
-        dimensions.append(HealthDimension(
-            name="Cash Flow", score=cf_score, weight=0.15,
-            status=self._traffic_light(cf_score),
-            detail=f"OCF={'pos' if ocf and ocf > 0 else 'neg/NA'}",
-        ))
+        dimensions.append(
+            HealthDimension(
+                name="Cash Flow",
+                score=cf_score,
+                weight=0.15,
+                status=self._traffic_light(cf_score),
+                detail=f"OCF={'pos' if ocf and ocf > 0 else 'neg/NA'}",
+            )
+        )
 
         # --- 6. Capital Efficiency (10%) ---
         cap_score = 50.0
@@ -6221,11 +6517,15 @@ class CharlieAnalyzer:
             else:
                 cap_score -= 10
         cap_score = max(0, min(100, cap_score))
-        dimensions.append(HealthDimension(
-            name="Capital Efficiency", score=cap_score, weight=0.10,
-            status=self._traffic_light(cap_score),
-            detail=f"ROIC={ce.roic:.1%}" if ce.roic is not None else "N/A",
-        ))
+        dimensions.append(
+            HealthDimension(
+                name="Capital Efficiency",
+                score=cap_score,
+                weight=0.10,
+                status=self._traffic_light(cap_score),
+                detail=f"ROIC={ce.roic:.1%}" if ce.roic is not None else "N/A",
+            )
+        )
 
         # --- 7. Debt Service (15%) ---
         ds_score = 50.0
@@ -6259,11 +6559,15 @@ class CharlieAnalyzer:
             elif int_cov < 1.5:
                 ds_score -= 15
         ds_score = max(0, min(100, ds_score))
-        dimensions.append(HealthDimension(
-            name="Debt Service", score=ds_score, weight=0.15,
-            status=self._traffic_light(ds_score),
-            detail=f"DSCR={dscr:.2f}x" if dscr is not None else "N/A",
-        ))
+        dimensions.append(
+            HealthDimension(
+                name="Debt Service",
+                score=ds_score,
+                weight=0.15,
+                status=self._traffic_light(ds_score),
+                detail=f"DSCR={dscr:.2f}x" if dscr is not None else "N/A",
+            )
+        )
 
         # --- Weighted overall ---
         overall = sum(d.score * d.weight for d in dimensions)
@@ -6679,12 +6983,18 @@ class CharlieAnalyzer:
             nopat = ebit * (1 - self._tax_rate)
 
         # --- ROIC = NOPAT / Invested Capital ---
-        roic = safe_divide(nopat, invested_capital) if nopat is not None and invested_capital is not None and invested_capital > 0 else None
+        roic = (
+            safe_divide(nopat, invested_capital)
+            if nopat is not None and invested_capital is not None and invested_capital > 0
+            else None
+        )
 
         # --- Cost of capital proxy (simplified WACC estimate) ---
         # Use interest rate on debt as debt cost, assume 10% equity cost
         cost_of_debt = safe_divide(interest, debt) if debt > 0 else 0.05
-        equity_weight = safe_divide(equity, invested_capital) if invested_capital and invested_capital > 0 and equity else 0.5
+        equity_weight = (
+            safe_divide(equity, invested_capital) if invested_capital and invested_capital > 0 and equity else 0.5
+        )
         debt_weight = 1 - equity_weight
         wacc_proxy = (equity_weight * 0.10) + (debt_weight * (cost_of_debt or 0.05) * (1 - self._tax_rate))
 
@@ -6815,7 +7125,9 @@ class CharlieAnalyzer:
 
         # --- Return on risk = ROE / leverage_ratio ---
         # Adjusts for the fact that high ROE from leverage isn't truly "better"
-        return_on_risk = safe_divide(roe, leverage) if roe is not None and leverage is not None and leverage > 0 else None
+        return_on_risk = (
+            safe_divide(roe, leverage) if roe is not None and leverage is not None and leverage > 0 else None
+        )
 
         # --- Risk-adjusted ROE = ROE × (Equity / Total Assets) ---
         # Penalizes ROE that comes from high leverage
@@ -6949,9 +7261,11 @@ class CharlieAnalyzer:
         ebitda = data.ebitda
         revenue = data.revenue or 0
         interest = data.interest_expense or 0
-        cash = data.cash or (data.current_assets - data.current_liabilities
-                             if data.current_assets is not None and data.current_liabilities is not None
-                             else None)
+        cash = data.cash or (
+            data.current_assets - data.current_liabilities
+            if data.current_assets is not None and data.current_liabilities is not None
+            else None
+        )
 
         # --- Earnings yield proxy = NI / Equity (like E/P without market price) ---
         earnings_yield = safe_divide(ni, equity) if ni is not None and equity is not None and equity > 0 else None
@@ -6968,7 +7282,9 @@ class CharlieAnalyzer:
                 ev_proxy = None
 
         # --- EV / EBITDA ---
-        ev_ebitda = safe_divide(ev_proxy, ebitda) if ev_proxy is not None and ebitda is not None and ebitda > 0 else None
+        ev_ebitda = (
+            safe_divide(ev_proxy, ebitda) if ev_proxy is not None and ebitda is not None and ebitda > 0 else None
+        )
 
         # --- EV / Revenue ---
         ev_revenue = safe_divide(ev_proxy, revenue) if ev_proxy is not None and revenue > 0 else None
@@ -6978,7 +7294,9 @@ class CharlieAnalyzer:
 
         # --- Price-to-book proxy ---
         # Use (EV / Equity) as proxy since we lack market cap
-        ptb_proxy = safe_divide(ev_proxy, equity) if ev_proxy is not None and equity is not None and equity > 0 else None
+        ptb_proxy = (
+            safe_divide(ev_proxy, equity) if ev_proxy is not None and equity is not None and equity > 0 else None
+        )
 
         # --- ROIC (from profitability decomp, repeated for convenience) ---
         invested = (equity or 0) + debt
@@ -6990,6 +7308,7 @@ class CharlieAnalyzer:
         graham = None
         if ni is not None and ni > 0 and bv_proxy is not None:
             import math
+
             graham = math.sqrt(22.5 * ni * bv_proxy)
 
         # --- DCF-lite intrinsic value proxy ---
@@ -7132,7 +7451,11 @@ class CharlieAnalyzer:
             plowback = safe_divide(retained_earnings, ni)
 
         # --- Equity growth rate = retained earnings / equity ---
-        eq_growth = safe_divide(retained_earnings, equity) if retained_earnings is not None and equity is not None and equity > 0 else None
+        eq_growth = (
+            safe_divide(retained_earnings, equity)
+            if retained_earnings is not None and equity is not None and equity > 0
+            else None
+        )
 
         # --- Reinvestment rate = Capex / Depreciation ---
         reinvest = safe_divide(capex, depreciation) if depreciation > 0 else None
@@ -7282,7 +7605,11 @@ class CharlieAnalyzer:
 
         # --- Fixed asset ratio (fixed assets / equity) ---
         fixed_assets = (ta - ca) if ta is not None and ca is not None else None
-        fa_ratio = safe_divide(fixed_assets, equity) if fixed_assets is not None and equity is not None and equity > 0 else None
+        fa_ratio = (
+            safe_divide(fixed_assets, equity)
+            if fixed_assets is not None and equity is not None and equity > 0
+            else None
+        )
 
         # --- Debt concentration (debt / TL) ---
         debt_conc = safe_divide(debt, tl) if debt is not None and tl is not None and tl > 0 else None
@@ -8383,10 +8710,7 @@ class CharlieAnalyzer:
 
         fcf_str = f"${fcf:,.0f}" if fcf is not None else "N/A"
         margin_str = f"{fm * 100:.1f}%" if fm is not None else "N/A"
-        result.summary = (
-            f"FCF Yield: Free cash flow of {fcf_str} ({margin_str} margin). "
-            f"Grade: {grade}."
-        )
+        result.summary = f"FCF Yield: Free cash flow of {fcf_str} ({margin_str} margin). Grade: {grade}."
 
         return result
 
@@ -8502,10 +8826,7 @@ class CharlieAnalyzer:
         result.cash_conversion_grade = grade
 
         ccc_str = f"{ccc:.0f} days" if ccc is not None else "N/A"
-        result.summary = (
-            f"Cash Conversion: CCC of {ccc_str}. "
-            f"Grade: {grade}."
-        )
+        result.summary = f"Cash Conversion: CCC of {ccc_str}. Grade: {grade}."
 
         return result
 
@@ -8603,15 +8924,17 @@ class CharlieAnalyzer:
         result.tata = tata
 
         # --- Compute M-Score ---
-        m = (-4.84
-             + 0.920 * dsri
-             + 0.528 * gmi
-             + 0.404 * aqi
-             + 0.892 * sgi
-             + 0.115 * depi
-             - 0.172 * sgai
-             + 4.679 * tata
-             - 0.327 * lvgi)
+        m = (
+            -4.84
+            + 0.920 * dsri
+            + 0.528 * gmi
+            + 0.404 * aqi
+            + 0.892 * sgi
+            + 0.115 * depi
+            - 0.172 * sgai
+            + 4.679 * tata
+            - 0.327 * lvgi
+        )
         result.m_score = m
 
         # --- Scoring (invert: lower M = better, score 0-10) ---
@@ -8651,11 +8974,7 @@ class CharlieAnalyzer:
             grade = "Highly Likely"
         result.manipulation_grade = grade
 
-        result.summary = (
-            f"Beneish M-Score: {m:.2f} "
-            f"(threshold -1.78). "
-            f"Manipulation: {grade}."
-        )
+        result.summary = f"Beneish M-Score: {m:.2f} (threshold -1.78). Manipulation: {grade}."
 
         return result
 
@@ -8675,15 +8994,35 @@ class CharlieAnalyzer:
             higher_is_better=True,
             thresholds=[(0.40, 10.0), (0.30, 8.5), (0.20, 7.0), (0.15, 5.5), (0.10, 4.0), (0.05, 2.5)],
             adjustments=[
-                (lambda r, d: (
-                    d.net_income is not None and d.net_income > 0 and
-                    ((d.net_income - (d.dividends_paid or 0)) / d.net_income) >= 0.60
-                ), 0.5),
-                (lambda r, d: d.retained_earnings is not None and d.retained_earnings > 0 and d.total_assets is not None and d.total_assets > 0, 0.5),
+                (
+                    lambda r, d: (
+                        d.net_income is not None
+                        and d.net_income > 0
+                        and ((d.net_income - (d.dividends_paid or 0)) / d.net_income) >= 0.60
+                    ),
+                    0.5,
+                ),
+                (
+                    lambda r, d: d.retained_earnings is not None
+                    and d.retained_earnings > 0
+                    and d.total_assets is not None
+                    and d.total_assets > 0,
+                    0.5,
+                ),
             ],
             derived=[
-                ("retention_rate", lambda r, d: (d.net_income - (d.dividends_paid or 0)) / d.net_income if d.net_income is not None and d.net_income > 0 else None),
-                ("re_growth_capacity", lambda r, d: safe_divide(d.net_income - (d.dividends_paid or 0), d.retained_earnings) if d.net_income is not None and d.net_income > 0 else None),
+                (
+                    "retention_rate",
+                    lambda r, d: (d.net_income - (d.dividends_paid or 0)) / d.net_income
+                    if d.net_income is not None and d.net_income > 0
+                    else None,
+                ),
+                (
+                    "re_growth_capacity",
+                    lambda r, d: safe_divide(d.net_income - (d.dividends_paid or 0), d.retained_earnings)
+                    if d.net_income is not None and d.net_income > 0
+                    else None,
+                ),
                 ("prp_spread", lambda r, d: r["prp_ratio"] - 0.20 if r.get("prp_ratio") is not None else None),
             ],
             label="Profit Retention Power",
@@ -8707,7 +9046,13 @@ class CharlieAnalyzer:
             thresholds=[(0.40, 10.0), (0.30, 8.5), (0.20, 7.0), (0.15, 5.5), (0.10, 4.0), (0.05, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("ni_to_interest") is not None and r["ni_to_interest"] >= 3.0, 0.5),
-                (lambda r, d: d.net_income is not None and d.net_income > 0 and d.total_debt is not None and d.total_debt > 0, 0.5),
+                (
+                    lambda r, d: d.net_income is not None
+                    and d.net_income > 0
+                    and d.total_debt is not None
+                    and d.total_debt > 0,
+                    0.5,
+                ),
             ],
             derived=[
                 ("earnings_yield_on_debt", lambda r, d: r.get("etd_ratio")),
@@ -8734,13 +9079,34 @@ class CharlieAnalyzer:
             thresholds=[(0.15, 10.0), (0.12, 8.5), (0.10, 7.0), (0.07, 5.5), (0.05, 4.0), (0.02, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("roe") is not None and r["roe"] >= 0.12, 0.5),
-                (lambda r, d: d.net_income is not None and d.net_income > 0 and d.total_equity is not None and d.total_equity > 0, 0.5),
+                (
+                    lambda r, d: d.net_income is not None
+                    and d.net_income > 0
+                    and d.total_equity is not None
+                    and d.total_equity > 0,
+                    0.5,
+                ),
             ],
             derived=[
-                ("plowback", lambda r, d: (d.net_income - (d.dividends_paid or 0)) / d.net_income if d.net_income is not None and d.net_income != 0 else None),
-                ("sustainable_growth", lambda r, d: r["roe"] * r["plowback"] if r.get("roe") is not None and r.get("plowback") is not None else None),
+                (
+                    "plowback",
+                    lambda r, d: (d.net_income - (d.dividends_paid or 0)) / d.net_income
+                    if d.net_income is not None and d.net_income != 0
+                    else None,
+                ),
+                (
+                    "sustainable_growth",
+                    lambda r, d: r["roe"] * r["plowback"]
+                    if r.get("roe") is not None and r.get("plowback") is not None
+                    else None,
+                ),
                 ("rg_capacity", lambda r, d: r.get("sustainable_growth")),
-                ("rg_spread", lambda r, d: r["sustainable_growth"] - r["roe"] if r.get("sustainable_growth") is not None and r.get("roe") is not None else None),
+                (
+                    "rg_spread",
+                    lambda r, d: r["sustainable_growth"] - r["roe"]
+                    if r.get("sustainable_growth") is not None and r.get("roe") is not None
+                    else None,
+                ),
             ],
             label="Revenue Growth",
         )
@@ -8763,11 +9129,22 @@ class CharlieAnalyzer:
             thresholds=[(0.25, 10.0), (0.20, 8.5), (0.15, 7.0), (0.10, 5.5), (0.05, 4.0), (0.02, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("ebitda_margin") is not None and r["ebitda_margin"] >= 0.20, 0.5),
-                (lambda r, d: d.operating_income is not None and d.operating_income > 0 and d.revenue is not None and d.revenue > 0, 0.5),
+                (
+                    lambda r, d: d.operating_income is not None
+                    and d.operating_income > 0
+                    and d.revenue is not None
+                    and d.revenue > 0,
+                    0.5,
+                ),
             ],
             derived=[
                 ("operating_margin", lambda r, d: r.get("oi_to_revenue")),
-                ("opm_spread", lambda r, d: r["ebitda_margin"] - r["oi_to_revenue"] if r.get("oi_to_revenue") is not None and r.get("ebitda_margin") is not None else None),
+                (
+                    "opm_spread",
+                    lambda r, d: r["ebitda_margin"] - r["oi_to_revenue"]
+                    if r.get("oi_to_revenue") is not None and r.get("ebitda_margin") is not None
+                    else None,
+                ),
             ],
             label="Operating Margin",
         )
@@ -8790,12 +9167,28 @@ class CharlieAnalyzer:
             thresholds=[(0.30, 10.0), (0.50, 8.5), (0.80, 7.0), (1.00, 5.5), (1.50, 4.0), (2.00, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("debt_to_assets") is not None and r["debt_to_assets"] <= 0.50, 0.5),
-                (lambda r, d: d.total_debt is not None and d.total_debt > 0 and d.total_equity is not None and d.total_equity > 0, 0.5),
+                (
+                    lambda r, d: d.total_debt is not None
+                    and d.total_debt > 0
+                    and d.total_equity is not None
+                    and d.total_equity > 0,
+                    0.5,
+                ),
             ],
             derived=[
                 ("dte_ratio", lambda r, d: r.get("td_to_te")),
-                ("lt_debt_to_equity", lambda r, d: d.total_debt / d.total_equity if d.total_debt is not None and d.total_equity is not None and d.total_equity != 0 else None),
-                ("dte_spread", lambda r, d: r["td_to_te"] - r["debt_to_assets"] if r.get("td_to_te") is not None and r.get("debt_to_assets") is not None else None),
+                (
+                    "lt_debt_to_equity",
+                    lambda r, d: d.total_debt / d.total_equity
+                    if d.total_debt is not None and d.total_equity is not None and d.total_equity != 0
+                    else None,
+                ),
+                (
+                    "dte_spread",
+                    lambda r, d: r["td_to_te"] - r["debt_to_assets"]
+                    if r.get("td_to_te") is not None and r.get("debt_to_assets") is not None
+                    else None,
+                ),
             ],
             label="Debt to Equity",
         )
@@ -8817,13 +9210,37 @@ class CharlieAnalyzer:
             thresholds=[(0.50, 10.0), (0.40, 8.5), (0.30, 7.0), (0.20, 5.5), (0.10, 4.0), (0.05, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("ocf_to_interest") is not None and r["ocf_to_interest"] >= 3.0, 0.5),
-                (lambda r, d: d.operating_cash_flow is not None and d.operating_cash_flow > 0 and d.total_debt is not None and d.total_debt > 0, 0.5),
+                (
+                    lambda r, d: d.operating_cash_flow is not None
+                    and d.operating_cash_flow > 0
+                    and d.total_debt is not None
+                    and d.total_debt > 0,
+                    0.5,
+                ),
             ],
             derived=[
                 ("cf_to_debt", lambda r, d: r.get("ocf_to_td")),
-                ("fcf_to_td", lambda r, d: (d.operating_cash_flow - (d.capex or 0)) / d.total_debt if d.operating_cash_flow is not None and d.capex is not None and d.total_debt is not None and d.total_debt != 0 else None),
-                ("debt_payback_years", lambda r, d: d.total_debt / d.operating_cash_flow if d.total_debt is not None and d.operating_cash_flow is not None and d.operating_cash_flow > 0 else None),
-                ("cf_debt_spread", lambda r, d: r["ocf_to_td"] - r["fcf_to_td"] if r.get("ocf_to_td") is not None and r.get("fcf_to_td") is not None else None),
+                (
+                    "fcf_to_td",
+                    lambda r, d: (d.operating_cash_flow - (d.capex or 0)) / d.total_debt
+                    if d.operating_cash_flow is not None
+                    and d.capex is not None
+                    and d.total_debt is not None
+                    and d.total_debt != 0
+                    else None,
+                ),
+                (
+                    "debt_payback_years",
+                    lambda r, d: d.total_debt / d.operating_cash_flow
+                    if d.total_debt is not None and d.operating_cash_flow is not None and d.operating_cash_flow > 0
+                    else None,
+                ),
+                (
+                    "cf_debt_spread",
+                    lambda r, d: r["ocf_to_td"] - r["fcf_to_td"]
+                    if r.get("ocf_to_td") is not None and r.get("fcf_to_td") is not None
+                    else None,
+                ),
             ],
             label="Cash Flow to Debt",
         )
@@ -8846,12 +9263,28 @@ class CharlieAnalyzer:
             thresholds=[(0.70, 10.0), (0.60, 8.5), (0.50, 7.0), (0.40, 5.5), (0.25, 4.0), (0.10, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("equity_to_assets") is not None and r["equity_to_assets"] >= 0.40, 0.5),
-                (lambda r, d: d.retained_earnings is not None and d.retained_earnings > 0 and d.total_equity is not None and d.total_equity > 0, 0.5),
+                (
+                    lambda r, d: d.retained_earnings is not None
+                    and d.retained_earnings > 0
+                    and d.total_equity is not None
+                    and d.total_equity > 0,
+                    0.5,
+                ),
             ],
             derived=[
-                ("plowback_rate", lambda r, d: (d.net_income - (d.dividends_paid or 0)) / d.net_income if d.net_income is not None and d.net_income != 0 else None),
+                (
+                    "plowback_rate",
+                    lambda r, d: (d.net_income - (d.dividends_paid or 0)) / d.net_income
+                    if d.net_income is not None and d.net_income != 0
+                    else None,
+                ),
                 ("nw_growth_ratio", lambda r, d: r.get("re_to_equity")),
-                ("nw_spread", lambda r, d: r["re_to_equity"] - r["equity_to_assets"] if r.get("re_to_equity") is not None and r.get("equity_to_assets") is not None else None),
+                (
+                    "nw_spread",
+                    lambda r, d: r["re_to_equity"] - r["equity_to_assets"]
+                    if r.get("re_to_equity") is not None and r.get("equity_to_assets") is not None
+                    else None,
+                ),
             ],
             label="Net Worth Growth",
         )
@@ -8883,20 +9316,29 @@ class CharlieAnalyzer:
             primary="lightness_ratio",
             higher_is_better=True,
             thresholds=[
-                (0.70, 10.0), (0.60, 8.5), (0.50, 7.0),
-                (0.40, 5.5), (0.30, 4.0), (0.15, 2.5), (0.0, 1.0),
+                (0.70, 10.0),
+                (0.60, 8.5),
+                (0.50, 7.0),
+                (0.40, 5.5),
+                (0.30, 4.0),
+                (0.15, 2.5),
+                (0.0, 1.0),
             ],
             adjustments=[
                 # revenue/TA >= 0.50 (+0.5)
                 (lambda r, d: r.get("revenue_to_assets") is not None and r["revenue_to_assets"] >= 0.50, 0.5),
                 # lightness > 0 and TA > 0 (+0.5)
-                (lambda r, d: r.get("lightness_ratio") is not None and r["lightness_ratio"] > 0 and d.total_assets is not None and d.total_assets > 0, 0.5),
+                (
+                    lambda r, d: r.get("lightness_ratio") is not None
+                    and r["lightness_ratio"] > 0
+                    and d.total_assets is not None
+                    and d.total_assets > 0,
+                    0.5,
+                ),
             ],
             derived=[],
             mode="derived_primary",
-            derive_primary_fn=lambda r, d: safe_divide(
-                d.current_assets, d.total_assets
-            ),
+            derive_primary_fn=lambda r, d: safe_divide(d.current_assets, d.total_assets),
             primary_result_field="lightness_ratio",
             label="Asset Lightness",
         )
@@ -8926,11 +9368,7 @@ class CharlieAnalyzer:
             result.alt_grade = ""
             result.summary = "Asset Lightness: Insufficient data."
         else:
-            rat_str = (
-                f"{result.revenue_to_assets:.4f}"
-                if result.revenue_to_assets is not None
-                else "N/A"
-            )
+            rat_str = f"{result.revenue_to_assets:.4f}" if result.revenue_to_assets is not None else "N/A"
             result.summary = (
                 f"Asset Lightness: CA/TA={lightness:.4f}, "
                 f"Revenue/TA={rat_str}, "
@@ -8946,10 +9384,10 @@ class CharlieAnalyzer:
         Higher IGR means more self-funded growth capacity.
         """
         result = InternalGrowthRateResult()
-        ni = getattr(data, 'net_income', None) or 0.0
-        ta = getattr(data, 'total_assets', None) or 0.0
-        div = getattr(data, 'dividends_paid', None) or 0.0
-        te = getattr(data, 'total_equity', None) or 0.0
+        ni = getattr(data, "net_income", None) or 0.0
+        ta = getattr(data, "total_assets", None) or 0.0
+        div = getattr(data, "dividends_paid", None) or 0.0
+        te = getattr(data, "total_equity", None) or 0.0
 
         if not ni and not ta:
             result.summary = "Internal Growth Rate: Insufficient data."
@@ -9023,18 +9461,27 @@ class CharlieAnalyzer:
     def operating_expense_ratio_analysis(self, data: FinancialData) -> OperatingExpenseRatioResult:
         """Phase 330: Operating Expense Ratio Analysis."""
         return self._scored_analysis(
-            data=data, result_class=OperatingExpenseRatioResult,
+            data=data,
+            result_class=OperatingExpenseRatioResult,
             ratio_defs=[
                 ("opex_ratio", "operating_expenses", "revenue"),
                 ("opex_to_gross_profit", "operating_expenses", "gross_profit"),
                 ("opex_to_ebitda", "operating_expenses", "ebitda"),
             ],
-            score_field="oer_score", grade_field="oer_grade",
-            primary="opex_ratio", higher_is_better=False,
+            score_field="oer_score",
+            grade_field="oer_grade",
+            primary="opex_ratio",
+            higher_is_better=False,
             thresholds=[(0.10, 10.0), (0.15, 8.5), (0.20, 7.0), (0.25, 5.5), (0.30, 4.0), (0.40, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("opex_to_gross_profit") is not None and r["opex_to_gross_profit"] < 1.0, 0.5),
-                (lambda r, d: d.operating_expenses is not None and d.operating_expenses > 0 and d.revenue is not None and d.revenue > 0, 0.5),
+                (
+                    lambda r, d: d.operating_expenses is not None
+                    and d.operating_expenses > 0
+                    and d.revenue is not None
+                    and d.revenue > 0,
+                    0.5,
+                ),
             ],
             derived=[
                 ("opex_per_revenue", lambda r, d: r.get("opex_ratio")),
@@ -9052,10 +9499,10 @@ class CharlieAnalyzer:
         Very high (>0.80) means illiquid, very low (<0.20) means mostly current assets.
         """
         result = NoncurrentAssetRatioResult()
-        ta = getattr(data, 'total_assets', None) or 0.0
-        ca = getattr(data, 'current_assets', None) or 0.0
-        te = getattr(data, 'total_equity', None) or 0.0
-        td = getattr(data, 'total_debt', None) or 0.0
+        ta = getattr(data, "total_assets", None) or 0.0
+        ca = getattr(data, "current_assets", None) or 0.0
+        te = getattr(data, "total_equity", None) or 0.0
+        td = getattr(data, "total_debt", None) or 0.0
 
         if not ta:
             result.summary = "Noncurrent Asset Ratio: Insufficient data (need total_assets)."
@@ -9147,7 +9594,7 @@ class CharlieAnalyzer:
             grade_field="prs_grade",
             primary="div_to_ni",
             higher_is_better=True,  # ignored in band mode
-            thresholds=[],           # ignored in band mode
+            thresholds=[],  # ignored in band mode
             adjustments=[
                 # Div/OCF <= 0.40: cash-backed payout (+0.5)
                 (lambda r, d: r.get("div_to_ocf") is not None and r["div_to_ocf"] <= 0.40, 0.5),
@@ -9158,9 +9605,12 @@ class CharlieAnalyzer:
                 # payout_ratio alias for div_to_ni
                 ("payout_ratio", lambda r, d: r.get("div_to_ni")),
                 # resilience_buffer: how much earnings retained
-                ("resilience_buffer", lambda r, d: (
-                    (1.0 - r["div_to_ni"]) if r.get("div_to_ni") is not None and r["div_to_ni"] <= 1.0 else 0.0
-                )),
+                (
+                    "resilience_buffer",
+                    lambda r, d: (
+                        (1.0 - r["div_to_ni"]) if r.get("div_to_ni") is not None and r["div_to_ni"] <= 1.0 else 0.0
+                    ),
+                ),
             ],
             mode="band",
             # Band thresholds: narrowest (highest-score) first.
@@ -9169,11 +9619,11 @@ class CharlieAnalyzer:
             # Values > 1.0 fall through all bands -> fallback score 1.0.
             band_thresholds=[
                 (0.20, 0.50, 10.0),  # ideal
-                (0.10, 0.60, 8.5),   # one notch out (either side)
-                (0.05, 0.70, 7.0),   # two notches out
-                (0.00, 0.80, 5.5),   # <0.05 minimal payout OR 0.70-0.80 high
-                (0.00, 0.90, 4.0),   # 0.80-0.90 very high
-                (0.00, 1.00, 2.5),   # 0.90-1.00 near-full payout
+                (0.10, 0.60, 8.5),  # one notch out (either side)
+                (0.05, 0.70, 7.0),  # two notches out
+                (0.00, 0.80, 5.5),  # <0.05 minimal payout OR 0.70-0.80 high
+                (0.00, 0.90, 4.0),  # 0.80-0.90 very high
+                (0.00, 1.00, 2.5),  # 0.90-1.00 near-full payout
             ],
             label="Payout Resilience Analysis",
         )
@@ -9182,11 +9632,7 @@ class CharlieAnalyzer:
         primary_val = result.div_to_ni
         if primary_val is not None:
             primary_str = f"{primary_val:.4f}"
-            ocf_str = (
-                f"{result.div_to_ocf:.4f}"
-                if result.div_to_ocf is not None
-                else "N/A"
-            )
+            ocf_str = f"{result.div_to_ocf:.4f}" if result.div_to_ocf is not None else "N/A"
             result.summary = (
                 f"Payout Resilience Analysis: Div/NI={primary_str}, "
                 f"Div/OCF={ocf_str}, "
@@ -9435,8 +9881,7 @@ class CharlieAnalyzer:
             result.ctr_grade = "Weak"
 
         result.summary = (
-            f"CapEx to Revenue: CapEx/Rev={cap_rev:.2f}, "
-            f"Score={result.ctr_score:.1f}/10 ({result.ctr_grade})"
+            f"CapEx to Revenue: CapEx/Rev={cap_rev:.2f}, Score={result.ctr_score:.1f}/10 ({result.ctr_grade})"
             if cap_rev is not None
             else "CapEx to Revenue: Insufficient data"
         )
@@ -9446,21 +9891,39 @@ class CharlieAnalyzer:
     def inventory_holding_cost_analysis(self, data: FinancialData) -> InventoryHoldingCostResult:
         """Phase 294: Inventory Holding Cost Analysis."""
         return self._scored_analysis(
-            data=data, result_class=InventoryHoldingCostResult,
+            data=data,
+            result_class=InventoryHoldingCostResult,
             ratio_defs=[
                 ("inventory_to_revenue", "inventory", "revenue"),
                 ("inventory_to_current_assets", "inventory", "current_assets"),
                 ("inventory_to_total_assets", "inventory", "total_assets"),
             ],
-            score_field="ihc_score", grade_field="ihc_grade",
-            primary="inventory_to_revenue", higher_is_better=False,
+            score_field="ihc_score",
+            grade_field="ihc_grade",
+            primary="inventory_to_revenue",
+            higher_is_better=False,
             thresholds=[(0.05, 10.0), (0.08, 8.5), (0.12, 7.0), (0.18, 5.5), (0.25, 4.0), (0.35, 2.5)],
             adjustments=[
-                (lambda r, d: r.get("inventory_to_current_assets") is not None and r["inventory_to_current_assets"] <= 0.30, 0.5),
-                (lambda r, d: d.inventory is not None and d.inventory > 0 and d.revenue is not None and d.revenue > 0, 0.5),
+                (
+                    lambda r, d: r.get("inventory_to_current_assets") is not None
+                    and r["inventory_to_current_assets"] <= 0.30,
+                    0.5,
+                ),
+                (
+                    lambda r, d: d.inventory is not None
+                    and d.inventory > 0
+                    and d.revenue is not None
+                    and d.revenue > 0,
+                    0.5,
+                ),
             ],
             derived=[
-                ("inventory_days", lambda r, d: safe_divide(d.inventory, d.cogs) * 365 if d.cogs and d.cogs > 0 and d.inventory is not None else None),
+                (
+                    "inventory_days",
+                    lambda r, d: safe_divide(d.inventory, d.cogs) * 365
+                    if d.cogs and d.cogs > 0 and d.inventory is not None
+                    else None,
+                ),
                 ("inventory_carrying_cost", lambda r, d: r.get("inventory_to_revenue")),
                 ("inventory_intensity", lambda r, d: r.get("inventory_to_revenue")),
             ],
@@ -9470,21 +9933,45 @@ class CharlieAnalyzer:
     def funding_mix_balance_analysis(self, data: FinancialData) -> FundingMixBalanceResult:
         """Phase 293: Funding Mix Balance Analysis."""
         return self._scored_analysis(
-            data=data, result_class=FundingMixBalanceResult,
+            data=data,
+            result_class=FundingMixBalanceResult,
             ratio_defs=[
                 ("debt_to_equity", "total_debt", "total_equity"),
             ],
-            score_field="fmb_score", grade_field="fmb_grade",
-            primary="equity_to_total_capital", higher_is_better=True,
+            score_field="fmb_score",
+            grade_field="fmb_grade",
+            primary="equity_to_total_capital",
+            higher_is_better=True,
             thresholds=[(0.80, 10.0), (0.70, 8.5), (0.60, 7.0), (0.50, 5.5), (0.40, 4.0), (0.30, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("debt_to_equity") is not None and r["debt_to_equity"] <= 0.50, 0.5),
-                (lambda r, d: d.total_equity is not None and d.total_equity > 0 and d.total_debt is not None and d.total_debt >= 0, 0.5),
+                (
+                    lambda r, d: d.total_equity is not None
+                    and d.total_equity > 0
+                    and d.total_debt is not None
+                    and d.total_debt >= 0,
+                    0.5,
+                ),
             ],
             derived=[
-                ("equity_to_total_capital", lambda r, d: safe_divide(d.total_equity, (d.total_equity or 0) + (d.total_debt or 0)) if d.total_equity and d.total_equity > 0 and ((d.total_equity or 0) + (d.total_debt or 0)) > 0 else None),
-                ("debt_to_total_capital", lambda r, d: safe_divide(d.total_debt, (d.total_equity or 0) + (d.total_debt or 0)) if d.total_equity and ((d.total_equity or 0) + (d.total_debt or 0)) > 0 else None),
-                ("equity_multiplier", lambda r, d: safe_divide((d.total_equity or 0) + (d.total_debt or 0), d.total_equity) if d.total_equity and d.total_equity > 0 else None),
+                (
+                    "equity_to_total_capital",
+                    lambda r, d: safe_divide(d.total_equity, (d.total_equity or 0) + (d.total_debt or 0))
+                    if d.total_equity and d.total_equity > 0 and ((d.total_equity or 0) + (d.total_debt or 0)) > 0
+                    else None,
+                ),
+                (
+                    "debt_to_total_capital",
+                    lambda r, d: safe_divide(d.total_debt, (d.total_equity or 0) + (d.total_debt or 0))
+                    if d.total_equity and ((d.total_equity or 0) + (d.total_debt or 0)) > 0
+                    else None,
+                ),
+                (
+                    "equity_multiplier",
+                    lambda r, d: safe_divide((d.total_equity or 0) + (d.total_debt or 0), d.total_equity)
+                    if d.total_equity and d.total_equity > 0
+                    else None,
+                ),
                 ("leverage_headroom", lambda r, d: 1.0 - (r.get("debt_to_total_capital") or 0)),
                 ("funding_stability", lambda r, d: r.get("equity_to_total_capital")),
             ],
@@ -9494,22 +9981,35 @@ class CharlieAnalyzer:
     def expense_ratio_discipline_analysis(self, data: FinancialData) -> ExpenseRatioDisciplineResult:
         """Phase 292: Expense Ratio Discipline Analysis."""
         return self._scored_analysis(
-            data=data, result_class=ExpenseRatioDisciplineResult,
+            data=data,
+            result_class=ExpenseRatioDisciplineResult,
             ratio_defs=[
                 ("opex_to_revenue", "operating_expenses", "revenue"),
                 ("cogs_to_revenue", "cogs", "revenue"),
                 ("operating_margin", "operating_income", "revenue"),
             ],
-            score_field="erd_score", grade_field="erd_grade",
-            primary="opex_to_revenue", higher_is_better=False,
+            score_field="erd_score",
+            grade_field="erd_grade",
+            primary="opex_to_revenue",
+            higher_is_better=False,
             thresholds=[(0.30, 10.0), (0.40, 8.5), (0.50, 7.0), (0.60, 5.5), (0.70, 4.0), (0.80, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("cogs_to_revenue") is not None and r["cogs_to_revenue"] <= 0.60, 0.5),
                 (lambda r, d: d.operating_income is not None and d.operating_income > 0, 0.5),
             ],
             derived=[
-                ("total_expense_ratio", lambda r, d: safe_divide((d.operating_expenses or 0) + (d.cogs or 0), d.revenue) if d.revenue else None),
-                ("expense_efficiency", lambda r, d: safe_divide(d.revenue, (d.operating_expenses or 0) + (d.cogs or 0)) if ((d.operating_expenses or 0) + (d.cogs or 0)) > 0 else None),
+                (
+                    "total_expense_ratio",
+                    lambda r, d: safe_divide((d.operating_expenses or 0) + (d.cogs or 0), d.revenue)
+                    if d.revenue
+                    else None,
+                ),
+                (
+                    "expense_efficiency",
+                    lambda r, d: safe_divide(d.revenue, (d.operating_expenses or 0) + (d.cogs or 0))
+                    if ((d.operating_expenses or 0) + (d.cogs or 0)) > 0
+                    else None,
+                ),
             ],
             label="Expense Ratio Discipline",
         )
@@ -9517,21 +10017,43 @@ class CharlieAnalyzer:
     def revenue_cash_realization_analysis(self, data: FinancialData) -> RevenueCashRealizationResult:
         """Phase 291: Revenue Cash Realization Analysis."""
         return self._scored_analysis(
-            data=data, result_class=RevenueCashRealizationResult,
+            data=data,
+            result_class=RevenueCashRealizationResult,
             ratio_defs=[
                 ("ocf_to_revenue", "operating_cash_flow", "revenue"),
             ],
-            score_field="rcr_score", grade_field="rcr_grade",
-            primary="ocf_to_revenue", higher_is_better=True,
+            score_field="rcr_score",
+            grade_field="rcr_grade",
+            primary="ocf_to_revenue",
+            higher_is_better=True,
             thresholds=[(0.30, 10.0), (0.22, 8.5), (0.15, 7.0), (0.10, 5.5), (0.05, 4.0), (0.02, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("collection_rate") is not None and r["collection_rate"] >= 0.85, 0.5),
-                (lambda r, d: d.operating_cash_flow is not None and d.operating_cash_flow > 0 and d.revenue is not None and d.revenue > 0, 0.5),
+                (
+                    lambda r, d: d.operating_cash_flow is not None
+                    and d.operating_cash_flow > 0
+                    and d.revenue is not None
+                    and d.revenue > 0,
+                    0.5,
+                ),
             ],
             derived=[
-                ("collection_rate", lambda r, d: safe_divide((d.revenue or 0) - (d.accounts_receivable or 0), d.revenue) if d.revenue and d.revenue > 0 else None),
-                ("cash_to_revenue", lambda r, d: safe_divide((d.revenue or 0) - (d.accounts_receivable or 0), d.revenue) if d.revenue and d.revenue > 0 and ((d.revenue or 0) - (d.accounts_receivable or 0)) else None),
-                ("revenue_cash_gap", lambda r, d: (d.revenue or 0) - (d.operating_cash_flow or 0) if d.revenue else None),
+                (
+                    "collection_rate",
+                    lambda r, d: safe_divide((d.revenue or 0) - (d.accounts_receivable or 0), d.revenue)
+                    if d.revenue and d.revenue > 0
+                    else None,
+                ),
+                (
+                    "cash_to_revenue",
+                    lambda r, d: safe_divide((d.revenue or 0) - (d.accounts_receivable or 0), d.revenue)
+                    if d.revenue and d.revenue > 0 and ((d.revenue or 0) - (d.accounts_receivable or 0))
+                    else None,
+                ),
+                (
+                    "revenue_cash_gap",
+                    lambda r, d: (d.revenue or 0) - (d.operating_cash_flow or 0) if d.revenue else None,
+                ),
                 ("cash_conversion_speed", lambda r, d: r.get("ocf_to_revenue")),
                 ("revenue_quality_ratio", lambda r, d: r.get("ocf_to_revenue")),
             ],
@@ -9546,12 +10068,12 @@ class CharlieAnalyzer:
         """
         result = NetDebtPositionResult()
 
-        total_debt = getattr(data, 'total_debt', None) or 0
-        cash = getattr(data, 'cash', None) or 0
-        ebitda = getattr(data, 'ebitda', None) or 0
-        total_equity = getattr(data, 'total_equity', None) or 0
-        total_assets = getattr(data, 'total_assets', None) or 0
-        ocf = getattr(data, 'operating_cash_flow', None) or 0
+        total_debt = getattr(data, "total_debt", None) or 0
+        cash = getattr(data, "cash", None) or 0
+        ebitda = getattr(data, "ebitda", None) or 0
+        total_equity = getattr(data, "total_equity", None) or 0
+        total_assets = getattr(data, "total_assets", None) or 0
+        ocf = getattr(data, "operating_cash_flow", None) or 0
 
         if not total_debt or total_debt <= 0:
             return result
@@ -9613,9 +10135,7 @@ class CharlieAnalyzer:
             f"Net Debt=${net_debt:,.0f}, "
             f"Net Debt/EBITDA={nd_ebitda:.2f}x."
             if nd_ebitda is not None
-            else f"Net Debt Position: {result.ndp_grade} "
-            f"(Score: {result.ndp_score:.1f}/10). "
-            f"Net Debt=${net_debt:,.0f}."
+            else f"Net Debt Position: {result.ndp_grade} (Score: {result.ndp_score:.1f}/10). Net Debt=${net_debt:,.0f}."
         )
 
         return result
@@ -9623,7 +10143,8 @@ class CharlieAnalyzer:
     def liability_coverage_strength_analysis(self, data: FinancialData) -> LiabilityCoverageStrengthResult:
         """Phase 281: Liability Coverage Strength Analysis."""
         return self._scored_analysis(
-            data=data, result_class=LiabilityCoverageStrengthResult,
+            data=data,
+            result_class=LiabilityCoverageStrengthResult,
             ratio_defs=[
                 ("ocf_to_liabilities", "operating_cash_flow", "total_liabilities"),
                 ("ebitda_to_liabilities", "ebitda", "total_liabilities"),
@@ -9632,12 +10153,20 @@ class CharlieAnalyzer:
                 ("liability_to_revenue", "total_liabilities", "revenue"),
                 ("liability_burden", "total_liabilities", "total_assets"),
             ],
-            score_field="lcs_score", grade_field="lcs_grade",
-            primary="ocf_to_liabilities", higher_is_better=True,
+            score_field="lcs_score",
+            grade_field="lcs_grade",
+            primary="ocf_to_liabilities",
+            higher_is_better=True,
             thresholds=[(0.50, 10.0), (0.35, 8.5), (0.25, 7.0), (0.15, 5.5), (0.10, 4.0), (0.05, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("assets_to_liabilities") is not None and r["assets_to_liabilities"] >= 2.0, 0.5),
-                (lambda r, d: d.operating_cash_flow is not None and d.operating_cash_flow > 0 and d.total_liabilities is not None and d.total_liabilities > 0, 0.5),
+                (
+                    lambda r, d: d.operating_cash_flow is not None
+                    and d.operating_cash_flow > 0
+                    and d.total_liabilities is not None
+                    and d.total_liabilities > 0,
+                    0.5,
+                ),
             ],
             label="Liability Coverage Strength",
         )
@@ -9645,7 +10174,8 @@ class CharlieAnalyzer:
     def capital_adequacy_analysis(self, data: FinancialData) -> CapitalAdequacyResult:
         """Phase 279: Capital Adequacy Analysis."""
         return self._scored_analysis(
-            data=data, result_class=CapitalAdequacyResult,
+            data=data,
+            result_class=CapitalAdequacyResult,
             ratio_defs=[
                 ("equity_ratio", "total_equity", "total_assets"),
                 ("equity_to_debt", "total_equity", "total_debt"),
@@ -9653,15 +10183,28 @@ class CharlieAnalyzer:
                 ("equity_to_liabilities", "total_equity", "total_liabilities"),
                 ("tangible_equity_ratio", "total_equity", "total_assets"),
             ],
-            score_field="caq_score", grade_field="caq_grade",
-            primary="equity_ratio", higher_is_better=True,
+            score_field="caq_score",
+            grade_field="caq_grade",
+            primary="equity_ratio",
+            higher_is_better=True,
             thresholds=[(0.60, 10.0), (0.50, 8.5), (0.40, 7.0), (0.30, 5.5), (0.20, 4.0), (0.10, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("retained_to_equity") is not None and r["retained_to_equity"] >= 0.50, 0.5),
-                (lambda r, d: d.total_equity is not None and d.total_equity > 0 and d.total_assets is not None and d.total_assets > 0, 0.5),
+                (
+                    lambda r, d: d.total_equity is not None
+                    and d.total_equity > 0
+                    and d.total_assets is not None
+                    and d.total_assets > 0,
+                    0.5,
+                ),
             ],
             derived=[
-                ("capital_buffer", lambda r, d: safe_divide((d.total_equity or 0) - (d.total_liabilities or 0), d.total_assets) if d.total_liabilities is not None and d.total_assets is not None and d.total_assets > 0 else None),
+                (
+                    "capital_buffer",
+                    lambda r, d: safe_divide((d.total_equity or 0) - (d.total_liabilities or 0), d.total_assets)
+                    if d.total_liabilities is not None and d.total_assets is not None and d.total_assets > 0
+                    else None,
+                ),
             ],
             label="Capital Adequacy",
         )
@@ -9669,23 +10212,43 @@ class CharlieAnalyzer:
     def operating_income_quality_analysis(self, data: FinancialData) -> OperatingIncomeQualityResult:
         """Phase 275: Operating Income Quality Analysis."""
         return self._scored_analysis(
-            data=data, result_class=OperatingIncomeQualityResult,
+            data=data,
+            result_class=OperatingIncomeQualityResult,
             ratio_defs=[
                 ("oi_to_revenue", "operating_income", "revenue"),
                 ("oi_to_ebitda", "operating_income", "ebitda"),
                 ("oi_to_ocf", "operating_income", "operating_cash_flow"),
                 ("oi_to_total_assets", "operating_income", "total_assets"),
             ],
-            score_field="oiq_score", grade_field="oiq_grade",
-            primary="oi_to_revenue", higher_is_better=True,
+            score_field="oiq_score",
+            grade_field="oiq_grade",
+            primary="oi_to_revenue",
+            higher_is_better=True,
             thresholds=[(0.30, 10.0), (0.20, 8.5), (0.15, 7.0), (0.10, 5.5), (0.05, 4.0), (0.02, 2.5)],
             adjustments=[
-                (lambda r, d: d.operating_cash_flow is not None and d.operating_cash_flow > 0 and d.operating_income is not None and d.operating_cash_flow > d.operating_income, 0.5),
-                (lambda r, d: d.operating_income is not None and d.operating_income > 0 and d.revenue is not None and d.revenue > 0, 0.5),
+                (
+                    lambda r, d: d.operating_cash_flow is not None
+                    and d.operating_cash_flow > 0
+                    and d.operating_income is not None
+                    and d.operating_cash_flow > d.operating_income,
+                    0.5,
+                ),
+                (
+                    lambda r, d: d.operating_income is not None
+                    and d.operating_income > 0
+                    and d.revenue is not None
+                    and d.revenue > 0,
+                    0.5,
+                ),
             ],
             derived=[
                 ("operating_spread", lambda r, d: r.get("oi_to_revenue")),
-                ("oi_cash_backing", lambda r, d: safe_divide(d.operating_cash_flow, d.operating_income) if d.operating_cash_flow else None),
+                (
+                    "oi_cash_backing",
+                    lambda r, d: safe_divide(d.operating_cash_flow, d.operating_income)
+                    if d.operating_cash_flow
+                    else None,
+                ),
             ],
             label="Operating Income Quality",
         )
@@ -9693,22 +10256,36 @@ class CharlieAnalyzer:
     def ebitda_to_debt_coverage_analysis(self, data: FinancialData) -> EbitdaToDebtCoverageResult:
         """Phase 274: EBITDA-to-Debt Coverage Analysis."""
         return self._scored_analysis(
-            data=data, result_class=EbitdaToDebtCoverageResult,
+            data=data,
+            result_class=EbitdaToDebtCoverageResult,
             ratio_defs=[
                 ("ebitda_to_debt", "ebitda", "total_debt"),
                 ("ebitda_to_interest", "ebitda", "interest_expense"),
                 ("debt_to_ebitda", "total_debt", "ebitda"),
                 ("ebitda_to_total_liabilities", "ebitda", "total_liabilities"),
             ],
-            score_field="etdc_score", grade_field="etdc_grade",
-            primary="ebitda_to_debt", higher_is_better=True,
+            score_field="etdc_score",
+            grade_field="etdc_grade",
+            primary="ebitda_to_debt",
+            higher_is_better=True,
             thresholds=[(1.0, 10.0), (0.60, 8.5), (0.40, 7.0), (0.25, 5.5), (0.15, 4.0), (0.08, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("ebitda_to_interest") is not None and r["ebitda_to_interest"] >= 3.0, 0.5),
-                (lambda r, d: d.net_income is not None and d.net_income > 0 and d.ebitda is not None and d.ebitda > 0, 0.5),
+                (
+                    lambda r, d: d.net_income is not None
+                    and d.net_income > 0
+                    and d.ebitda is not None
+                    and d.ebitda > 0,
+                    0.5,
+                ),
             ],
             derived=[
-                ("debt_service_buffer", lambda r, d: safe_divide((d.ebitda or 0) - (d.interest_expense or 0), d.total_debt) if d.interest_expense else r.get("ebitda_to_debt")),
+                (
+                    "debt_service_buffer",
+                    lambda r, d: safe_divide((d.ebitda or 0) - (d.interest_expense or 0), d.total_debt)
+                    if d.interest_expense
+                    else r.get("ebitda_to_debt"),
+                ),
                 ("leverage_headroom", lambda r, d: r.get("ebitda_to_debt")),
             ],
             label="EBITDA-to-Debt Coverage",
@@ -9717,18 +10294,25 @@ class CharlieAnalyzer:
     def debt_quality_analysis(self, data: FinancialData) -> DebtQualityResult:
         """Phase 267: Debt Quality Assessment."""
         return self._scored_analysis(
-            data=data, result_class=DebtQualityResult,
+            data=data,
+            result_class=DebtQualityResult,
             ratio_defs=[
                 ("debt_to_equity", "total_debt", "total_equity"),
                 ("debt_to_assets", "total_debt", "total_assets"),
                 ("long_term_debt_ratio", "total_debt", "total_liabilities"),
                 ("debt_to_ebitda", "total_debt", "ebitda"),
             ],
-            score_field="dq_score", grade_field="dq_grade",
-            primary="debt_to_equity", higher_is_better=False,
+            score_field="dq_score",
+            grade_field="dq_grade",
+            primary="debt_to_equity",
+            higher_is_better=False,
             thresholds=[(0.20, 10.0), (0.50, 8.5), (1.00, 7.0), (1.50, 5.5), (2.00, 4.0), (3.00, 2.5)],
             adjustments=[
-                (lambda r, d: safe_divide(d.ebit, d.interest_expense) is not None and safe_divide(d.ebit, d.interest_expense) >= 5.0, 0.5),
+                (
+                    lambda r, d: safe_divide(d.ebit, d.interest_expense) is not None
+                    and safe_divide(d.ebit, d.interest_expense) >= 5.0,
+                    0.5,
+                ),
                 (lambda r, d: r.get("debt_to_ebitda") is not None and r["debt_to_ebitda"] <= 3.0, 0.5),
             ],
             derived=[
@@ -9759,9 +10343,9 @@ class CharlieAnalyzer:
         """
         result = FixedAssetProductivityResult()
 
-        revenue = getattr(data, 'revenue', None)
-        ta = getattr(data, 'total_assets', None)
-        ca = getattr(data, 'current_assets', None)
+        revenue = getattr(data, "revenue", None)
+        ta = getattr(data, "total_assets", None)
+        ca = getattr(data, "current_assets", None)
 
         if not revenue or not ta or revenue <= 0 or ta <= 0:
             result.summary = "Fixed Asset Productivity: Insufficient data."
@@ -9778,11 +10362,11 @@ class CharlieAnalyzer:
         result.fixed_to_total_assets = safe_divide(fixed_assets, ta)
         result.net_fixed_asset_intensity = safe_divide(fixed_assets, revenue)
 
-        capex = getattr(data, 'capex', None)
+        capex = getattr(data, "capex", None)
         if capex and fixed_assets > 0:
             result.capex_to_fixed_assets = safe_divide(capex, fixed_assets)
 
-        dep = getattr(data, 'depreciation', None)
+        dep = getattr(data, "depreciation", None)
         if dep and fixed_assets > 0:
             result.depreciation_to_fixed = safe_divide(dep, fixed_assets)
 
@@ -9830,22 +10414,28 @@ class CharlieAnalyzer:
     def depreciation_burden_analysis(self, data: FinancialData) -> DepreciationBurdenResult:
         """Phase 259: Depreciation Burden Analysis."""
         return self._scored_analysis(
-            data=data, result_class=DepreciationBurdenResult,
+            data=data,
+            result_class=DepreciationBurdenResult,
             ratio_defs=[
                 ("dep_to_revenue", "depreciation", "revenue"),
                 ("dep_to_assets", "depreciation", "total_assets"),
                 ("dep_to_ebitda", "depreciation", "ebitda"),
                 ("dep_to_gross_profit", "depreciation", "gross_profit"),
             ],
-            score_field="db_score", grade_field="db_grade",
-            primary="dep_to_revenue", higher_is_better=False,
+            score_field="db_score",
+            grade_field="db_grade",
+            primary="dep_to_revenue",
+            higher_is_better=False,
             thresholds=[(0.03, 10.0), (0.05, 8.5), (0.08, 7.0), (0.12, 5.5), (0.18, 4.0), (0.25, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("dep_to_ebitda") is not None and r["dep_to_ebitda"] <= 0.20, 0.5),
                 (lambda r, d: r.get("dep_to_assets") is not None and r["dep_to_assets"] <= 0.03, 0.5),
             ],
             derived=[
-                ("ebitda_to_ebit_spread", lambda r, d: safe_divide(d.ebitda, d.ebit) if d.ebitda and d.ebit and d.ebit > 0 else None),
+                (
+                    "ebitda_to_ebit_spread",
+                    lambda r, d: safe_divide(d.ebitda, d.ebit) if d.ebitda and d.ebit and d.ebit > 0 else None,
+                ),
                 ("asset_age_proxy", lambda r, d: r.get("dep_to_assets")),
             ],
             label="Depreciation Burden",
@@ -9860,9 +10450,9 @@ class CharlieAnalyzer:
         """
         result = DebtToCapitalResult()
 
-        td = getattr(data, 'total_debt', None)
-        te = getattr(data, 'total_equity', None)
-        cash = getattr(data, 'cash', None)
+        td = getattr(data, "total_debt", None)
+        te = getattr(data, "total_equity", None)
+        cash = getattr(data, "cash", None)
 
         if not td or not te or te <= 0:
             return result
@@ -10075,10 +10665,7 @@ class CharlieAnalyzer:
             grade = "Weak"
         result.ocfr_grade = grade
 
-        result.summary = (
-            f"Operating Cash Flow Ratio: OCF/CL={rat:.2f}x. "
-            f"Score={result.ocfr_score:.1f}/10 ({grade})."
-        )
+        result.summary = f"Operating Cash Flow Ratio: OCF/CL={rat:.2f}x. Score={result.ocfr_score:.1f}/10 ({grade})."
 
         return result
 
@@ -10482,10 +11069,7 @@ class CharlieAnalyzer:
             grade = "Weak"
         result.cce_grade = grade
 
-        result.summary = (
-            f"Cash Conversion Efficiency: OCF/OI={ocf_to_oi:.4f}. "
-            f"Score={score:.1f}/10. Grade={grade}."
-        )
+        result.summary = f"Cash Conversion Efficiency: OCF/OI={ocf_to_oi:.4f}. Score={score:.1f}/10. Grade={grade}."
 
         return result
 
@@ -10568,17 +11152,15 @@ class CharlieAnalyzer:
             grade = "Weak"
         result.fclr_grade = grade
 
-        result.summary = (
-            f"Fixed Cost Leverage Ratio: DOL={dol:.4f}. "
-            f"Score={score:.1f}/10. Grade={grade}."
-        )
+        result.summary = f"Fixed Cost Leverage Ratio: DOL={dol:.4f}. Score={score:.1f}/10. Grade={grade}."
 
         return result
 
     def revenue_quality_index_analysis(self, data: FinancialData) -> RevenueQualityIndexResult:
         """Phase 232: Revenue Quality Index Analysis."""
         return self._scored_analysis(
-            data=data, result_class=RevenueQualityIndexResult,
+            data=data,
+            result_class=RevenueQualityIndexResult,
             ratio_defs=[
                 ("ocf_to_revenue", "operating_cash_flow", "revenue"),
                 ("gross_margin", "gross_profit", "revenue"),
@@ -10587,8 +11169,10 @@ class CharlieAnalyzer:
                 ("ar_to_revenue", "accounts_receivable", "revenue"),
                 ("cash_to_revenue", "cash", "revenue"),
             ],
-            score_field="rqi_score", grade_field="rqi_grade",
-            primary="ocf_to_revenue", higher_is_better=True,
+            score_field="rqi_score",
+            grade_field="rqi_grade",
+            primary="ocf_to_revenue",
+            higher_is_better=True,
             thresholds=[(0.25, 10.0), (0.20, 8.5), (0.15, 7.0), (0.10, 5.5), (0.05, 4.0), (0.00, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("gross_margin") is not None and r["gross_margin"] >= 0.50, 0.5),
@@ -10677,8 +11261,7 @@ class CharlieAnalyzer:
             result.fau_grade = "Weak"
 
         result.summary = (
-            f"Fixed Asset Utilization: FA Turnover={fa_turnover:.4f}. "
-            f"Score={score:.1f}/10 ({result.fau_grade})."
+            f"Fixed Asset Utilization: FA Turnover={fa_turnover:.4f}. Score={score:.1f}/10 ({result.fau_grade})."
         )
 
         return result
@@ -10881,7 +11464,8 @@ class CharlieAnalyzer:
     def capital_discipline_analysis(self, data: FinancialData) -> CapitalDisciplineResult:
         """Phase 211: Capital Discipline Analysis."""
         return self._scored_analysis(
-            data=data, result_class=CapitalDisciplineResult,
+            data=data,
+            result_class=CapitalDisciplineResult,
             ratio_defs=[
                 ("retained_to_equity", "retained_earnings", "total_equity"),
                 ("retained_to_assets", "retained_earnings", "total_assets"),
@@ -10890,8 +11474,10 @@ class CharlieAnalyzer:
                 ("debt_to_equity", "total_debt", "total_equity"),
                 ("ocf_to_debt", "operating_cash_flow", "total_debt"),
             ],
-            score_field="cd_score", grade_field="cd_grade",
-            primary="retained_to_equity", higher_is_better=True,
+            score_field="cd_score",
+            grade_field="cd_grade",
+            primary="retained_to_equity",
+            higher_is_better=True,
             thresholds=[(0.70, 10.0), (0.60, 8.5), (0.50, 7.0), (0.40, 5.5), (0.30, 4.0), (0.15, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("ocf_to_debt") is not None and r["ocf_to_debt"] >= 0.50, 0.5),
@@ -10905,15 +11491,18 @@ class CharlieAnalyzer:
     def resource_optimization_analysis(self, data: FinancialData) -> ResourceOptimizationResult:
         """Phase 210: Resource Optimization Analysis."""
         return self._scored_analysis(
-            data=data, result_class=ResourceOptimizationResult,
+            data=data,
+            result_class=ResourceOptimizationResult,
             ratio_defs=[
                 ("ocf_to_revenue", "operating_cash_flow", "revenue"),
                 ("capex_to_revenue", "capex", "revenue"),
                 ("ocf_to_assets", "operating_cash_flow", "total_assets"),
                 ("dividend_payout_ratio", "dividends_paid", "net_income"),
             ],
-            score_field="ro_score", grade_field="ro_grade",
-            primary="fcf_to_revenue", higher_is_better=True,
+            score_field="ro_score",
+            grade_field="ro_grade",
+            primary="fcf_to_revenue",
+            higher_is_better=True,
             thresholds=[(0.20, 10.0), (0.15, 8.5), (0.12, 7.0), (0.08, 5.5), (0.05, 4.0), (0.02, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("ocf_to_revenue") is not None and r["ocf_to_revenue"] >= 0.20, 0.5),
@@ -10922,8 +11511,18 @@ class CharlieAnalyzer:
                 (lambda r, d: r.get("capex_to_revenue") is not None and r["capex_to_revenue"] > 0.20, -0.5),
             ],
             derived=[
-                ("fcf_to_revenue", lambda r, d: safe_divide((d.operating_cash_flow or 0) - (d.capex or 0), d.revenue) if d.operating_cash_flow is not None and d.capex is not None and d.revenue and d.revenue > 0 else None),
-                ("fcf_to_assets", lambda r, d: safe_divide((d.operating_cash_flow or 0) - (d.capex or 0), d.total_assets) if d.operating_cash_flow is not None and d.capex is not None else None),
+                (
+                    "fcf_to_revenue",
+                    lambda r, d: safe_divide((d.operating_cash_flow or 0) - (d.capex or 0), d.revenue)
+                    if d.operating_cash_flow is not None and d.capex is not None and d.revenue and d.revenue > 0
+                    else None,
+                ),
+                (
+                    "fcf_to_assets",
+                    lambda r, d: safe_divide((d.operating_cash_flow or 0) - (d.capex or 0), d.total_assets)
+                    if d.operating_cash_flow is not None and d.capex is not None
+                    else None,
+                ),
             ],
             label="Resource Optimization",
         )
@@ -10931,7 +11530,8 @@ class CharlieAnalyzer:
     def financial_productivity_analysis(self, data: FinancialData) -> FinancialProductivityResult:
         """Phase 205: Financial Productivity Analysis."""
         return self._scored_analysis(
-            data=data, result_class=FinancialProductivityResult,
+            data=data,
+            result_class=FinancialProductivityResult,
             ratio_defs=[
                 ("revenue_per_asset", "revenue", "total_assets"),
                 ("revenue_per_equity", "revenue", "total_equity"),
@@ -10940,12 +11540,22 @@ class CharlieAnalyzer:
                 ("net_income_per_revenue", "net_income", "revenue"),
                 ("cash_flow_per_asset", "operating_cash_flow", "total_assets"),
             ],
-            score_field="fp_score", grade_field="fp_grade",
-            primary="revenue_per_asset", higher_is_better=True,
+            score_field="fp_score",
+            grade_field="fp_grade",
+            primary="revenue_per_asset",
+            higher_is_better=True,
             thresholds=[(2.0, 10.0), (1.5, 8.5), (1.0, 7.0), (0.70, 5.5), (0.40, 4.0), (0.20, 2.5)],
             adjustments=[
-                (lambda r, d: r.get("ebitda_per_employee_proxy") is not None and r["ebitda_per_employee_proxy"] >= 1.5, 0.5),
-                (lambda r, d: r.get("ebitda_per_employee_proxy") is not None and r["ebitda_per_employee_proxy"] < 0.50, -0.5),
+                (
+                    lambda r, d: r.get("ebitda_per_employee_proxy") is not None
+                    and r["ebitda_per_employee_proxy"] >= 1.5,
+                    0.5,
+                ),
+                (
+                    lambda r, d: r.get("ebitda_per_employee_proxy") is not None
+                    and r["ebitda_per_employee_proxy"] < 0.50,
+                    -0.5,
+                ),
                 (lambda r, d: r.get("cash_flow_per_asset") is not None and r["cash_flow_per_asset"] >= 0.12, 0.5),
                 (lambda r, d: r.get("cash_flow_per_asset") is not None and r["cash_flow_per_asset"] < 0.05, -0.5),
             ],
@@ -10955,7 +11565,8 @@ class CharlieAnalyzer:
     def equity_preservation_analysis(self, data: FinancialData) -> EquityPreservationResult:
         """Phase 198: Equity Preservation Analysis."""
         return self._scored_analysis(
-            data=data, result_class=EquityPreservationResult,
+            data=data,
+            result_class=EquityPreservationResult,
             ratio_defs=[
                 ("equity_to_assets", "total_equity", "total_assets"),
                 ("retained_to_equity", "retained_earnings", "total_equity"),
@@ -10964,8 +11575,10 @@ class CharlieAnalyzer:
                 ("tangible_equity_ratio", "total_equity", "total_assets"),
                 ("equity_per_revenue", "total_equity", "revenue"),
             ],
-            score_field="ep_score", grade_field="ep_grade",
-            primary="equity_to_assets", higher_is_better=True,
+            score_field="ep_score",
+            grade_field="ep_grade",
+            primary="equity_to_assets",
+            higher_is_better=True,
             thresholds=[(0.60, 10.0), (0.50, 8.5), (0.40, 7.0), (0.30, 5.5), (0.20, 4.0), (0.10, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("retained_to_equity") is not None and r["retained_to_equity"] >= 0.60, 0.5),
@@ -10979,15 +11592,18 @@ class CharlieAnalyzer:
     def debt_management_analysis(self, data: FinancialData) -> DebtManagementResult:
         """Phase 197: Debt Management Analysis."""
         return self._scored_analysis(
-            data=data, result_class=DebtManagementResult,
+            data=data,
+            result_class=DebtManagementResult,
             ratio_defs=[
                 ("debt_to_operating_income", "total_debt", "operating_income"),
                 ("debt_to_ocf", "total_debt", "operating_cash_flow"),
                 ("interest_to_revenue", "interest_expense", "revenue"),
                 ("debt_to_gross_profit", "total_debt", "gross_profit"),
             ],
-            score_field="dm_score", grade_field="dm_grade",
-            primary="debt_to_operating_income", higher_is_better=False,
+            score_field="dm_score",
+            grade_field="dm_grade",
+            primary="debt_to_operating_income",
+            higher_is_better=False,
             thresholds=[(1.0, 10.0), (2.0, 8.5), (3.0, 7.0), (4.0, 5.5), (5.0, 4.0), (7.0, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("interest_to_revenue") is not None and r["interest_to_revenue"] <= 0.03, 0.5),
@@ -10996,8 +11612,21 @@ class CharlieAnalyzer:
                 (lambda r, d: r.get("debt_coverage_ratio") is not None and r["debt_coverage_ratio"] < 1.5, -0.5),
             ],
             derived=[
-                ("net_debt_ratio", lambda r, d: ((d.total_debt or 0) - (d.cash or 0)) / d.total_assets if d.total_debt is not None and d.cash is not None and d.total_assets and d.total_assets > 0 else None),
-                ("debt_coverage_ratio", lambda r, d: d.ebitda / ((d.interest_expense or 0) + (d.total_debt or 0) * 0.1) if d.ebitda is not None and d.interest_expense is not None and d.total_debt is not None and ((d.interest_expense or 0) + (d.total_debt or 0) * 0.1) > 0 else None),
+                (
+                    "net_debt_ratio",
+                    lambda r, d: ((d.total_debt or 0) - (d.cash or 0)) / d.total_assets
+                    if d.total_debt is not None and d.cash is not None and d.total_assets and d.total_assets > 0
+                    else None,
+                ),
+                (
+                    "debt_coverage_ratio",
+                    lambda r, d: d.ebitda / ((d.interest_expense or 0) + (d.total_debt or 0) * 0.1)
+                    if d.ebitda is not None
+                    and d.interest_expense is not None
+                    and d.total_debt is not None
+                    and ((d.interest_expense or 0) + (d.total_debt or 0) * 0.1) > 0
+                    else None,
+                ),
             ],
             label="Debt Management",
         )
@@ -11005,7 +11634,8 @@ class CharlieAnalyzer:
     def income_retention_analysis(self, data: FinancialData) -> IncomeRetentionResult:
         """Phase 196: Income Retention Analysis."""
         return self._scored_analysis(
-            data=data, result_class=IncomeRetentionResult,
+            data=data,
+            result_class=IncomeRetentionResult,
             ratio_defs=[
                 ("net_to_gross_ratio", "net_income", "gross_profit"),
                 ("net_to_operating_ratio", "net_income", "operating_income"),
@@ -11014,8 +11644,10 @@ class CharlieAnalyzer:
                 ("income_to_asset_generation", "net_income", "total_assets"),
                 ("after_tax_margin", "net_income", "revenue"),
             ],
-            score_field="ir_score", grade_field="ir_grade",
-            primary="net_to_gross_ratio", higher_is_better=True,
+            score_field="ir_score",
+            grade_field="ir_grade",
+            primary="net_to_gross_ratio",
+            higher_is_better=True,
             thresholds=[(0.45, 10.0), (0.35, 8.5), (0.25, 7.0), (0.18, 5.5), (0.10, 4.0), (0.05, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("net_to_operating_ratio") is not None and r["net_to_operating_ratio"] >= 0.80, 0.5),
@@ -11029,7 +11661,8 @@ class CharlieAnalyzer:
     def operational_efficiency_analysis(self, data: FinancialData) -> OperationalEfficiencyResult:
         """Phase 195: Operational Efficiency Analysis."""
         return self._scored_analysis(
-            data=data, result_class=OperationalEfficiencyResult,
+            data=data,
+            result_class=OperationalEfficiencyResult,
             ratio_defs=[
                 ("oi_margin", "operating_income", "revenue"),
                 ("revenue_to_assets", "revenue", "total_assets"),
@@ -11038,8 +11671,10 @@ class CharlieAnalyzer:
                 ("asset_utilization", "revenue", "current_assets"),
                 ("income_per_liability", "operating_income", "total_liabilities"),
             ],
-            score_field="oe_score", grade_field="oe_grade",
-            primary="oi_margin", higher_is_better=True,
+            score_field="oe_score",
+            grade_field="oe_grade",
+            primary="oi_margin",
+            higher_is_better=True,
             thresholds=[(0.25, 10.0), (0.20, 8.5), (0.15, 7.0), (0.10, 5.5), (0.05, 4.0), (0.02, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("revenue_to_assets") is not None and r["revenue_to_assets"] >= 0.80, 0.5),
@@ -11053,7 +11688,8 @@ class CharlieAnalyzer:
     def operating_momentum_analysis(self, data: FinancialData) -> OperatingMomentumResult:
         """Phase 191: Operating Momentum Analysis."""
         return self._scored_analysis(
-            data=data, result_class=OperatingMomentumResult,
+            data=data,
+            result_class=OperatingMomentumResult,
             ratio_defs=[
                 ("ebitda_margin", "ebitda", "revenue"),
                 ("ebit_margin", "ebit", "revenue"),
@@ -11062,14 +11698,32 @@ class CharlieAnalyzer:
                 ("operating_cash_conversion", "operating_cash_flow", "operating_income"),
                 ("overhead_absorption", "operating_income", "operating_expenses"),
             ],
-            score_field="om_score", grade_field="om_grade",
-            primary="ebitda_margin", higher_is_better=True,
+            score_field="om_score",
+            grade_field="om_grade",
+            primary="ebitda_margin",
+            higher_is_better=True,
             thresholds=[(0.30, 10.0), (0.25, 8.5), (0.20, 7.0), (0.15, 5.5), (0.10, 4.0), (0.05, 2.5)],
             adjustments=[
-                (lambda r, d: r.get("gross_to_operating_conversion") is not None and r["gross_to_operating_conversion"] >= 0.50, 0.5),
-                (lambda r, d: r.get("gross_to_operating_conversion") is not None and r["gross_to_operating_conversion"] < 0.25, -0.5),
-                (lambda r, d: r.get("operating_cash_conversion") is not None and r["operating_cash_conversion"] >= 1.0, 0.5),
-                (lambda r, d: r.get("operating_cash_conversion") is not None and r["operating_cash_conversion"] < 0.60, -0.5),
+                (
+                    lambda r, d: r.get("gross_to_operating_conversion") is not None
+                    and r["gross_to_operating_conversion"] >= 0.50,
+                    0.5,
+                ),
+                (
+                    lambda r, d: r.get("gross_to_operating_conversion") is not None
+                    and r["gross_to_operating_conversion"] < 0.25,
+                    -0.5,
+                ),
+                (
+                    lambda r, d: r.get("operating_cash_conversion") is not None
+                    and r["operating_cash_conversion"] >= 1.0,
+                    0.5,
+                ),
+                (
+                    lambda r, d: r.get("operating_cash_conversion") is not None
+                    and r["operating_cash_conversion"] < 0.60,
+                    -0.5,
+                ),
             ],
             label="Operating Momentum",
         )
@@ -11077,32 +11731,47 @@ class CharlieAnalyzer:
     def payout_discipline_analysis(self, data: FinancialData) -> PayoutDisciplineResult:
         """Phase 185: Payout Discipline Analysis."""
         return self._scored_analysis(
-            data=data, result_class=PayoutDisciplineResult,
+            data=data,
+            result_class=PayoutDisciplineResult,
             ratio_defs=[
                 ("cash_dividend_coverage", "operating_cash_flow", "dividends_paid"),
                 ("payout_ratio", "dividends_paid", "net_income"),
                 ("dividend_to_ocf", "dividends_paid", "operating_cash_flow"),
             ],
             derived=[
-                ("retention_ratio", lambda r, d: (
-                    (d.net_income - d.dividends_paid) / d.net_income
-                    if d.net_income is not None and d.dividends_paid is not None and d.net_income > 0
-                    else None
-                )),
-                ("capex_priority", lambda r, d: (
-                    d.capex / (d.capex + d.dividends_paid)
-                    if d.capex is not None and d.dividends_paid is not None
-                    and (d.capex + d.dividends_paid) > 0 else None
-                )),
-                ("free_cash_after_dividends", lambda r, d: (
-                    (d.operating_cash_flow - d.capex - d.dividends_paid) / d.revenue
-                    if d.operating_cash_flow is not None and d.capex is not None
-                    and d.dividends_paid is not None and d.revenue is not None and d.revenue > 0
-                    else None
-                )),
+                (
+                    "retention_ratio",
+                    lambda r, d: (
+                        (d.net_income - d.dividends_paid) / d.net_income
+                        if d.net_income is not None and d.dividends_paid is not None and d.net_income > 0
+                        else None
+                    ),
+                ),
+                (
+                    "capex_priority",
+                    lambda r, d: (
+                        d.capex / (d.capex + d.dividends_paid)
+                        if d.capex is not None and d.dividends_paid is not None and (d.capex + d.dividends_paid) > 0
+                        else None
+                    ),
+                ),
+                (
+                    "free_cash_after_dividends",
+                    lambda r, d: (
+                        (d.operating_cash_flow - d.capex - d.dividends_paid) / d.revenue
+                        if d.operating_cash_flow is not None
+                        and d.capex is not None
+                        and d.dividends_paid is not None
+                        and d.revenue is not None
+                        and d.revenue > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="pd_score", grade_field="pd_grade",
-            primary="cash_dividend_coverage", higher_is_better=True,
+            score_field="pd_score",
+            grade_field="pd_grade",
+            primary="cash_dividend_coverage",
+            higher_is_better=True,
             thresholds=[(5.0, 10.0), (4.0, 8.5), (3.0, 7.0), (2.0, 5.5), (1.5, 4.0), (1.0, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("capex_priority") is not None and r["capex_priority"] >= 0.60, 0.5),
@@ -11116,7 +11785,8 @@ class CharlieAnalyzer:
     def income_resilience_analysis(self, data: FinancialData) -> IncomeResilienceResult:
         """Phase 184: Income Resilience Analysis."""
         return self._scored_analysis(
-            data=data, result_class=IncomeResilienceResult,
+            data=data,
+            result_class=IncomeResilienceResult,
             ratio_defs=[
                 ("operating_income_stability", "operating_income", "revenue"),
                 ("ebit_coverage", "ebit", "interest_expense"),
@@ -11125,14 +11795,19 @@ class CharlieAnalyzer:
                 ("ebitda_cushion", "ebitda", "interest_expense"),
             ],
             derived=[
-                ("tax_interest_drag", lambda r, d: (
-                    (d.operating_income - d.net_income) / d.operating_income
-                    if d.operating_income is not None and d.net_income is not None and d.operating_income > 0
-                    else None
-                )),
+                (
+                    "tax_interest_drag",
+                    lambda r, d: (
+                        (d.operating_income - d.net_income) / d.operating_income
+                        if d.operating_income is not None and d.net_income is not None and d.operating_income > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="ir_score", grade_field="ir_grade",
-            primary="operating_income_stability", higher_is_better=True,
+            score_field="ir_score",
+            grade_field="ir_grade",
+            primary="operating_income_stability",
+            higher_is_better=True,
             thresholds=[(0.25, 10.0), (0.20, 8.5), (0.15, 7.0), (0.10, 5.5), (0.06, 4.0), (0.03, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("ebit_coverage") is not None and r["ebit_coverage"] >= 5.0, 0.5),
@@ -11146,7 +11821,8 @@ class CharlieAnalyzer:
     def structural_strength_analysis(self, data: FinancialData) -> StructuralStrengthResult:
         """Phase 182: Structural Strength Analysis."""
         return self._scored_analysis(
-            data=data, result_class=StructuralStrengthResult,
+            data=data,
+            result_class=StructuralStrengthResult,
             ratio_defs=[
                 ("equity_multiplier", "total_assets", "total_equity"),
                 ("debt_to_equity", "total_debt", "total_equity"),
@@ -11154,19 +11830,33 @@ class CharlieAnalyzer:
                 ("financial_leverage_ratio", "total_liabilities", "total_equity"),
             ],
             derived=[
-                ("equity_cushion", lambda r, d: (
-                    (d.total_equity - d.total_debt) / d.total_assets
-                    if d.total_equity is not None and d.total_debt is not None
-                    and d.total_assets is not None and d.total_assets > 0 else None
-                )),
-                ("fixed_asset_coverage", lambda r, d: (
-                    safe_divide(d.total_equity, d.total_assets - d.current_assets)
-                    if d.total_equity is not None and d.total_assets is not None and d.current_assets is not None
-                    and (d.total_assets - d.current_assets) > 0 else None
-                )),
+                (
+                    "equity_cushion",
+                    lambda r, d: (
+                        (d.total_equity - d.total_debt) / d.total_assets
+                        if d.total_equity is not None
+                        and d.total_debt is not None
+                        and d.total_assets is not None
+                        and d.total_assets > 0
+                        else None
+                    ),
+                ),
+                (
+                    "fixed_asset_coverage",
+                    lambda r, d: (
+                        safe_divide(d.total_equity, d.total_assets - d.current_assets)
+                        if d.total_equity is not None
+                        and d.total_assets is not None
+                        and d.current_assets is not None
+                        and (d.total_assets - d.current_assets) > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="ss_score", grade_field="ss_grade",
-            primary="equity_multiplier", higher_is_better=False,
+            score_field="ss_score",
+            grade_field="ss_grade",
+            primary="equity_multiplier",
+            higher_is_better=False,
             thresholds=[(1.25, 10.0), (1.50, 8.5), (1.75, 7.0), (2.00, 5.5), (2.50, 4.0), (3.50, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("debt_to_equity") is not None and r["debt_to_equity"] <= 0.50, 0.5),
@@ -11180,7 +11870,8 @@ class CharlieAnalyzer:
     def profit_conversion_analysis(self, data: FinancialData) -> ProfitConversionResult:
         """Phase 179: Profit Conversion Analysis."""
         return self._scored_analysis(
-            data=data, result_class=ProfitConversionResult,
+            data=data,
+            result_class=ProfitConversionResult,
             ratio_defs=[
                 ("gross_conversion", "gross_profit", "revenue"),
                 ("operating_conversion", "operating_income", "revenue"),
@@ -11189,8 +11880,10 @@ class CharlieAnalyzer:
                 ("cash_conversion", "operating_cash_flow", "revenue"),
                 ("profit_to_cash_ratio", "operating_cash_flow", "net_income"),
             ],
-            score_field="pc_score", grade_field="pc_grade",
-            primary="gross_conversion", higher_is_better=True,
+            score_field="pc_score",
+            grade_field="pc_grade",
+            primary="gross_conversion",
+            higher_is_better=True,
             thresholds=[(0.60, 10.0), (0.50, 8.5), (0.40, 7.0), (0.30, 5.5), (0.20, 4.0), (0.10, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("operating_conversion") is not None and r["operating_conversion"] >= 0.20, 0.5),
@@ -11204,7 +11897,8 @@ class CharlieAnalyzer:
     def asset_deployment_efficiency_analysis(self, data: FinancialData) -> AssetDeploymentEfficiencyResult:
         """Phase 172: Asset Deployment Efficiency Analysis."""
         return self._scored_analysis(
-            data=data, result_class=AssetDeploymentEfficiencyResult,
+            data=data,
+            result_class=AssetDeploymentEfficiencyResult,
             ratio_defs=[
                 ("asset_turnover", "revenue", "total_assets"),
                 ("asset_income_yield", "operating_income", "total_assets"),
@@ -11213,14 +11907,22 @@ class CharlieAnalyzer:
                 ("receivables_velocity", "revenue", "accounts_receivable"),
             ],
             derived=[
-                ("fixed_asset_leverage", lambda r, d: (
-                    safe_divide(d.revenue, d.total_assets - d.current_assets)
-                    if d.revenue is not None and d.total_assets is not None and d.current_assets is not None
-                    and (d.total_assets - d.current_assets) > 0 else None
-                )),
+                (
+                    "fixed_asset_leverage",
+                    lambda r, d: (
+                        safe_divide(d.revenue, d.total_assets - d.current_assets)
+                        if d.revenue is not None
+                        and d.total_assets is not None
+                        and d.current_assets is not None
+                        and (d.total_assets - d.current_assets) > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="ade_score", grade_field="ade_grade",
-            primary="asset_turnover", higher_is_better=True,
+            score_field="ade_score",
+            grade_field="ade_grade",
+            primary="asset_turnover",
+            higher_is_better=True,
             thresholds=[(1.50, 10.0), (1.20, 8.5), (0.90, 7.0), (0.60, 5.5), (0.40, 4.0), (0.20, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("asset_income_yield") is not None and r["asset_income_yield"] >= 0.10, 0.5),
@@ -11234,7 +11936,8 @@ class CharlieAnalyzer:
     def profit_sustainability_analysis(self, data: FinancialData) -> ProfitSustainabilityResult:
         """Phase 171: Profit Sustainability Analysis."""
         return self._scored_analysis(
-            data=data, result_class=ProfitSustainabilityResult,
+            data=data,
+            result_class=ProfitSustainabilityResult,
             ratio_defs=[
                 ("profit_cash_backing", "operating_cash_flow", "net_income"),
                 ("profit_margin_depth", "net_income", "revenue"),
@@ -11243,14 +11946,19 @@ class CharlieAnalyzer:
                 ("profit_leverage", "net_income", "operating_income"),
             ],
             derived=[
-                ("profit_reinvestment", lambda r, d: (
-                    (d.net_income - d.dividends_paid) / d.net_income
-                    if d.net_income is not None and d.dividends_paid is not None and d.net_income != 0
-                    else None
-                )),
+                (
+                    "profit_reinvestment",
+                    lambda r, d: (
+                        (d.net_income - d.dividends_paid) / d.net_income
+                        if d.net_income is not None and d.dividends_paid is not None and d.net_income != 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="ps_score", grade_field="ps_grade",
-            primary="profit_cash_backing", higher_is_better=True,
+            score_field="ps_score",
+            grade_field="ps_grade",
+            primary="profit_cash_backing",
+            higher_is_better=True,
             thresholds=[(1.50, 10.0), (1.20, 8.5), (1.00, 7.0), (0.80, 5.5), (0.50, 4.0), (0.20, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("profit_margin_depth") is not None and r["profit_margin_depth"] >= 0.15, 0.5),
@@ -11264,7 +11972,8 @@ class CharlieAnalyzer:
     def debt_discipline_analysis(self, data: FinancialData) -> DebtDisciplineResult:
         """Phase 170: Debt Discipline Analysis."""
         return self._scored_analysis(
-            data=data, result_class=DebtDisciplineResult,
+            data=data,
+            result_class=DebtDisciplineResult,
             ratio_defs=[
                 ("debt_prudence_ratio", "total_debt", "total_assets"),
                 ("debt_coverage_spread", "operating_cash_flow", "total_debt"),
@@ -11272,25 +11981,45 @@ class CharlieAnalyzer:
                 ("interest_absorption", "interest_expense", "revenue"),
             ],
             derived=[
-                ("debt_servicing_power", lambda r, d: (
-                    d.ebitda / (d.interest_expense + d.total_debt / 5.0)
-                    if d.ebitda is not None and d.interest_expense is not None and d.total_debt is not None
-                    and (d.interest_expense + d.total_debt / 5.0) > 0 else None
-                )),
-                ("debt_repayment_capacity", lambda r, d: (
-                    (d.operating_cash_flow - d.capex) / d.total_debt
-                    if d.operating_cash_flow is not None and d.capex is not None
-                    and d.total_debt is not None and d.total_debt != 0 else None
-                )),
+                (
+                    "debt_servicing_power",
+                    lambda r, d: (
+                        d.ebitda / (d.interest_expense + d.total_debt / 5.0)
+                        if d.ebitda is not None
+                        and d.interest_expense is not None
+                        and d.total_debt is not None
+                        and (d.interest_expense + d.total_debt / 5.0) > 0
+                        else None
+                    ),
+                ),
+                (
+                    "debt_repayment_capacity",
+                    lambda r, d: (
+                        (d.operating_cash_flow - d.capex) / d.total_debt
+                        if d.operating_cash_flow is not None
+                        and d.capex is not None
+                        and d.total_debt is not None
+                        and d.total_debt != 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="dd_score", grade_field="dd_grade",
-            primary="debt_prudence_ratio", higher_is_better=False,
+            score_field="dd_score",
+            grade_field="dd_grade",
+            primary="debt_prudence_ratio",
+            higher_is_better=False,
             thresholds=[(0.10, 10.0), (0.20, 8.5), (0.30, 7.0), (0.40, 5.5), (0.50, 4.0), (0.70, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("debt_coverage_spread") is not None and r["debt_coverage_spread"] >= 0.50, 0.5),
                 (lambda r, d: r.get("debt_coverage_spread") is not None and r["debt_coverage_spread"] < 0.10, -0.5),
-                (lambda r, d: r.get("debt_to_equity_leverage") is not None and r["debt_to_equity_leverage"] <= 0.30, 0.5),
-                (lambda r, d: r.get("debt_to_equity_leverage") is not None and r["debt_to_equity_leverage"] >= 1.50, -0.5),
+                (
+                    lambda r, d: r.get("debt_to_equity_leverage") is not None and r["debt_to_equity_leverage"] <= 0.30,
+                    0.5,
+                ),
+                (
+                    lambda r, d: r.get("debt_to_equity_leverage") is not None and r["debt_to_equity_leverage"] >= 1.50,
+                    -0.5,
+                ),
             ],
             label="Debt Discipline",
         )
@@ -11298,37 +12027,61 @@ class CharlieAnalyzer:
     def capital_preservation_analysis(self, data: FinancialData) -> CapitalPreservationResult:
         """Phase 168: Capital Preservation Analysis."""
         return self._scored_analysis(
-            data=data, result_class=CapitalPreservationResult,
+            data=data,
+            result_class=CapitalPreservationResult,
             ratio_defs=[
                 ("retained_earnings_power", "retained_earnings", "total_assets"),
                 ("operating_capital_ratio", "operating_cash_flow", "total_debt"),
                 ("net_worth_growth_proxy", "net_income", "total_equity"),
             ],
             derived=[
-                ("capital_erosion_rate", lambda r, d: (
-                    (d.total_liabilities - d.cash) / d.total_equity
-                    if d.total_liabilities is not None and d.cash is not None
-                    and d.total_equity is not None and d.total_equity != 0 else None
-                )),
-                ("asset_integrity_ratio", lambda r, d: (
-                    (d.total_assets - d.total_liabilities) / d.total_assets
-                    if d.total_assets is not None and d.total_liabilities is not None
-                    and d.total_assets != 0 else None
-                )),
-                ("capital_buffer", lambda r, d: (
-                    (d.current_assets - d.current_liabilities) / d.total_assets
-                    if d.current_assets is not None and d.current_liabilities is not None
-                    and d.total_assets is not None and d.total_assets != 0 else None
-                )),
+                (
+                    "capital_erosion_rate",
+                    lambda r, d: (
+                        (d.total_liabilities - d.cash) / d.total_equity
+                        if d.total_liabilities is not None
+                        and d.cash is not None
+                        and d.total_equity is not None
+                        and d.total_equity != 0
+                        else None
+                    ),
+                ),
+                (
+                    "asset_integrity_ratio",
+                    lambda r, d: (
+                        (d.total_assets - d.total_liabilities) / d.total_assets
+                        if d.total_assets is not None and d.total_liabilities is not None and d.total_assets != 0
+                        else None
+                    ),
+                ),
+                (
+                    "capital_buffer",
+                    lambda r, d: (
+                        (d.current_assets - d.current_liabilities) / d.total_assets
+                        if d.current_assets is not None
+                        and d.current_liabilities is not None
+                        and d.total_assets is not None
+                        and d.total_assets != 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="cp_score", grade_field="cp_grade",
-            primary="retained_earnings_power", higher_is_better=True,
+            score_field="cp_score",
+            grade_field="cp_grade",
+            primary="retained_earnings_power",
+            higher_is_better=True,
             thresholds=[(0.40, 10.0), (0.35, 8.5), (0.30, 7.0), (0.25, 5.5), (0.20, 4.0), (0.10, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("capital_erosion_rate") is not None and r["capital_erosion_rate"] <= 0.50, 0.5),
                 (lambda r, d: r.get("capital_erosion_rate") is not None and r["capital_erosion_rate"] >= 1.50, -0.5),
-                (lambda r, d: r.get("operating_capital_ratio") is not None and r["operating_capital_ratio"] >= 0.50, 0.5),
-                (lambda r, d: r.get("operating_capital_ratio") is not None and r["operating_capital_ratio"] < 0.10, -0.5),
+                (
+                    lambda r, d: r.get("operating_capital_ratio") is not None and r["operating_capital_ratio"] >= 0.50,
+                    0.5,
+                ),
+                (
+                    lambda r, d: r.get("operating_capital_ratio") is not None and r["operating_capital_ratio"] < 0.10,
+                    -0.5,
+                ),
             ],
             label="Capital Preservation",
         )
@@ -11336,7 +12089,8 @@ class CharlieAnalyzer:
     def obligation_coverage_analysis(self, data: FinancialData) -> ObligationCoverageResult:
         """Phase 160: Obligation Coverage Analysis."""
         return self._scored_analysis(
-            data=data, result_class=ObligationCoverageResult,
+            data=data,
+            result_class=ObligationCoverageResult,
             ratio_defs=[
                 ("ebitda_interest_coverage", "ebitda", "interest_expense"),
                 ("cash_interest_coverage", "operating_cash_flow", "interest_expense"),
@@ -11344,18 +12098,27 @@ class CharlieAnalyzer:
                 ("interest_to_revenue", "interest_expense", "revenue"),
             ],
             derived=[
-                ("debt_amortization_capacity", lambda r, d: (
-                    safe_divide(d.operating_cash_flow - d.capex, d.total_debt)
-                    if d.operating_cash_flow is not None and d.capex is not None else None
-                )),
-                ("fixed_charge_coverage", lambda r, d: (
-                    d.ebitda / ((d.interest_expense or 0.0) + (d.capex or 0.0))
-                    if d.ebitda is not None and ((d.interest_expense or 0.0) + (d.capex or 0.0)) > 0
-                    else None
-                )),
+                (
+                    "debt_amortization_capacity",
+                    lambda r, d: (
+                        safe_divide(d.operating_cash_flow - d.capex, d.total_debt)
+                        if d.operating_cash_flow is not None and d.capex is not None
+                        else None
+                    ),
+                ),
+                (
+                    "fixed_charge_coverage",
+                    lambda r, d: (
+                        d.ebitda / ((d.interest_expense or 0.0) + (d.capex or 0.0))
+                        if d.ebitda is not None and ((d.interest_expense or 0.0) + (d.capex or 0.0)) > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="oc_score", grade_field="oc_grade",
-            primary="ebitda_interest_coverage", higher_is_better=True,
+            score_field="oc_score",
+            grade_field="oc_grade",
+            primary="ebitda_interest_coverage",
+            higher_is_better=True,
             thresholds=[(10.0, 10.0), (7.0, 8.5), (5.0, 7.0), (3.0, 5.5), (2.0, 4.0), (1.0, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("debt_burden_ratio") is not None and r["debt_burden_ratio"] <= 2.0, 0.5),
@@ -11369,36 +12132,52 @@ class CharlieAnalyzer:
     def internal_growth_capacity_analysis(self, data: FinancialData) -> InternalGrowthCapacityResult:
         """Phase 159: Internal Growth Capacity Analysis."""
         return self._scored_analysis(
-            data=data, result_class=InternalGrowthCapacityResult,
+            data=data,
+            result_class=InternalGrowthCapacityResult,
             ratio_defs=[
                 ("reinvestment_rate", "capex", "depreciation"),
                 ("equity_growth_rate", "retained_earnings", "total_equity"),
             ],
             derived=[
-                ("plowback_ratio", lambda r, d: (
-                    (d.net_income - (d.dividends_paid if d.dividends_paid is not None else 0.0)) / d.net_income
-                    if d.net_income is not None and d.net_income != 0 else None
-                )),
-                ("sustainable_growth_rate", lambda r, d: (
-                    safe_divide(d.net_income, d.total_equity) * r["plowback_ratio"]
-                    if safe_divide(d.net_income, d.total_equity) is not None and r.get("plowback_ratio") is not None
-                    else None
-                )),
-                ("internal_growth_rate", lambda r, d: (
-                    (lambda roa_b: roa_b / (1.0 - roa_b) if roa_b < 1.0 else None)(
-                        safe_divide(d.net_income, d.total_assets) * r["plowback_ratio"]
-                    ) if safe_divide(d.net_income, d.total_assets) is not None and r.get("plowback_ratio") is not None
-                    else None
-                )),
-                ("growth_financing_ratio", lambda r, d: (
-                    d.operating_cash_flow / ((d.capex or 0.0) + (d.dividends_paid or 0.0))
-                    if d.operating_cash_flow is not None
-                    and ((d.capex or 0.0) + (d.dividends_paid or 0.0)) > 0
-                    else None
-                )),
+                (
+                    "plowback_ratio",
+                    lambda r, d: (
+                        (d.net_income - (d.dividends_paid if d.dividends_paid is not None else 0.0)) / d.net_income
+                        if d.net_income is not None and d.net_income != 0
+                        else None
+                    ),
+                ),
+                (
+                    "sustainable_growth_rate",
+                    lambda r, d: (
+                        safe_divide(d.net_income, d.total_equity) * r["plowback_ratio"]
+                        if safe_divide(d.net_income, d.total_equity) is not None and r.get("plowback_ratio") is not None
+                        else None
+                    ),
+                ),
+                (
+                    "internal_growth_rate",
+                    lambda r, d: (
+                        (lambda roa_b: roa_b / (1.0 - roa_b) if roa_b < 1.0 else None)(
+                            safe_divide(d.net_income, d.total_assets) * r["plowback_ratio"]
+                        )
+                        if safe_divide(d.net_income, d.total_assets) is not None and r.get("plowback_ratio") is not None
+                        else None
+                    ),
+                ),
+                (
+                    "growth_financing_ratio",
+                    lambda r, d: (
+                        d.operating_cash_flow / ((d.capex or 0.0) + (d.dividends_paid or 0.0))
+                        if d.operating_cash_flow is not None and ((d.capex or 0.0) + (d.dividends_paid or 0.0)) > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="igc_score", grade_field="igc_grade",
-            primary="growth_financing_ratio", higher_is_better=True,
+            score_field="igc_score",
+            grade_field="igc_grade",
+            primary="growth_financing_ratio",
+            higher_is_better=True,
             thresholds=[(2.5, 10.0), (2.0, 8.5), (1.5, 7.0), (1.2, 5.5), (1.0, 4.0), (0.5, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("plowback_ratio") is not None and r["plowback_ratio"] >= 0.60, 0.5),
@@ -11412,7 +12191,8 @@ class CharlieAnalyzer:
     def liability_management_analysis(self, data: FinancialData) -> LiabilityManagementResult:
         """Phase 146: Liability Management Analysis."""
         return self._scored_analysis(
-            data=data, result_class=LiabilityManagementResult,
+            data=data,
+            result_class=LiabilityManagementResult,
             ratio_defs=[
                 ("liability_to_assets", "total_liabilities", "total_assets"),
                 ("liability_to_equity", "total_liabilities", "total_equity"),
@@ -11421,20 +12201,31 @@ class CharlieAnalyzer:
                 ("liability_to_revenue", "total_liabilities", "revenue"),
             ],
             derived=[
-                ("net_liability", lambda r, d: (
-                    (d.total_liabilities - (d.cash if d.cash is not None else 0.0)) / d.total_assets
-                    if d.total_liabilities is not None and d.total_assets is not None and d.total_assets > 0
-                    else None
-                )),
+                (
+                    "net_liability",
+                    lambda r, d: (
+                        (d.total_liabilities - (d.cash if d.cash is not None else 0.0)) / d.total_assets
+                        if d.total_liabilities is not None and d.total_assets is not None and d.total_assets > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="lm_score", grade_field="lm_grade",
-            primary="liability_to_assets", higher_is_better=False,
+            score_field="lm_score",
+            grade_field="lm_grade",
+            primary="liability_to_assets",
+            higher_is_better=False,
             thresholds=[(0.30, 10.0), (0.35, 8.5), (0.40, 7.0), (0.50, 5.5), (0.60, 4.0), (0.70, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("liability_coverage") is not None and r["liability_coverage"] >= 0.30, 0.5),
                 (lambda r, d: r.get("liability_coverage") is not None and r["liability_coverage"] < 0.10, -0.5),
-                (lambda r, d: r.get("current_liability_ratio") is not None and r["current_liability_ratio"] <= 0.40, 0.5),
-                (lambda r, d: r.get("current_liability_ratio") is not None and r["current_liability_ratio"] > 0.70, -0.5),
+                (
+                    lambda r, d: r.get("current_liability_ratio") is not None and r["current_liability_ratio"] <= 0.40,
+                    0.5,
+                ),
+                (
+                    lambda r, d: r.get("current_liability_ratio") is not None and r["current_liability_ratio"] > 0.70,
+                    -0.5,
+                ),
             ],
             label="Liability Management",
         )
@@ -11442,7 +12233,8 @@ class CharlieAnalyzer:
     def revenue_predictability_analysis(self, data: FinancialData) -> RevenuePredictabilityResult:
         """Phase 142: Revenue Predictability Analysis."""
         return self._scored_analysis(
-            data=data, result_class=RevenuePredictabilityResult,
+            data=data,
+            result_class=RevenuePredictabilityResult,
             ratio_defs=[
                 ("revenue_to_assets", "revenue", "total_assets"),
                 ("revenue_to_equity", "revenue", "total_equity"),
@@ -11451,8 +12243,10 @@ class CharlieAnalyzer:
                 ("operating_margin", "operating_income", "revenue"),
                 ("net_margin", "net_income", "revenue"),
             ],
-            score_field="rp_score", grade_field="rp_grade",
-            primary="operating_margin", higher_is_better=True,
+            score_field="rp_score",
+            grade_field="rp_grade",
+            primary="operating_margin",
+            higher_is_better=True,
             thresholds=[(0.30, 10.0), (0.25, 8.5), (0.20, 7.0), (0.15, 5.5), (0.10, 4.0), (0.05, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("gross_margin") is not None and r["gross_margin"] >= 0.50, 0.5),
@@ -11466,30 +12260,44 @@ class CharlieAnalyzer:
     def equity_reinvestment_analysis(self, data: FinancialData) -> EquityReinvestmentResult:
         """Phase 139: Equity Reinvestment Analysis."""
         return self._scored_analysis(
-            data=data, result_class=EquityReinvestmentResult,
+            data=data,
+            result_class=EquityReinvestmentResult,
             ratio_defs=[
                 ("reinvestment_rate", "capex", "net_income"),
                 ("equity_growth_proxy", "retained_earnings", "total_equity"),
                 ("dividend_coverage", "net_income", "dividends_paid"),
             ],
             derived=[
-                ("retention_ratio", lambda r, d: (
-                    safe_divide(d.net_income - d.dividends_paid, d.net_income)
-                    if d.net_income is not None and d.dividends_paid is not None
-                    else (safe_divide(d.net_income, d.net_income) if d.net_income is not None else None)
-                )),
-                ("plowback_to_assets", lambda r, d: (
-                    safe_divide(d.net_income - d.dividends_paid, d.total_assets)
-                    if d.net_income is not None and d.dividends_paid is not None else None
-                )),
-                ("internal_growth_rate", lambda r, d: (
-                    r["equity_growth_proxy"] * safe_divide(d.net_income, d.total_equity)
-                    if r.get("equity_growth_proxy") is not None
-                    and safe_divide(d.net_income, d.total_equity) is not None else None
-                )),
+                (
+                    "retention_ratio",
+                    lambda r, d: (
+                        safe_divide(d.net_income - d.dividends_paid, d.net_income)
+                        if d.net_income is not None and d.dividends_paid is not None
+                        else (safe_divide(d.net_income, d.net_income) if d.net_income is not None else None)
+                    ),
+                ),
+                (
+                    "plowback_to_assets",
+                    lambda r, d: (
+                        safe_divide(d.net_income - d.dividends_paid, d.total_assets)
+                        if d.net_income is not None and d.dividends_paid is not None
+                        else None
+                    ),
+                ),
+                (
+                    "internal_growth_rate",
+                    lambda r, d: (
+                        r["equity_growth_proxy"] * safe_divide(d.net_income, d.total_equity)
+                        if r.get("equity_growth_proxy") is not None
+                        and safe_divide(d.net_income, d.total_equity) is not None
+                        else None
+                    ),
+                ),
             ],
-            score_field="er_score", grade_field="er_grade",
-            primary="retention_ratio", higher_is_better=True,
+            score_field="er_score",
+            grade_field="er_grade",
+            primary="retention_ratio",
+            higher_is_better=True,
             thresholds=[(0.90, 10.0), (0.80, 8.5), (0.70, 7.0), (0.60, 5.5), (0.50, 4.0), (0.30, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("dividend_coverage") is not None and r["dividend_coverage"] >= 3.0, 0.5),
@@ -11502,11 +12310,17 @@ class CharlieAnalyzer:
 
     def fixed_asset_efficiency_analysis(self, data: FinancialData) -> FixedAssetEfficiencyResult:
         """Phase 138: Fixed Asset Efficiency Analysis."""
+
         def _fa(d):
-            return (d.total_assets - d.current_assets) if d.total_assets is not None and d.current_assets is not None else None
+            return (
+                (d.total_assets - d.current_assets)
+                if d.total_assets is not None and d.current_assets is not None
+                else None
+            )
 
         return self._scored_analysis(
-            data=data, result_class=FixedAssetEfficiencyResult,
+            data=data,
+            result_class=FixedAssetEfficiencyResult,
             ratio_defs=[],
             derived=[
                 ("fixed_asset_ratio", lambda r, d: safe_divide(_fa(d), d.total_assets)),
@@ -11516,8 +12330,10 @@ class CharlieAnalyzer:
                 ("depreciation_to_fixed", lambda r, d: safe_divide(d.depreciation, _fa(d))),
                 ("capex_to_fixed", lambda r, d: safe_divide(d.capex, _fa(d))),
             ],
-            score_field="fae_score", grade_field="fae_grade",
-            primary="fixed_asset_turnover", higher_is_better=True,
+            score_field="fae_score",
+            grade_field="fae_grade",
+            primary="fixed_asset_turnover",
+            higher_is_better=True,
             thresholds=[(5.0, 10.0), (3.0, 8.5), (2.0, 7.0), (1.5, 5.5), (1.0, 4.0), (0.5, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("capex_to_fixed") is not None and r["capex_to_fixed"] >= 0.10, 0.5),
@@ -11531,7 +12347,8 @@ class CharlieAnalyzer:
     def income_stability_analysis(self, data: FinancialData) -> IncomeStabilityResult:
         """Phase 134: Income Stability Analysis."""
         return self._scored_analysis(
-            data=data, result_class=IncomeStabilityResult,
+            data=data,
+            result_class=IncomeStabilityResult,
             ratio_defs=[
                 ("net_income_margin", "net_income", "revenue"),
                 ("retained_earnings_ratio", "retained_earnings", "total_assets"),
@@ -11540,8 +12357,10 @@ class CharlieAnalyzer:
                 ("ebitda_margin", "ebitda", "revenue"),
                 ("income_resilience", "operating_cash_flow", "net_income"),
             ],
-            score_field="is_score", grade_field="is_grade",
-            primary="operating_income_cushion", higher_is_better=True,
+            score_field="is_score",
+            grade_field="is_grade",
+            primary="operating_income_cushion",
+            higher_is_better=True,
             thresholds=[(10.0, 10.0), (7.0, 8.5), (5.0, 7.0), (3.0, 5.5), (2.0, 4.0), (1.0, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("net_income_margin") is not None and r["net_income_margin"] >= 0.15, 0.5),
@@ -11555,7 +12374,8 @@ class CharlieAnalyzer:
     def defensive_posture_analysis(self, data: FinancialData) -> DefensivePostureResult:
         """Phase 133: Defensive Posture Analysis."""
         return self._scored_analysis(
-            data=data, result_class=DefensivePostureResult,
+            data=data,
+            result_class=DefensivePostureResult,
             ratio_defs=[
                 ("cash_ratio", "cash", "current_liabilities"),
                 ("cash_flow_coverage", "operating_cash_flow", "total_assets"),
@@ -11563,18 +12383,29 @@ class CharlieAnalyzer:
                 ("debt_shield", "ebitda", "total_debt"),
             ],
             derived=[
-                ("defensive_interval", lambda r, d: (
-                    safe_divide(d.current_assets, d.operating_expenses / 365)
-                    if d.operating_expenses is not None and d.operating_expenses > 0 else None
-                )),
-                ("quick_ratio", lambda r, d: (
-                    (d.current_assets - (d.inventory or 0)) / d.current_liabilities
-                    if d.current_assets is not None and d.current_liabilities is not None
-                    and d.current_liabilities > 0 else None
-                )),
+                (
+                    "defensive_interval",
+                    lambda r, d: (
+                        safe_divide(d.current_assets, d.operating_expenses / 365)
+                        if d.operating_expenses is not None and d.operating_expenses > 0
+                        else None
+                    ),
+                ),
+                (
+                    "quick_ratio",
+                    lambda r, d: (
+                        (d.current_assets - (d.inventory or 0)) / d.current_liabilities
+                        if d.current_assets is not None
+                        and d.current_liabilities is not None
+                        and d.current_liabilities > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="dp_score", grade_field="dp_grade",
-            primary="defensive_interval", higher_is_better=True,
+            score_field="dp_score",
+            grade_field="dp_grade",
+            primary="defensive_interval",
+            higher_is_better=True,
             thresholds=[(365, 10.0), (270, 8.5), (180, 7.0), (120, 5.5), (90, 4.0), (30, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("cash_ratio") is not None and r["cash_ratio"] >= 0.50, 0.5),
@@ -11588,31 +12419,46 @@ class CharlieAnalyzer:
     def funding_efficiency_analysis(self, data: FinancialData) -> FundingEfficiencyResult:
         """Phase 131: Funding Efficiency Analysis."""
         return self._scored_analysis(
-            data=data, result_class=FundingEfficiencyResult,
+            data=data,
+            result_class=FundingEfficiencyResult,
             ratio_defs=[
                 ("equity_multiplier", "total_assets", "total_equity"),
                 ("interest_coverage_ebitda", "ebitda", "interest_expense"),
                 ("cost_of_debt", "interest_expense", "total_debt"),
             ],
             derived=[
-                ("debt_to_capitalization", lambda r, d: (
-                    d.total_debt / (d.total_debt + d.total_equity)
-                    if d.total_debt is not None and d.total_equity is not None
-                    and (d.total_debt + d.total_equity) > 0 else None
-                )),
-                ("weighted_funding_cost", lambda r, d: (
-                    r["cost_of_debt"] * r["debt_to_capitalization"]
-                    if r.get("cost_of_debt") is not None and r.get("debt_to_capitalization") is not None
-                    else None
-                )),
-                ("funding_spread", lambda r, d: (
-                    safe_divide(d.net_income, d.total_assets) - r["weighted_funding_cost"]
-                    if safe_divide(d.net_income, d.total_assets) is not None
-                    and r.get("weighted_funding_cost") is not None else None
-                )),
+                (
+                    "debt_to_capitalization",
+                    lambda r, d: (
+                        d.total_debt / (d.total_debt + d.total_equity)
+                        if d.total_debt is not None
+                        and d.total_equity is not None
+                        and (d.total_debt + d.total_equity) > 0
+                        else None
+                    ),
+                ),
+                (
+                    "weighted_funding_cost",
+                    lambda r, d: (
+                        r["cost_of_debt"] * r["debt_to_capitalization"]
+                        if r.get("cost_of_debt") is not None and r.get("debt_to_capitalization") is not None
+                        else None
+                    ),
+                ),
+                (
+                    "funding_spread",
+                    lambda r, d: (
+                        safe_divide(d.net_income, d.total_assets) - r["weighted_funding_cost"]
+                        if safe_divide(d.net_income, d.total_assets) is not None
+                        and r.get("weighted_funding_cost") is not None
+                        else None
+                    ),
+                ),
             ],
-            score_field="fe_score", grade_field="fe_grade",
-            primary="interest_coverage_ebitda", higher_is_better=True,
+            score_field="fe_score",
+            grade_field="fe_grade",
+            primary="interest_coverage_ebitda",
+            higher_is_better=True,
             thresholds=[(10.0, 10.0), (7.0, 8.5), (5.0, 7.0), (3.0, 5.5), (2.0, 4.0), (1.0, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("debt_to_capitalization") is not None and r["debt_to_capitalization"] <= 0.30, 0.5),
@@ -11626,7 +12472,8 @@ class CharlieAnalyzer:
     def cash_flow_stability_analysis(self, data: FinancialData) -> CashFlowStabilityResult:
         """Phase 125: Cash Flow Stability Analysis."""
         return self._scored_analysis(
-            data=data, result_class=CashFlowStabilityResult,
+            data=data,
+            result_class=CashFlowStabilityResult,
             ratio_defs=[
                 ("ocf_margin", "operating_cash_flow", "revenue"),
                 ("ocf_to_ebitda", "operating_cash_flow", "ebitda"),
@@ -11635,16 +12482,24 @@ class CharlieAnalyzer:
                 ("dividend_coverage", "operating_cash_flow", "dividends_paid"),
             ],
             derived=[
-                ("cash_flow_sufficiency", lambda r, d: (
-                    safe_divide(d.operating_cash_flow,
-                                (d.capex or 0.0) + (d.dividends_paid or 0.0) + (d.interest_expense or 0.0))
-                    if d.operating_cash_flow is not None and d.operating_cash_flow > 0
-                    and ((d.capex or 0.0) + (d.dividends_paid or 0.0) + (d.interest_expense or 0.0)) > 0
-                    else None
-                )),
+                (
+                    "cash_flow_sufficiency",
+                    lambda r, d: (
+                        safe_divide(
+                            d.operating_cash_flow,
+                            (d.capex or 0.0) + (d.dividends_paid or 0.0) + (d.interest_expense or 0.0),
+                        )
+                        if d.operating_cash_flow is not None
+                        and d.operating_cash_flow > 0
+                        and ((d.capex or 0.0) + (d.dividends_paid or 0.0) + (d.interest_expense or 0.0)) > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="cfs_score", grade_field="cfs_grade",
-            primary="ocf_margin", higher_is_better=True,
+            score_field="cfs_score",
+            grade_field="cfs_grade",
+            primary="ocf_margin",
+            higher_is_better=True,
             thresholds=[(0.25, 10.0), (0.20, 8.5), (0.15, 7.0), (0.10, 5.5), (0.05, 4.0), (0.0, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("ocf_to_ebitda") is not None and r["ocf_to_ebitda"] >= 0.90, 0.5),
@@ -11658,7 +12513,8 @@ class CharlieAnalyzer:
     def income_quality_analysis(self, data: FinancialData) -> IncomeQualityResult:
         """Phase 124: Income Quality Analysis."""
         return self._scored_analysis(
-            data=data, result_class=IncomeQualityResult,
+            data=data,
+            result_class=IncomeQualityResult,
             ratio_defs=[
                 ("ocf_to_net_income", "operating_cash_flow", "net_income"),
                 ("cash_earnings_ratio", "operating_cash_flow", "ebitda"),
@@ -11667,15 +12523,23 @@ class CharlieAnalyzer:
                 ("operating_income_ratio", "operating_income", "net_income"),
             ],
             derived=[
-                ("accruals_ratio", lambda r, d: (
-                    safe_divide((d.net_income or 0) - (d.operating_cash_flow or 0), d.total_assets)
-                    if d.net_income is not None and d.net_income > 0
-                    and d.operating_cash_flow is not None
-                    and d.total_assets is not None and d.total_assets > 0 else None
-                )),
+                (
+                    "accruals_ratio",
+                    lambda r, d: (
+                        safe_divide((d.net_income or 0) - (d.operating_cash_flow or 0), d.total_assets)
+                        if d.net_income is not None
+                        and d.net_income > 0
+                        and d.operating_cash_flow is not None
+                        and d.total_assets is not None
+                        and d.total_assets > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="iq_score", grade_field="iq_grade",
-            primary="ocf_to_net_income", higher_is_better=True,
+            score_field="iq_score",
+            grade_field="iq_grade",
+            primary="ocf_to_net_income",
+            higher_is_better=True,
             thresholds=[(1.5, 10.0), (1.2, 8.5), (1.0, 7.0), (0.8, 5.5), (0.5, 4.0), (0.0, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("accruals_ratio") is not None and r["accruals_ratio"] <= -0.05, 0.5),
@@ -11692,30 +12556,52 @@ class CharlieAnalyzer:
         if not data.revenue or not data.accounts_receivable:
             return result
         return self._scored_analysis(
-            data=data, result_class=ReceivablesManagementResult,
+            data=data,
+            result_class=ReceivablesManagementResult,
             ratio_defs=[
                 ("ar_to_revenue", "accounts_receivable", "revenue"),
                 ("ar_to_current_assets", "accounts_receivable", "current_assets"),
                 ("receivables_turnover", "revenue", "accounts_receivable"),
             ],
             derived=[
-                ("dso", lambda r, d: safe_divide(d.accounts_receivable * 365, d.revenue)
-                    if d.accounts_receivable is not None and d.revenue is not None else None),
-                ("collection_effectiveness", lambda r, d: safe_divide(d.revenue - d.accounts_receivable, d.revenue)
-                    if d.revenue is not None and d.accounts_receivable is not None else None),
-                ("ar_concentration", lambda r, d: (
-                    safe_divide(d.accounts_receivable, d.accounts_receivable + (d.cash or 0))
-                    if d.accounts_receivable is not None and (d.accounts_receivable + (d.cash or 0)) > 0 else None
-                )),
+                (
+                    "dso",
+                    lambda r, d: safe_divide(d.accounts_receivable * 365, d.revenue)
+                    if d.accounts_receivable is not None and d.revenue is not None
+                    else None,
+                ),
+                (
+                    "collection_effectiveness",
+                    lambda r, d: safe_divide(d.revenue - d.accounts_receivable, d.revenue)
+                    if d.revenue is not None and d.accounts_receivable is not None
+                    else None,
+                ),
+                (
+                    "ar_concentration",
+                    lambda r, d: (
+                        safe_divide(d.accounts_receivable, d.accounts_receivable + (d.cash or 0))
+                        if d.accounts_receivable is not None and (d.accounts_receivable + (d.cash or 0)) > 0
+                        else None
+                    ),
+                ),
             ],
-            score_field="rm_score", grade_field="rm_grade",
-            primary="dso", higher_is_better=False,
+            score_field="rm_score",
+            grade_field="rm_grade",
+            primary="dso",
+            higher_is_better=False,
             thresholds=[(30, 10.0), (45, 8.5), (60, 7.0), (75, 5.5), (90, 4.0), (120, 2.5)],
             adjustments=[
                 (lambda r, d: r.get("receivables_turnover") is not None and r["receivables_turnover"] >= 12, 0.5),
                 (lambda r, d: r.get("receivables_turnover") is not None and r["receivables_turnover"] < 4, -0.5),
-                (lambda r, d: r.get("collection_effectiveness") is not None and r["collection_effectiveness"] >= 0.90, 0.5),
-                (lambda r, d: r.get("collection_effectiveness") is not None and r["collection_effectiveness"] < 0.70, -0.5),
+                (
+                    lambda r, d: r.get("collection_effectiveness") is not None
+                    and r["collection_effectiveness"] >= 0.90,
+                    0.5,
+                ),
+                (
+                    lambda r, d: r.get("collection_effectiveness") is not None and r["collection_effectiveness"] < 0.70,
+                    -0.5,
+                ),
             ],
             label="Receivables Management",
         )
@@ -12316,8 +13202,8 @@ class CharlieAnalyzer:
             result.summary = (
                 f"Operational Risk: Margin of safety {_pct(mos)}, "
                 f"risk buffer {result.risk_buffer:.2f}x — {result.or_grade} ({result.or_score}/10)."
-                if result.risk_buffer is not None else
-                f"Operational Risk: Margin of safety {_pct(mos)} — {result.or_grade} ({result.or_score}/10)."
+                if result.risk_buffer is not None
+                else f"Operational Risk: Margin of safety {_pct(mos)} — {result.or_grade} ({result.or_score}/10)."
             )
 
         return result
@@ -12527,12 +13413,11 @@ class CharlieAnalyzer:
             result.aq_grade = "Weak"
 
         result.summary = (
-            f"Asset Quality: Current Asset Ratio={car:.1%}, "
-            f"Cash/CA={cca:.1%}" if cca is not None else f"Asset Quality: Current Asset Ratio={car:.1%}, Cash/CA=N/A"
+            f"Asset Quality: Current Asset Ratio={car:.1%}, Cash/CA={cca:.1%}"
+            if cca is not None
+            else f"Asset Quality: Current Asset Ratio={car:.1%}, Cash/CA=N/A"
         )
-        result.summary += (
-            f", AR/TA={rta:.1%}" if rta is not None else ", AR/TA=N/A"
-        )
+        result.summary += f", AR/TA={rta:.1%}" if rta is not None else ", AR/TA=N/A"
         result.summary += f" — {result.aq_grade} ({result.aq_score}/10)"
         return result
 
@@ -12625,20 +13510,15 @@ class CharlieAnalyzer:
         score = max(0.0, min(10.0, base + adj))
         result.fr_score = score
         result.fr_grade = (
-            "Excellent" if score >= 8.0
-            else "Good" if score >= 6.0
-            else "Adequate" if score >= 4.0
-            else "Weak"
+            "Excellent" if score >= 8.0 else "Good" if score >= 6.0 else "Adequate" if score >= 4.0 else "Weak"
         )
 
         grade = result.fr_grade
         result.summary = (
-            f"Financial Resilience Analysis: "
-            f"Resilience Buffer={rb:.2f}x. " if rb is not None else "Financial Resilience Analysis: "
-        ) + (
-            f"Cash/Assets={result.cash_to_assets:.1%}. "
-            f"Score: {result.fr_score:.1f}/10. Grade: {grade}."
-        )
+            f"Financial Resilience Analysis: Resilience Buffer={rb:.2f}x. "
+            if rb is not None
+            else "Financial Resilience Analysis: "
+        ) + (f"Cash/Assets={result.cash_to_assets:.1%}. Score: {result.fr_score:.1f}/10. Grade: {grade}.")
 
         return result
 
@@ -12725,18 +13605,19 @@ class CharlieAnalyzer:
             score = max(0.0, min(10.0, base + adj))
             result.em_score = score
             result.em_grade = (
-                "Excellent" if score >= 8.0
-                else "Good" if score >= 6.0
-                else "Adequate" if score >= 4.0
-                else "Weak"
+                "Excellent" if score >= 8.0 else "Good" if score >= 6.0 else "Adequate" if score >= 4.0 else "Weak"
             )
 
         grade = result.em_grade or "N/A"
         result.summary = (
-            f"Equity Multiplier Analysis: EM={em if em is not None else 'N/A':.2f}. "
-            f"Debt Ratio={result.debt_ratio if result.debt_ratio is not None else 'N/A'}. "
-            f"Score: {result.em_score:.1f}/10. Grade: {grade}."
-        ) if em is not None else "Equity Multiplier Analysis: Insufficient data."
+            (
+                f"Equity Multiplier Analysis: EM={em if em is not None else 'N/A':.2f}. "
+                f"Debt Ratio={result.debt_ratio if result.debt_ratio is not None else 'N/A'}. "
+                f"Score: {result.em_score:.1f}/10. Grade: {grade}."
+            )
+            if em is not None
+            else "Equity Multiplier Analysis: Insufficient data."
+        )
 
         return result
 
@@ -12822,8 +13703,7 @@ class CharlieAnalyzer:
         result.di_grade = grade
 
         result.summary = (
-            f"Defensive Interval: {did:.0f} days of operating coverage. "
-            f"Score: {result.di_score}/10. Grade: {grade}."
+            f"Defensive Interval: {did:.0f} days of operating coverage. Score: {result.di_score}/10. Grade: {grade}."
         )
 
         return result
@@ -13085,10 +13965,7 @@ class CharlieAnalyzer:
         result.dsc_grade = grade
 
         dscr_str = f"{dscr:.2f}x" if dscr is not None else "N/A"
-        result.summary = (
-            f"Debt Service Coverage — DSCR: {dscr_str}, "
-            f"Score: {score}/10. Grade: {grade}."
-        )
+        result.summary = f"Debt Service Coverage — DSCR: {dscr_str}, Score: {score}/10. Grade: {grade}."
 
         return result
 
@@ -13192,10 +14069,7 @@ class CharlieAnalyzer:
         result.ca_grade = grade
 
         cto_str = f"{cto:.1%}" if cto is not None else "N/A"
-        result.summary = (
-            f"Capital Allocation — CapEx/OCF: {cto_str}, "
-            f"Score: {score}/10. Grade: {grade}."
-        )
+        result.summary = f"Capital Allocation — CapEx/OCF: {cto_str}, Score: {score}/10. Grade: {grade}."
 
         return result
 
@@ -13309,10 +14183,7 @@ class CharlieAnalyzer:
         result.te_grade = grade
 
         etr_str = f"{etr:.1%}" if etr is not None else "N/A"
-        result.summary = (
-            f"Tax Efficiency — ETR: {etr_str}, "
-            f"Score: {score}/10. Grade: {grade}."
-        )
+        result.summary = f"Tax Efficiency — ETR: {etr_str}, Score: {score}/10. Grade: {grade}."
 
         return result
 
@@ -13409,9 +14280,7 @@ class CharlieAnalyzer:
             result.roic_grade = "Weak"
 
         result.summary = (
-            f"ROIC: {roic:.1f}%. NOPAT: ${nopat:,.0f}. "
-            f"Invested Capital: ${ic:,.0f}. "
-            f"Grade: {result.roic_grade}."
+            f"ROIC: {roic:.1f}%. NOPAT: ${nopat:,.0f}. Invested Capital: ${ic:,.0f}. Grade: {result.roic_grade}."
         )
 
         return result
@@ -13501,9 +14370,7 @@ class CharlieAnalyzer:
         else:
             result.roa_grade = "Weak"
 
-        result.summary = (
-            f"Return on Assets: {roa:.1f}%. "
-        )
+        result.summary = f"Return on Assets: {roa:.1f}%. "
         if result.operating_roa_pct is not None:
             result.summary += f"Operating ROA: {result.operating_roa_pct:.1f}%. "
         if result.cash_roa_pct is not None:
@@ -13593,9 +14460,9 @@ class CharlieAnalyzer:
             result.roe_grade = "Weak"
 
         result.summary = (
-            f"Return on Equity: {roe:.1f}%. "
-            f"DuPont decomposition — Net Margin: "
-            f"{result.net_margin_pct:.1f}%" if result.net_margin_pct is not None else "N/A"
+            f"Return on Equity: {roe:.1f}%. DuPont decomposition — Net Margin: {result.net_margin_pct:.1f}%"
+            if result.net_margin_pct is not None
+            else "N/A"
         )
         if result.asset_turnover is not None:
             result.summary += f", Asset Turnover: {result.asset_turnover:.2f}x"
@@ -13696,10 +14563,7 @@ class CharlieAnalyzer:
             grade = "Weak"
         result.npm_grade = grade
 
-        result.summary = (
-            f"Net Profit Margin: {nm:.1f}% margin, "
-            f"score {score:.1f}/10. Status: {grade}."
-        )
+        result.summary = f"Net Profit Margin: {nm:.1f}% margin, score {score:.1f}/10. Status: {grade}."
 
         return result
 
@@ -13785,10 +14649,7 @@ class CharlieAnalyzer:
             grade = "Weak"
         result.ebitda_grade = grade
 
-        result.summary = (
-            f"EBITDA Margin Quality: {em:.1f}% margin, "
-            f"score {score:.1f}/10. Status: {grade}."
-        )
+        result.summary = f"EBITDA Margin Quality: {em:.1f}% margin, score {score:.1f}/10. Status: {grade}."
 
         return result
 
@@ -13875,10 +14736,7 @@ class CharlieAnalyzer:
             grade = "Weak"
         result.gm_stability_grade = grade
 
-        result.summary = (
-            f"Gross Margin Stability: {gm_pct:.1f}% gross margin, "
-            f"score {score:.1f}/10. Status: {grade}."
-        )
+        result.summary = f"Gross Margin Stability: {gm_pct:.1f}% gross margin, score {score:.1f}/10. Status: {grade}."
 
         return result
 
@@ -13924,27 +14782,27 @@ class CharlieAnalyzer:
 
         # Column name mapping (lowercase patterns to attribute names)
         mappings = {
-            'revenue': ['revenue', 'sales', 'net sales', 'total revenue'],
-            'cogs': ['cogs', 'cost of goods sold', 'cost of sales', 'cost of revenue'],
-            'gross_profit': ['gross profit', 'gross margin'],
-            'operating_income': ['operating income', 'operating profit', 'ebit'],
-            'net_income': ['net income', 'net profit', 'net earnings', 'profit after tax'],
-            'total_assets': ['total assets', 'assets'],
-            'current_assets': ['current assets'],
-            'cash': ['cash', 'cash and equivalents', 'cash & equivalents'],
-            'inventory': ['inventory', 'inventories'],
-            'accounts_receivable': ['accounts receivable', 'receivables', 'trade receivables'],
-            'total_liabilities': ['total liabilities', 'liabilities'],
-            'current_liabilities': ['current liabilities'],
-            'accounts_payable': ['accounts payable', 'payables', 'trade payables'],
-            'total_debt': ['total debt', 'long term debt', 'debt'],
-            'total_equity': ['total equity', 'shareholders equity', 'stockholders equity'],
-            'interest_expense': ['interest expense', 'interest'],
-            'ebt': ['earnings before tax', 'ebt', 'income before tax', 'profit before tax', 'pre-tax income'],
-            'retained_earnings': ['retained earnings', 'accumulated earnings'],
-            'depreciation': ['depreciation', 'depreciation and amortization', 'd&a'],
-            'operating_cash_flow': ['operating cash flow', 'cash from operations'],
-            'capex': ['capex', 'capital expenditure', 'capital expenditures'],
+            "revenue": ["revenue", "sales", "net sales", "total revenue"],
+            "cogs": ["cogs", "cost of goods sold", "cost of sales", "cost of revenue"],
+            "gross_profit": ["gross profit", "gross margin"],
+            "operating_income": ["operating income", "operating profit", "ebit"],
+            "net_income": ["net income", "net profit", "net earnings", "profit after tax"],
+            "total_assets": ["total assets", "assets"],
+            "current_assets": ["current assets"],
+            "cash": ["cash", "cash and equivalents", "cash & equivalents"],
+            "inventory": ["inventory", "inventories"],
+            "accounts_receivable": ["accounts receivable", "receivables", "trade receivables"],
+            "total_liabilities": ["total liabilities", "liabilities"],
+            "current_liabilities": ["current liabilities"],
+            "accounts_payable": ["accounts payable", "payables", "trade payables"],
+            "total_debt": ["total debt", "long term debt", "debt"],
+            "total_equity": ["total equity", "shareholders equity", "stockholders equity"],
+            "interest_expense": ["interest expense", "interest"],
+            "ebt": ["earnings before tax", "ebt", "income before tax", "profit before tax", "pre-tax income"],
+            "retained_earnings": ["retained earnings", "accumulated earnings"],
+            "depreciation": ["depreciation", "depreciation and amortization", "d&a"],
+            "operating_cash_flow": ["operating cash flow", "cash from operations"],
+            "capex": ["capex", "capital expenditure", "capital expenditures"],
         }
 
         # Build reverse lookup (prefer longest pattern match to avoid greedy short patterns)
@@ -13999,7 +14857,7 @@ class CharlieAnalyzer:
                     return col
         return None
 
-    def _transpose_financial_df(self, df: pd.DataFrame, label_col: str, mappings: dict) -> 'FinancialData':
+    def _transpose_financial_df(self, df: pd.DataFrame, label_col: str, mappings: dict) -> "FinancialData":
         """Map row labels to FinancialData using the rightmost numeric column."""
         data = FinancialData()
         # Find rightmost numeric column (latest period)

@@ -4,10 +4,11 @@ Tests for fcf_yield_analysis() and FCFYieldResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     FCFYieldResult,
+    FinancialData,
 )
 
 
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestFCFYieldDataclass:
     def test_defaults(self):
         r = FCFYieldResult()
@@ -67,6 +69,7 @@ class TestFCFYieldDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestFCFYieldAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -124,6 +127,7 @@ class TestFCFYieldAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestFCFYieldScoring:
     def test_strong_fcf(self, analyzer):
         """High FCF margin + high conversion => Strong."""
@@ -166,6 +170,7 @@ class TestFCFYieldScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase39EdgeCases:
     def test_empty_data(self, analyzer):

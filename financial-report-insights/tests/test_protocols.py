@@ -2,9 +2,6 @@
 
 from typing import List
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # LLMProvider protocol
 # ---------------------------------------------------------------------------
@@ -87,12 +84,12 @@ class TestEmbeddingProvider:
 
 class TestCrossProtocol:
     def test_both_protocols_importable(self):
-        from protocols import LLMProvider, EmbeddingProvider
+        from protocols import EmbeddingProvider, LLMProvider
 
         assert LLMProvider is not EmbeddingProvider
 
     def test_class_can_satisfy_both(self):
-        from protocols import LLMProvider, EmbeddingProvider
+        from protocols import EmbeddingProvider, LLMProvider
 
         class DualProvider:
             def generate(self, prompt: str) -> str:

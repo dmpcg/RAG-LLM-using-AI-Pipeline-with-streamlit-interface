@@ -4,6 +4,7 @@ Tests for profit_sustainability_analysis() and ProfitSustainabilityResult datacl
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestProfitSustainabilityDataclass:
     def test_defaults(self):
         r = ProfitSustainabilityResult()
@@ -68,6 +70,7 @@ class TestProfitSustainabilityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestProfitSustainabilityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestProfitSustainabilityAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestProfitSustainabilityScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """PCB=1.467 => base 8.5. PMD=0.15 >=0.15 => +0.5. PRI=0.733 >=0.70 => +0.5. Score=9.5."""
@@ -155,6 +159,7 @@ class TestProfitSustainabilityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase171EdgeCases:
     def test_empty_data(self, analyzer):

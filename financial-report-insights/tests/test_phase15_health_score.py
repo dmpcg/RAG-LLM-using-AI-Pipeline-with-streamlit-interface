@@ -4,11 +4,12 @@ Tests for comprehensive_health_score(), HealthDimension, ComprehensiveHealthResu
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
+    ComprehensiveHealthResult,
     FinancialData,
     HealthDimension,
-    ComprehensiveHealthResult,
 )
 
 
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestHealthDimensionDataclass:
     def test_defaults(self):
         d = HealthDimension()
@@ -79,6 +81,7 @@ class TestComprehensiveHealthResultDataclass:
 
 
 # ===== COMPREHENSIVE HEALTH SCORE =====
+
 
 class TestComprehensiveHealthScore:
     def test_returns_result(self, analyzer, sample_data):
@@ -200,6 +203,7 @@ class TestComprehensiveHealthScore:
 
 # ===== GRADE MAPPING =====
 
+
 class TestHealthGrade:
     def test_a_plus(self, analyzer):
         assert analyzer._health_grade(95) == "A+"
@@ -234,6 +238,7 @@ class TestHealthGrade:
 
 # ===== TRAFFIC LIGHT =====
 
+
 class TestTrafficLight:
     def test_green(self, analyzer):
         assert analyzer._traffic_light(80) == "green"
@@ -255,6 +260,7 @@ class TestTrafficLight:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase15EdgeCases:
     def test_partial_data(self, analyzer):

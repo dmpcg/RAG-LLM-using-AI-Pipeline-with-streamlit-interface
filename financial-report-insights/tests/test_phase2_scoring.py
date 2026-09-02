@@ -8,17 +8,15 @@ Covers:
 - Query decomposition for agentic RAG
 """
 
-import pytest
 import pandas as pd
-import numpy as np
+import pytest
 
 from financial_analyzer import (
-    CharlieAnalyzer,
-    FinancialData,
-    DuPontAnalysis,
     AltmanZScore,
+    CharlieAnalyzer,
+    DuPontAnalysis,
+    FinancialData,
     PiotroskiFScore,
-    safe_divide,
 )
 
 
@@ -104,8 +102,8 @@ def prior_period():
 
 # ===== DuPont Decomposition Tests =====
 
-class TestDuPontAnalysis:
 
+class TestDuPontAnalysis:
     def test_3factor_decomposition(self, analyzer, healthy_company):
         result = analyzer.dupont_analysis(healthy_company)
         assert isinstance(result, DuPontAnalysis)
@@ -132,12 +130,12 @@ class TestDuPontAnalysis:
 
     def test_primary_driver_identified(self, analyzer, healthy_company):
         result = analyzer.dupont_analysis(healthy_company)
-        assert result.primary_driver in ('net_margin', 'asset_turnover', 'equity_multiplier')
+        assert result.primary_driver in ("net_margin", "asset_turnover", "equity_multiplier")
 
     def test_interpretation_generated(self, analyzer, healthy_company):
         result = analyzer.dupont_analysis(healthy_company)
         assert result.interpretation is not None
-        assert 'ROE' in result.interpretation
+        assert "ROE" in result.interpretation
 
     def test_missing_data_returns_none_roe(self, analyzer):
         data = FinancialData()  # All None
@@ -153,14 +151,14 @@ class TestDuPontAnalysis:
 
 # ===== Altman Z-Score Tests =====
 
-class TestAltmanZScore:
 
+class TestAltmanZScore:
     def test_healthy_company_above_distress(self, analyzer, healthy_company):
         result = analyzer.altman_z_score(healthy_company)
         assert isinstance(result, AltmanZScore)
         assert result.z_score is not None
         assert result.z_score > 1.81  # Above distress zone
-        assert result.zone in ('safe', 'grey')
+        assert result.zone in ("safe", "grey")
 
     def test_very_strong_company_safe_zone(self, analyzer):
         """A very strong company should be in the safe zone."""
@@ -176,13 +174,13 @@ class TestAltmanZScore:
         )
         result = analyzer.altman_z_score(data)
         assert result.z_score > 2.99
-        assert result.zone == 'safe'
+        assert result.zone == "safe"
 
     def test_distressed_company_distress_zone(self, analyzer, distressed_company):
         result = analyzer.altman_z_score(distressed_company)
         assert result.z_score is not None
         assert result.z_score < 1.81
-        assert result.zone == 'distress'
+        assert result.zone == "distress"
 
     def test_grey_zone(self, analyzer):
         """Company in the grey zone (Z between 1.81 and 2.99)."""
@@ -199,22 +197,22 @@ class TestAltmanZScore:
         result = analyzer.altman_z_score(data)
         assert result.z_score is not None
         # This particular setup should land in grey zone
-        assert result.zone in ('safe', 'grey', 'distress')  # Valid zone
+        assert result.zone in ("safe", "grey", "distress")  # Valid zone
         assert result.interpretation is not None
 
     def test_components_dict(self, analyzer, healthy_company):
         result = analyzer.altman_z_score(healthy_company)
-        assert 'x1' in result.components
-        assert 'x2' in result.components
-        assert 'x3' in result.components
-        assert 'x4' in result.components
-        assert 'x5' in result.components
+        assert "x1" in result.components
+        assert "x2" in result.components
+        assert "x3" in result.components
+        assert "x4" in result.components
+        assert "x5" in result.components
 
     def test_missing_total_assets(self, analyzer):
         data = FinancialData(revenue=1_000_000)
         result = analyzer.altman_z_score(data)
         assert result.z_score is None
-        assert 'Insufficient data' in result.interpretation
+        assert "Insufficient data" in result.interpretation
 
     def test_partial_data(self, analyzer):
         """Only some components available."""
@@ -228,18 +226,18 @@ class TestAltmanZScore:
         result = analyzer.altman_z_score(data)
         assert result.z_score is not None  # Partial calculation
         # Partial score with only 2/5 components is low (<1.81) → partial_distress
-        assert result.zone in ('partial', 'partial_distress')
+        assert result.zone in ("partial", "partial_distress")
 
     def test_interpretation_text(self, analyzer, healthy_company):
         result = analyzer.altman_z_score(healthy_company)
-        assert 'Z-Score' in result.interpretation
-        assert 'safe' in result.interpretation.lower() or str(result.z_score)[:4] in result.interpretation
+        assert "Z-Score" in result.interpretation
+        assert "safe" in result.interpretation.lower() or str(result.z_score)[:4] in result.interpretation
 
 
 # ===== Piotroski F-Score Tests =====
 
-class TestPiotroskiFScore:
 
+class TestPiotroskiFScore:
     def test_healthy_company_high_score(self, analyzer, healthy_company, prior_period):
         result = analyzer.piotroski_f_score(healthy_company, prior_period)
         assert isinstance(result, PiotroskiFScore)
@@ -253,9 +251,15 @@ class TestPiotroskiFScore:
     def test_all_criteria_present(self, analyzer, healthy_company, prior_period):
         result = analyzer.piotroski_f_score(healthy_company, prior_period)
         expected_criteria = [
-            'positive_roa', 'positive_ocf', 'improving_roa', 'quality_earnings',
-            'decreasing_leverage', 'improving_liquidity', 'no_dilution',
-            'improving_gross_margin', 'improving_asset_turnover'
+            "positive_roa",
+            "positive_ocf",
+            "improving_roa",
+            "quality_earnings",
+            "decreasing_leverage",
+            "improving_liquidity",
+            "no_dilution",
+            "improving_gross_margin",
+            "improving_asset_turnover",
         ]
         for c in expected_criteria:
             assert c in result.criteria
@@ -267,23 +271,23 @@ class TestPiotroskiFScore:
     def test_without_prior_data(self, analyzer, healthy_company):
         """Without prior data, improvement criteria should be False."""
         result = analyzer.piotroski_f_score(healthy_company, prior_data=None)
-        assert result.criteria['improving_roa'] is False
-        assert result.criteria['decreasing_leverage'] is False
-        assert result.criteria['improving_liquidity'] is False
-        assert result.criteria['improving_gross_margin'] is False
-        assert result.criteria['improving_asset_turnover'] is False
+        assert result.criteria["improving_roa"] is False
+        assert result.criteria["decreasing_leverage"] is False
+        assert result.criteria["improving_liquidity"] is False
+        assert result.criteria["improving_gross_margin"] is False
+        assert result.criteria["improving_asset_turnover"] is False
 
     def test_profitability_criteria(self, analyzer, healthy_company):
         result = analyzer.piotroski_f_score(healthy_company)
         # Healthy company has positive ROA and OCF
-        assert result.criteria['positive_roa'] is True
-        assert result.criteria['positive_ocf'] is True
-        assert result.criteria['quality_earnings'] is True  # OCF > NI
+        assert result.criteria["positive_roa"] is True
+        assert result.criteria["positive_ocf"] is True
+        assert result.criteria["quality_earnings"] is True  # OCF > NI
 
     def test_interpretation_text(self, analyzer, healthy_company, prior_period):
         result = analyzer.piotroski_f_score(healthy_company, prior_period)
         assert result.interpretation is not None
-        assert 'F-Score' in result.interpretation
+        assert "F-Score" in result.interpretation
 
     def test_empty_data(self, analyzer):
         data = FinancialData()
@@ -294,74 +298,68 @@ class TestPiotroskiFScore:
 
 # ===== IQR Anomaly Detection Tests =====
 
-class TestIQRAnomalyDetection:
 
+class TestIQRAnomalyDetection:
     def test_iqr_detects_outliers(self, analyzer):
-        data = pd.DataFrame({
-            'metric': [10, 11, 12, 10, 11, 12, 10, 50]  # 50 is an outlier
-        })
-        anomalies = analyzer.detect_anomalies(data, method='iqr')
+        data = pd.DataFrame(
+            {
+                "metric": [10, 11, 12, 10, 11, 12, 10, 50]  # 50 is an outlier
+            }
+        )
+        anomalies = analyzer.detect_anomalies(data, method="iqr")
         assert len(anomalies) >= 1
         outlier = [a for a in anomalies if a.value == 50]
         assert len(outlier) == 1
 
     def test_zscore_still_works(self, analyzer):
-        data = pd.DataFrame({
-            'metric': [10, 11, 12, 10, 11, 12, 10, 50]
-        })
-        anomalies = analyzer.detect_anomalies(data, method='zscore')
+        data = pd.DataFrame({"metric": [10, 11, 12, 10, 11, 12, 10, 50]})
+        anomalies = analyzer.detect_anomalies(data, method="zscore")
         assert len(anomalies) >= 1
 
     def test_iqr_expected_range(self, analyzer):
-        data = pd.DataFrame({
-            'metric': [1, 2, 3, 4, 5, 6, 7, 8, 9, 100]
-        })
-        anomalies = analyzer.detect_anomalies(data, method='iqr')
+        data = pd.DataFrame({"metric": [1, 2, 3, 4, 5, 6, 7, 8, 9, 100]})
+        anomalies = analyzer.detect_anomalies(data, method="iqr")
         # 100 should be flagged
         for a in anomalies:
             if a.value == 100:
                 assert a.expected_range[0] < a.expected_range[1]
-                assert 'IQR' in a.description
+                assert "IQR" in a.description
 
     def test_no_anomalies_uniform_data(self, analyzer):
-        data = pd.DataFrame({
-            'metric': [5.0] * 10
-        })
-        anomalies = analyzer.detect_anomalies(data, method='iqr')
+        data = pd.DataFrame({"metric": [5.0] * 10})
+        anomalies = analyzer.detect_anomalies(data, method="iqr")
         assert len(anomalies) == 0
 
     def test_custom_threshold(self, analyzer):
-        data = pd.DataFrame({
-            'metric': [10, 11, 12, 10, 11, 12, 10, 30]
-        })
+        data = pd.DataFrame({"metric": [10, 11, 12, 10, 11, 12, 10, 30]})
         # With default threshold 1.5, 30 might be flagged
-        anomalies_default = analyzer.detect_anomalies(data, method='iqr')
+        anomalies_default = analyzer.detect_anomalies(data, method="iqr")
         # With high threshold 3.0, fewer anomalies
-        anomalies_high = analyzer.detect_anomalies(data, method='iqr', threshold=3.0)
+        anomalies_high = analyzer.detect_anomalies(data, method="iqr", threshold=3.0)
         assert len(anomalies_high) <= len(anomalies_default)
 
     def test_too_few_data_points(self, analyzer):
-        data = pd.DataFrame({'metric': [1, 2]})
-        anomalies = analyzer.detect_anomalies(data, method='iqr')
+        data = pd.DataFrame({"metric": [1, 2]})
+        anomalies = analyzer.detect_anomalies(data, method="iqr")
         assert len(anomalies) == 0
 
 
 # ===== analyze() Integration Tests =====
 
-class TestAnalyzeIntegration:
 
+class TestAnalyzeIntegration:
     def test_analyze_includes_new_models(self, analyzer, healthy_company):
         results = analyzer.analyze(healthy_company)
-        assert 'dupont' in results
-        assert 'altman_z_score' in results
-        assert 'piotroski_f_score' in results
-        assert isinstance(results['dupont'], DuPontAnalysis)
-        assert isinstance(results['altman_z_score'], AltmanZScore)
-        assert isinstance(results['piotroski_f_score'], PiotroskiFScore)
+        assert "dupont" in results
+        assert "altman_z_score" in results
+        assert "piotroski_f_score" in results
+        assert isinstance(results["dupont"], DuPontAnalysis)
+        assert isinstance(results["altman_z_score"], AltmanZScore)
+        assert isinstance(results["piotroski_f_score"], PiotroskiFScore)
 
     def test_insights_include_scoring_models(self, analyzer, healthy_company):
         results = analyzer.analyze(healthy_company)
-        insights = results['insights']
+        insights = results["insights"]
         # Insights are generated based on thresholds — a healthy company
         # may not trigger warnings for all scoring models
         assert isinstance(insights, list)
@@ -372,37 +370,39 @@ class TestAnalyzeIntegration:
 
     def test_distressed_insights_severity(self, analyzer, distressed_company):
         results = analyzer.analyze(distressed_company)
-        insights = results['insights']
-        z_insight = [i for i in insights if i.metric_name == 'altman_z_score']
+        insights = results["insights"]
+        z_insight = [i for i in insights if i.metric_name == "altman_z_score"]
         if z_insight:
-            assert z_insight[0].severity == 'critical'
+            assert z_insight[0].severity == "critical"
 
     def test_analyze_with_dataframe(self, analyzer):
-        df = pd.DataFrame({
-            'Revenue': [10_000_000],
-            'Net Income': [1_000_000],
-            'Total Assets': [20_000_000],
-            'Total Equity': [10_000_000],
-            'Current Assets': [5_000_000],
-            'Current Liabilities': [3_000_000],
-        })
+        df = pd.DataFrame(
+            {
+                "Revenue": [10_000_000],
+                "Net Income": [1_000_000],
+                "Total Assets": [20_000_000],
+                "Total Equity": [10_000_000],
+                "Current Assets": [5_000_000],
+                "Current Liabilities": [3_000_000],
+            }
+        )
         results = analyzer.analyze(df)
-        assert 'dupont' in results
-        assert results['dupont'].roe is not None
+        assert "dupont" in results
+        assert results["dupont"].roe is not None
 
 
 # ===== Query Decomposition Tests =====
 
-class TestQueryDecomposition:
 
+class TestQueryDecomposition:
     def test_decompose_financial_query(self):
         """Import and test _decompose_query directly."""
-        import sys
         import os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+        import sys
+
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
         # Mock SimpleRAG's _decompose_query method by creating minimal instance
-        from app_local import SimpleRAG
 
         # We can't easily instantiate SimpleRAG without models, so test the method logic
         # by calling the static-like decomposition logic
@@ -411,9 +411,9 @@ class TestQueryDecomposition:
 
         # Verify financial keywords trigger expansion
         expansions = {
-            'profitability': ['revenue', 'net income', 'margin', 'profit'],
+            "profitability": ["revenue", "net income", "margin", "profit"],
         }
-        matched = any(kw in query_lower for kw in expansions['profitability'])
+        matched = any(kw in query_lower for kw in expansions["profitability"])
         assert matched  # "profitability" should match
 
     def test_decompose_caps_at_4(self):
@@ -431,6 +431,6 @@ class TestQueryDecomposition:
         """Non-financial queries should still get at least one expansion."""
         query = "Tell me about the company history?"
         sub_queries = [query]
-        if '?' in query:
-            sub_queries.append(query.replace('?', ' details?'))
+        if "?" in query:
+            sub_queries.append(query.replace("?", " details?"))
         assert len(sub_queries) >= 2

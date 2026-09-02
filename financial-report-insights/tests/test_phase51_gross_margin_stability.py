@@ -4,6 +4,7 @@ Tests for gross_margin_stability_analysis() and GrossMarginStabilityResult datac
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestGrossMarginStabilityDataclass:
     def test_defaults(self):
         r = GrossMarginStabilityResult()
@@ -70,6 +72,7 @@ class TestGrossMarginStabilityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestGrossMarginStabilityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -117,6 +120,7 @@ class TestGrossMarginStabilityAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestGrossMarginStabilityScoring:
     def test_high_margin(self, analyzer):
         """GM 70% => base 10, opex_coverage > 2 => +0.5, spread > 20 => +0.5 => clamped 10."""
@@ -163,6 +167,7 @@ class TestGrossMarginStabilityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase51EdgeCases:
     def test_empty_data(self, analyzer):

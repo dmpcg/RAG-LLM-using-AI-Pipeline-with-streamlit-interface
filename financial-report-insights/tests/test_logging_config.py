@@ -4,9 +4,6 @@ import json
 import logging
 from unittest.mock import patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # _redact
 # ---------------------------------------------------------------------------
@@ -66,8 +63,13 @@ class TestJSONFormatter:
 
         formatter = JSONFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py",
-            lineno=1, msg="Hello world", args=(), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="Hello world",
+            args=(),
+            exc_info=None,
         )
         output = formatter.format(record)
         parsed = json.loads(output)
@@ -80,8 +82,13 @@ class TestJSONFormatter:
 
         formatter = JSONFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.WARNING, pathname="test.py",
-            lineno=1, msg="Connection password=supersecret failed", args=(), exc_info=None,
+            name="test",
+            level=logging.WARNING,
+            pathname="test.py",
+            lineno=1,
+            msg="Connection password=supersecret failed",
+            args=(),
+            exc_info=None,
         )
         output = formatter.format(record)
         parsed = json.loads(output)
@@ -96,10 +103,16 @@ class TestJSONFormatter:
             raise ValueError("bad value")
         except ValueError:
             import sys
+
             exc_info = sys.exc_info()
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="test.py",
-            lineno=1, msg="error", args=(), exc_info=exc_info,
+            name="test",
+            level=logging.ERROR,
+            pathname="test.py",
+            lineno=1,
+            msg="error",
+            args=(),
+            exc_info=exc_info,
         )
         output = formatter.format(record)
         parsed = json.loads(output)
@@ -113,10 +126,16 @@ class TestJSONFormatter:
             raise RuntimeError("token=leaked_value problem")
         except RuntimeError:
             import sys
+
             exc_info = sys.exc_info()
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="test.py",
-            lineno=1, msg="error", args=(), exc_info=exc_info,
+            name="test",
+            level=logging.ERROR,
+            pathname="test.py",
+            lineno=1,
+            msg="error",
+            args=(),
+            exc_info=exc_info,
         )
         output = formatter.format(record)
         parsed = json.loads(output)

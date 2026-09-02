@@ -1,16 +1,14 @@
 """Tests for document_chunker module."""
 
-import pytest
-
 from document_chunker import (
     RAGChunk,
-    chunk_text_content,
-    chunk_table,
-    chunk_excel_sheet,
-    _generate_chunk_id,
     _count_tokens_approx,
-    _is_mostly_numeric,
+    _generate_chunk_id,
     _generate_nl_description,
+    _is_mostly_numeric,
+    chunk_excel_sheet,
+    chunk_table,
+    chunk_text_content,
 )
 
 
@@ -63,7 +61,9 @@ class TestGenerateNLDescription:
     def test_with_source_and_section(self):
         desc = _generate_nl_description(
             "| Revenue | 1000 |\n| COGS | 500 |",
-            "income_statement", "P&L", "company.xlsx",
+            "income_statement",
+            "P&L",
+            "company.xlsx",
         )
         assert "company.xlsx" in desc
         assert "P&L" in desc
@@ -90,8 +90,10 @@ class TestChunkTextContent:
         sentences = [f"Sentence number {i} with enough words to count." for i in range(50)]
         text = " ".join(sentences)
         chunks = chunk_text_content(
-            text, source="test.pdf",
-            child_token_target=50, parent_token_target=200,
+            text,
+            source="test.pdf",
+            child_token_target=50,
+            parent_token_target=200,
         )
         parents = [c for c in chunks if c.metadata.get("chunk_level") == "parent"]
         children = [c for c in chunks if c.metadata.get("chunk_level") == "child"]
@@ -152,7 +154,8 @@ class TestChunkTable:
 
     def test_metadata(self):
         chunk = chunk_table(
-            "| A | B |", source="file.xlsx",
+            "| A | B |",
+            source="file.xlsx",
             section_title="Income Statement",
             metadata={"sheet_name": "P&L"},
         )
@@ -182,7 +185,9 @@ class TestChunkExcelSheet:
     def test_sheet_metadata(self):
         md = "| A | B |\n|---|---|\n| 1 | 2 |"
         chunks = chunk_excel_sheet(
-            md, source="test.xlsx", sheet_name="Balance Sheet",
+            md,
+            source="test.xlsx",
+            sheet_name="Balance Sheet",
             section_type="balance_sheet",
         )
         assert len(chunks) >= 1
@@ -194,3 +199,43 @@ class TestChunkExcelSheet:
         # Implementation: chunk_table on empty string still creates a chunk
         # but chunk_excel_sheet checks token count
         assert len(chunks) >= 0  # May be 0 or 1 depending on implementation
+
+
+class TestExcelChunkInvariants:
+    """Guards for the dense parent-child Excel chunking (A-prime)."""
+
+    def _rows(self, n: int) -> str:
+        # One dense row-record per line, varied widths to force multiple
+        # parent/child splits.
+        return "\n".join(f"Line Item {i}: {i * 100} | {i * 7} | week {i % 13} | note-{i}" for i in range(n))
+
+    def test_row_conservation(self):
+        """Every input row appears in exactly one child chunk (no drop/dup).
+
+        This is the only guard against silently dropping a financial line item.
+        """
+        from collections import Counter
+
+        rows = self._rows(120)
+        chunks = chunk_excel_sheet(rows, source="cf.xlsx", sheet_name="Forecast")
+        expected = Counter(ln for ln in rows.split("\n") if ln.strip())
+        got = Counter(ln for c in chunks for ln in c.text.split("\n") if ln.strip())
+        assert got == expected, "rows dropped or duplicated across children"
+
+    def test_children_have_parent_links(self):
+        """All emitted chunks are children carrying parent_id + parent_text."""
+        chunks = chunk_excel_sheet(self._rows(120), source="cf.xlsx", sheet_name="F")
+        assert len(chunks) > 1  # 120 varied rows must split into multiple children
+        for c in chunks:
+            assert c.metadata.get("chunk_level") == "child"
+            assert c.parent_id
+            assert c.parent_text
+
+    def test_children_fit_embed_window(self):
+        """Child text stays within the ~512-token embed window (table-aware)."""
+        chunks = chunk_excel_sheet(self._rows(200), source="cf.xlsx", sheet_name="F")
+        for c in chunks:
+            # table-aware estimate must leave headroom under 512 for the
+            # nl_description prefix added at embed time
+            assert _count_tokens_approx(c.text, is_table=True) <= 512
+            assert len(c.parent_text or "") <= 6000  # EXCEL_MAX_PARENT_CHARS

@@ -36,6 +36,7 @@ class RAGChunk:
         metadata: Additional metadata dict.
         nl_description: Natural language description of numeric content.
     """
+
     chunk_id: str
     text: str
     parent_id: Optional[str] = None
@@ -56,8 +57,18 @@ def _generate_chunk_id(source: str, section: str, index) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
-def _count_tokens_approx(text: str) -> int:
-    """Approximate token count (words * 1.3 for English text)."""
+def _count_tokens_approx(text: str, is_table: bool = False) -> int:
+    """Approximate token count.
+
+    Prose: words * 1.3 (English heuristic).
+    Tables/markdown (``is_table=True``): a word-based count under-estimates
+    table content ~3x because digits, punctuation and pipe separators each
+    split into their own WordPiece tokens. Use a conservative char-based
+    estimate (~3 chars/token) instead, so table chunks stay safely under the
+    embedder's 512-token window rather than overflowing and being truncated.
+    """
+    if is_table:
+        return len(text) // 3 + 1
     return int(len(text.split()) * 1.3)
 
 
@@ -205,7 +216,10 @@ def chunk_text_content(
         # Add NL description for numeric-heavy parent chunks
         if _is_mostly_numeric(parent_text):
             parent_chunk.nl_description = _generate_nl_description(
-                parent_text, section_type, section_title, source,
+                parent_text,
+                section_type,
+                section_title,
+                source,
             )
 
         chunks.append(parent_chunk)
@@ -235,7 +249,10 @@ def chunk_text_content(
 
                 if _is_mostly_numeric(child_text):
                     child_chunk.nl_description = _generate_nl_description(
-                        child_text, section_type, section_title, source,
+                        child_text,
+                        section_type,
+                        section_title,
+                        source,
                     )
 
                 chunks.append(child_chunk)
@@ -264,7 +281,10 @@ def chunk_text_content(
             )
             if _is_mostly_numeric(child_text):
                 child_chunk.nl_description = _generate_nl_description(
-                    child_text, section_type, section_title, source,
+                    child_text,
+                    section_type,
+                    section_title,
+                    source,
                 )
             chunks.append(child_chunk)
             chunk_idx += 1
@@ -315,106 +335,132 @@ def chunk_table(
     )
 
 
+# Excel chunk sizing (REAL tokens, table-aware count). Children are the units
+# actually embedded and must fit mxbai's 512-token window once the nl_description
+# prefix (~60 tokens) is prepended at embed time, so the child text target leaves
+# headroom. Parents are larger context units swapped in at retrieval time.
+EXCEL_CHILD_TOKEN_TARGET = 350
+EXCEL_PARENT_TOKEN_TARGET = 1100
+EXCEL_MAX_PARENT_CHARS = 6000  # cap parent_text injected into the LLM prompt
+
+
 def chunk_excel_sheet(
     df_markdown: str,
     source: str,
     sheet_name: str,
     section_type: str = "general",
     metadata: Optional[Dict[str, Any]] = None,
+    child_token_target: int = EXCEL_CHILD_TOKEN_TARGET,
+    parent_token_target: int = EXCEL_PARENT_TOKEN_TARGET,
 ) -> List[RAGChunk]:
-    """Chunk an Excel sheet rendered as markdown.
+    """Chunk an Excel sheet rendered as markdown into parent-child chunks.
 
-    Treats the sheet as a table-heavy document. Small sheets become
-    atomic table chunks; large sheets get parent-child splitting
-    while respecting row boundaries.
+    Every sheet is split into small CHILD chunks sized to the embedder's token
+    window (table-aware count) and grouped under larger PARENT context blocks.
+    Only children are emitted for
+    embedding/indexing; each child carries ``parent_id`` + ``parent_text`` so
+    ``_expand_parent_chunks`` can swap in the richer parent context at retrieval
+    time. This replaces the old behaviour where sheets became single ~1200-token
+    atomic blocks that overflowed the 512-token window and were silently
+    truncated to ~18% coverage.
 
     Args:
-        df_markdown: Sheet content as markdown table.
+        df_markdown: Sheet content as a (dense) markdown table.
         source: Source file name.
         sheet_name: Excel sheet name.
         section_type: Detected financial section type.
         metadata: Additional metadata.
+        child_token_target: Target real-token size of child table text.
+        parent_token_target: Target real-token size of parent context blocks.
 
     Returns:
-        List of RAGChunk objects.
+        List of child RAGChunk objects (chunk_level == "child").
     """
     meta = metadata or {}
     meta["sheet_name"] = sheet_name
 
-    tokens = _count_tokens_approx(df_markdown)
+    # _df_to_markdown emits one dense row-record per line (non-empty cells only,
+    # no table header/separator). Treat each non-blank line as one row.
+    rows = [ln for ln in df_markdown.split("\n") if ln.strip()]
+    if not rows:
+        return []
 
-    # Small sheets -> atomic table chunk
-    if tokens <= 1500:
-        return [chunk_table(
-            df_markdown,
-            source=source,
-            section_type=section_type,
-            section_title=sheet_name,
-            metadata=meta,
-        )]
+    # 1) Group rows into PARENT context blocks (row boundaries preserved).
+    #    NOTE: main's "small sheets -> atomic table chunk" shortcut is
+    #    deliberately not reinstated here. That path is what produced single
+    #    ~1200-token blocks which overflowed the 512-token embed window and were
+    #    truncated to ~18% coverage -- the defect this parent/child split fixes.
+    parent_blocks: List[List[str]] = []
+    cur_rows: List[str] = []
+    cur_tokens = 0
+    for row in rows:
+        rt = _count_tokens_approx(row, is_table=True)
+        if cur_rows and cur_tokens + rt > parent_token_target:
+            parent_blocks.append(cur_rows)
+            cur_rows = []
+            cur_tokens = 0
+        cur_rows.append(row)
+        cur_tokens += rt
+    if cur_rows:
+        parent_blocks.append(cur_rows)
 
-    # Large sheets -> split by rows while keeping header
-    lines = df_markdown.split("\n")
-    # Find header rows (first 2-3 lines of a markdown table)
-    header_lines: List[str] = []
-    data_lines: List[str] = []
-    header_done = False
-
-    for i, line in enumerate(lines):
-        if not header_done:
-            header_lines.append(line)
-            # Header separator line (e.g., |---|---|---|)
-            if re.match(r"^\s*\|[\s\-:]+\|", line):
-                header_done = True
-        else:
-            data_lines.append(line)
-
-    if not data_lines:
-        # No clear table structure, fall back to text chunking
-        return chunk_text_content(
-            df_markdown,
-            source=source,
-            section_type=section_type,
-            section_title=sheet_name,
-            metadata=meta,
-        )
-
-    header_text = "\n".join(header_lines)
     chunks: List[RAGChunk] = []
-    current_rows: List[str] = []
-    current_tokens = _count_tokens_approx(header_text)
-    chunk_idx = 0
-    parent_target = 1200
+    multi_part = len(parent_blocks) > 1
 
-    for row in data_lines:
-        row_tokens = _count_tokens_approx(row)
-        if current_tokens + row_tokens > parent_target and current_rows:
-            block_text = header_text + "\n" + "\n".join(current_rows)
-            table_chunk = chunk_table(
-                block_text,
+    # 2) Split each parent block into CHILD chunks sized to the embed window.
+    #    Children carry only their own rows (no repeated header); the
+    #    nl_description prefix added at embed time supplies sheet/section context.
+    for p_idx, p_rows in enumerate(parent_blocks):
+        title = f"{sheet_name} (part {p_idx + 1})" if multi_part else sheet_name
+        parent_id = _generate_chunk_id(source, f"{sheet_name}:parent", p_idx)
+        parent_text = "\n".join(p_rows)
+        if len(parent_text) > EXCEL_MAX_PARENT_CHARS:
+            parent_text = parent_text[:EXCEL_MAX_PARENT_CHARS]
+
+        # Sub-group the parent's rows into child-sized blocks.
+        child_groups: List[List[str]] = []
+        cur_child: List[str] = []
+        cur_child_tokens = 0
+        for row in p_rows:
+            rt = _count_tokens_approx(row, is_table=True)
+            if cur_child and cur_child_tokens + rt > child_token_target:
+                child_groups.append(cur_child)
+                cur_child = []
+                cur_child_tokens = 0
+            cur_child.append(row)
+            cur_child_tokens += rt
+        if cur_child:
+            child_groups.append(cur_child)
+
+        for child_idx, child_rows in enumerate(child_groups):
+            child_text = "\n".join(child_rows)
+            child_id = _generate_chunk_id(
+                source,
+                f"{sheet_name}:child",
+                f"{p_idx}-{child_idx}",
+            )
+            child = RAGChunk(
+                chunk_id=child_id,
+                text=child_text,
+                parent_id=parent_id,
+                parent_text=parent_text,
                 source=source,
                 section_type=section_type,
-                section_title=f"{sheet_name} (part {chunk_idx + 1})",
-                metadata={**meta, "part_index": chunk_idx},
+                section_title=title,
+                is_table=True,
+                metadata={
+                    **meta,
+                    "chunk_level": "child",
+                    "part_index": p_idx,
+                    "child_index": child_idx,
+                },
             )
-            chunks.append(table_chunk)
-            chunk_idx += 1
-            current_rows = []
-            current_tokens = _count_tokens_approx(header_text)
-
-        current_rows.append(row)
-        current_tokens += row_tokens
-
-    # Flush remaining
-    if current_rows:
-        block_text = header_text + "\n" + "\n".join(current_rows)
-        table_chunk = chunk_table(
-            block_text,
-            source=source,
-            section_type=section_type,
-            section_title=f"{sheet_name} (part {chunk_idx + 1})" if chunk_idx > 0 else sheet_name,
-            metadata={**meta, "part_index": chunk_idx},
-        )
-        chunks.append(table_chunk)
+            child.nl_description = _generate_nl_description(
+                child_text,
+                section_type,
+                title,
+                source,
+            )
+            chunks.append(child)
 
     return chunks

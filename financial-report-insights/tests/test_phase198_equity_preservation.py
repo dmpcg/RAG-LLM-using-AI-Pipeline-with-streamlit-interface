@@ -4,10 +4,11 @@ Tests for equity_preservation_analysis() and EquityPreservationResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     EquityPreservationResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestEquityPreservationDataclass:
     def test_defaults(self):
         r = EquityPreservationResult()
@@ -68,6 +70,7 @@ class TestEquityPreservationDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestEquityPreservationAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestEquityPreservationAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestEquityPreservationScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """EtA=0.60 => base 10.0. RtE=0.50 no adj (<0.60). EGC=0.125 no adj (<0.15). Score=10.0."""
@@ -153,6 +157,7 @@ class TestEquityPreservationScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase198EdgeCases:
     def test_empty_data(self, analyzer):

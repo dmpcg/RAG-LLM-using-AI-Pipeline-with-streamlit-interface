@@ -1,25 +1,18 @@
 """Tests for observability.system_monitor (SystemMonitor + PerformanceBaseline)."""
+
 import json
-import math
-import os
 import threading
 import time
-from typing import Any, Dict
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 from observability.metrics import MetricsCollector
 from observability.system_monitor import (
-    PerformanceBaseline,
-    SystemMonitor,
-    _ALERT_ERROR_RATE_CRITICAL,
     _ALERT_LATENCY_CRITICAL_MS,
     _ALERT_LATENCY_WARNING_MS,
-    _ERROR_WINDOW_SECONDS,
-    _REGRESSION_Z_SCORE_THRESHOLD,
+    PerformanceBaseline,
+    SystemMonitor,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -177,9 +170,7 @@ class TestGetAlerts:
         alerts = monitor.get_alerts()
         assert alerts == []
 
-    def test_get_alerts_delegates_to_check_alert_rules(
-        self, monitor: SystemMonitor
-    ) -> None:
+    def test_get_alerts_delegates_to_check_alert_rules(self, monitor: SystemMonitor) -> None:
         """get_alerts() must return the same result as check_alert_rules()."""
         assert monitor.get_alerts() == monitor.check_alert_rules()
 
@@ -213,9 +204,7 @@ class TestCheckAlertRules:
         alerts = monitor.check_alert_rules()
         assert any(a["level"] == "critical" for a in alerts)
 
-    def test_no_warning_latency_alert_when_below_threshold(
-        self, monitor: SystemMonitor
-    ) -> None:
+    def test_no_warning_latency_alert_when_below_threshold(self, monitor: SystemMonitor) -> None:
         monitor.record_latency("llm", 100.0)
         alerts = monitor.check_alert_rules()
         assert all(a.get("component") != "system" or a["level"] != "warning" for a in alerts)
@@ -342,9 +331,7 @@ class TestEdgeCases:
         status = monitor.get_health_status()
         assert status["overall_status"] == "healthy"
 
-    def test_single_error_below_degraded_threshold(
-        self, monitor: SystemMonitor
-    ) -> None:
+    def test_single_error_below_degraded_threshold(self, monitor: SystemMonitor) -> None:
         # 1 error in 5-min window = 0.2/min < 2/min degraded threshold
         monitor.record_error("err", "msg", "svc")
         status = monitor.get_health_status()
@@ -376,9 +363,7 @@ class TestPerformanceBaselineRecord:
         assert stats["count"] == 1
         assert stats["mean"] == pytest.approx(100.0)
 
-    def test_get_unknown_metric_returns_zeros(
-        self, baseline: PerformanceBaseline
-    ) -> None:
+    def test_get_unknown_metric_returns_zeros(self, baseline: PerformanceBaseline) -> None:
         stats = baseline.get_baseline("nonexistent")
         assert stats["count"] == 0
         assert stats["mean"] == 0.0
@@ -430,15 +415,11 @@ class TestPerformanceBaselineRecord:
 
 
 class TestCheckRegression:
-    def test_no_baseline_data_not_regressed(
-        self, baseline: PerformanceBaseline
-    ) -> None:
+    def test_no_baseline_data_not_regressed(self, baseline: PerformanceBaseline) -> None:
         result = baseline.check_regression("missing_metric", 999.0)
         assert result["regressed"] is False
 
-    def test_no_baseline_data_returns_zero_scores(
-        self, baseline: PerformanceBaseline
-    ) -> None:
+    def test_no_baseline_data_returns_zero_scores(self, baseline: PerformanceBaseline) -> None:
         result = baseline.check_regression("missing_metric", 999.0)
         assert result["z_score"] == 0.0
         assert result["deviation_pct"] == 0.0
@@ -491,9 +472,7 @@ class TestCheckRegression:
         result = baseline.check_regression("m", 80.0)
         assert result["deviation_pct"] == pytest.approx(-20.0, abs=0.1)
 
-    def test_zero_std_high_deviation_regressed(
-        self, baseline: PerformanceBaseline
-    ) -> None:
+    def test_zero_std_high_deviation_regressed(self, baseline: PerformanceBaseline) -> None:
         # All identical values -> std=0; current is 50% above mean (>20% threshold)
         for v in [100.0] * 10:
             baseline.record_baseline("m", v)
@@ -501,9 +480,7 @@ class TestCheckRegression:
         # deviation_pct = 50, z_score = 50/20 = 2.5 > 2.0 -> regressed
         assert result["regressed"] is True
 
-    def test_zero_std_low_deviation_not_regressed(
-        self, baseline: PerformanceBaseline
-    ) -> None:
+    def test_zero_std_low_deviation_not_regressed(self, baseline: PerformanceBaseline) -> None:
         for v in [100.0] * 10:
             baseline.record_baseline("m", v)
         result = baseline.check_regression("m", 105.0)
@@ -517,9 +494,7 @@ class TestCheckRegression:
 
 
 class TestBaselinePersistence:
-    def test_save_and_load_round_trip(
-        self, baseline: PerformanceBaseline, tmp_path
-    ) -> None:
+    def test_save_and_load_round_trip(self, baseline: PerformanceBaseline, tmp_path) -> None:
         baseline.record_baseline("latency_ms", 10.0)
         baseline.record_baseline("latency_ms", 20.0)
         baseline.record_baseline("tokens", 500.0)
@@ -533,9 +508,7 @@ class TestBaselinePersistence:
         assert fresh.get_baseline("latency_ms")["mean"] == pytest.approx(15.0)
         assert fresh.get_baseline("tokens")["mean"] == pytest.approx(500.0)
 
-    def test_save_creates_valid_json(
-        self, baseline: PerformanceBaseline, tmp_path
-    ) -> None:
+    def test_save_creates_valid_json(self, baseline: PerformanceBaseline, tmp_path) -> None:
         baseline.record_baseline("m", 1.0)
         path = str(tmp_path / "baselines.json")
         baseline.save_baselines(path)
@@ -545,9 +518,7 @@ class TestBaselinePersistence:
         assert "m" in data
         assert data["m"] == [1.0]
 
-    def test_load_merges_existing_data(
-        self, baseline: PerformanceBaseline, tmp_path
-    ) -> None:
+    def test_load_merges_existing_data(self, baseline: PerformanceBaseline, tmp_path) -> None:
         baseline.record_baseline("existing", 99.0)
 
         other = PerformanceBaseline()
@@ -564,27 +535,21 @@ class TestBaselinePersistence:
         with pytest.raises(OSError):
             baseline.load_baselines("/nonexistent/path/baselines.json")
 
-    def test_load_raises_on_invalid_json(
-        self, baseline: PerformanceBaseline, tmp_path
-    ) -> None:
+    def test_load_raises_on_invalid_json(self, baseline: PerformanceBaseline, tmp_path) -> None:
         path = str(tmp_path / "bad.json")
         with open(path, "w") as fh:
             fh.write("not valid json{{{")
         with pytest.raises(Exception):
             baseline.load_baselines(path)
 
-    def test_load_raises_on_wrong_schema(
-        self, baseline: PerformanceBaseline, tmp_path
-    ) -> None:
+    def test_load_raises_on_wrong_schema(self, baseline: PerformanceBaseline, tmp_path) -> None:
         path = str(tmp_path / "bad_schema.json")
         with open(path, "w") as fh:
             json.dump([1, 2, 3], fh)  # top-level list instead of dict
         with pytest.raises(ValueError):
             baseline.load_baselines(path)
 
-    def test_empty_baseline_saves_empty_json(
-        self, baseline: PerformanceBaseline, tmp_path
-    ) -> None:
+    def test_empty_baseline_saves_empty_json(self, baseline: PerformanceBaseline, tmp_path) -> None:
         path = str(tmp_path / "empty.json")
         baseline.save_baselines(path)
         with open(path, "r") as fh:
@@ -598,9 +563,7 @@ class TestBaselinePersistence:
 
 
 class TestBaselineThreadSafety:
-    def test_concurrent_record_no_data_loss(
-        self, baseline: PerformanceBaseline
-    ) -> None:
+    def test_concurrent_record_no_data_loss(self, baseline: PerformanceBaseline) -> None:
         n_threads = 10
         records_per_thread = 100
 

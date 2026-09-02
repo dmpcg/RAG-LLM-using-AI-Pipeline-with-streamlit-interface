@@ -4,6 +4,7 @@ Tests for solvency_depth_analysis() and SolvencyDepthResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestSolvencyDepthDataclass:
     def test_defaults(self):
         r = SolvencyDepthResult()
@@ -68,6 +70,7 @@ class TestSolvencyDepthDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestSolvencyDepthAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestSolvencyDepthAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestSolvencyDepthScoring:
     def test_good_solvency(self, analyzer, sample_data):
         """D/EBITDA=1.60 => base 8.5. D/E=0.333 <=1.0 => +0.5. IC=6.667 >=5.0 => +0.5. Score=9.5."""
@@ -154,6 +158,7 @@ class TestSolvencyDepthScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase109EdgeCases:
     def test_empty_data(self, analyzer):

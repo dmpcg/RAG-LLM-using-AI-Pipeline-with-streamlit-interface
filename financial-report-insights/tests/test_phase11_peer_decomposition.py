@@ -4,12 +4,13 @@ Tests for peer_comparison(), ratio_decomposition() and related dataclasses.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
     PeerCompanyData,
-    PeerMetricComparison,
     PeerComparisonReport,
+    PeerMetricComparison,
     RatioDecompositionNode,
     RatioDecompositionTree,
 )
@@ -75,6 +76,7 @@ def peer_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestPeerCompanyDataDataclass:
     def test_defaults(self):
         d = PeerCompanyData()
@@ -128,6 +130,7 @@ class TestRatioDecompositionTreeDataclass:
 
 
 # ===== PEER COMPARISON TESTS =====
+
 
 class TestPeerComparison:
     def test_returns_report(self, analyzer, sample_data, peer_data):
@@ -218,7 +221,9 @@ class TestPeerComparison:
 
     def test_three_peers(self, analyzer, sample_data, peer_data):
         third = FinancialData(
-            revenue=1_200_000, net_income=200_000, total_equity=900_000,
+            revenue=1_200_000,
+            net_income=200_000,
+            total_equity=900_000,
             total_assets=2_500_000,
         )
         peers = [
@@ -252,6 +257,7 @@ class TestPeerComparison:
 
 # ===== COMPUTE PEER METRIC TESTS =====
 
+
 class TestComputePeerMetric:
     def test_current_ratio(self, analyzer, sample_data):
         val = analyzer._compute_peer_metric(sample_data, "current_ratio")
@@ -279,6 +285,7 @@ class TestComputePeerMetric:
 
 
 # ===== RATIO DECOMPOSITION TESTS =====
+
 
 class TestRatioDecomposition:
     def test_returns_tree(self, analyzer, sample_data):
@@ -321,11 +328,7 @@ class TestRatioDecomposition:
         """ROE = Net Margin * Asset Turnover * Equity Multiplier."""
         result = analyzer.ratio_decomposition(sample_data)
         children = {c.name: c.value for c in result.root.children}
-        product = (
-            children["Net Profit Margin"]
-            * children["Asset Turnover"]
-            * children["Equity Multiplier"]
-        )
+        product = children["Net Profit Margin"] * children["Asset Turnover"] * children["Equity Multiplier"]
         assert abs(product - result.root.value) < 0.001
 
     def test_net_margin_has_sub_drivers(self, analyzer, sample_data):
@@ -379,6 +382,7 @@ class TestRatioDecomposition:
 
 # ===== EDGE CASES =====
 
+
 class TestPhase11EdgeCases:
     def test_single_peer(self, analyzer, sample_data):
         peers = [PeerCompanyData(name="Solo", data=sample_data)]
@@ -387,8 +391,10 @@ class TestPhase11EdgeCases:
 
     def test_decomposition_missing_ebt(self, analyzer):
         data = FinancialData(
-            revenue=1_000_000, net_income=100_000,
-            total_equity=500_000, total_assets=1_000_000,
+            revenue=1_000_000,
+            net_income=100_000,
+            total_equity=500_000,
+            total_assets=1_000_000,
         )
         result = analyzer.ratio_decomposition(data)
         nm = [c for c in result.root.children if c.name == "Net Profit Margin"][0]
@@ -398,8 +404,10 @@ class TestPhase11EdgeCases:
 
     def test_decomposition_zero_equity(self, analyzer):
         data = FinancialData(
-            revenue=1_000_000, net_income=100_000,
-            total_equity=0, total_assets=1_000_000,
+            revenue=1_000_000,
+            net_income=100_000,
+            total_equity=0,
+            total_assets=1_000_000,
         )
         result = analyzer.ratio_decomposition(data)
         assert result.root.value is None  # division by zero -> None

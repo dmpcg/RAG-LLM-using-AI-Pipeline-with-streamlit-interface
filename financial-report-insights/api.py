@@ -4,6 +4,7 @@ Wraps SimpleRAG, CharlieAnalyzer, and health checks as HTTP endpoints.
 """
 
 import asyncio
+import hmac
 import io
 import logging
 import threading
@@ -12,7 +13,7 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Path, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
@@ -49,14 +50,13 @@ class AnalyzeRequest(BaseModel):
     @classmethod
     def validate_field_count(cls, v: Dict[str, Any]) -> Dict[str, Any]:
         if len(v) > settings.max_financial_fields:
-            raise ValueError(
-                f"Too many fields ({len(v)}); max {settings.max_financial_fields}."
-            )
+            raise ValueError(f"Too many fields ({len(v)}); max {settings.max_financial_fields}.")
         return v
 
 
 class AnalyzeResponse(BaseModel):
     """Typed response for /analyze endpoint."""
+
     executive_summary: str
     sections: Dict[str, str]
     generated_at: str
@@ -97,7 +97,9 @@ def _get_rag():
         with _rag_lock:
             if _rag_instance is None:
                 import os
+
                 from app_local import SimpleRAG
+
                 _rag_instance = SimpleRAG(
                     docs_folder="./documents",
                     llm_model=os.getenv("OLLAMA_MODEL", settings.llm_model),
@@ -112,24 +114,48 @@ async def lifespan(app: FastAPI):
     global FinancialExcelExporter, FinancialPDFExporter
     logger.info("FastAPI starting up")
     from config import validate_settings
+
     errors, warnings = validate_settings()
     for w in warnings:
         logger.warning("[config] %s", w)
     if errors:
         for e in errors:
             logger.error("[config] %s", e)
-        raise RuntimeError(
-            f"Configuration validation failed: {'; '.join(errors)}"
-        )
+        raise RuntimeError(f"Configuration validation failed: {'; '.join(errors)}")
     # Eagerly import exporters at startup so the first export request pays no
     # per-request import overhead and import errors surface immediately (P1-A6).
-    from export_xlsx import FinancialExcelExporter as _FXE
     from export_pdf import FinancialPDFExporter as _FPE
+    from export_xlsx import FinancialExcelExporter as _FXE
+
     FinancialExcelExporter = _FXE
     FinancialPDFExporter = _FPE
     logger.info("Exporter classes loaded: %s, %s", _FXE.__name__, _FPE.__name__)
     yield
     logger.info("FastAPI shutting down")
+
+
+# ---------------------------------------------------------------------------
+# Optional API-key authentication
+# ---------------------------------------------------------------------------
+
+# Routes that never require an API key (monitoring / liveness).
+_AUTH_EXEMPT_PATHS = {"/health", "/metrics"}
+
+
+def require_api_key(request: Request) -> None:
+    """Enforce optional X-API-Key auth (disabled when settings.api_key is empty).
+
+    Backward-compatible: when no key is configured the dependency is a no-op so
+    all existing callers and tests pass.  When a key IS set, every route except
+    /health and /metrics must present a matching X-API-Key header.  Comparison
+    uses hmac.compare_digest to avoid timing leaks.
+    """
+    expected = settings.api_key
+    if not expected or request.url.path in _AUTH_EXEMPT_PATHS:
+        return
+    provided = request.headers.get("X-API-Key", "")
+    if not (provided and hmac.compare_digest(provided, expected)):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key.")
 
 
 # ---------------------------------------------------------------------------
@@ -140,14 +166,22 @@ app = FastAPI(
     title="Financial Report Insights API",
     version="1.0.0",
     lifespan=lifespan,
+    dependencies=[Depends(require_api_key)],
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
+    allow_credentials=settings.cors_allow_credentials,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+# Prometheus metrics middleware - always added so it is available when the
+# endpoint flag is enabled; it records nothing sensitive and is low-overhead.
+from observability.metrics import MetricsMiddleware  # noqa: E402
+
+app.add_middleware(MetricsMiddleware)
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +201,10 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -221,9 +258,16 @@ async def rate_limit_middleware(request: Request, call_next):
                 content={"detail": "Rate limit exceeded. Try again later."},
             )
         _rate_log[client_ip].append(now)
-        # Evict stale IPs to prevent unbounded dict growth
-        if not _rate_log[client_ip]:
-            del _rate_log[client_ip]
+        # Cross-IP sweep: evict every IP whose entire timestamp list has expired.
+        # Runs on each request (inside the lock) but iterates a snapshot of keys
+        # so it is safe to mutate the dict.  This is the only path that evicts
+        # an IP that has stopped sending -- the single-IP prune above cannot do
+        # it (the defaultdict re-creates the key on touch).
+        # Sweep is bounded: iterating N keys is O(N) but N is capped by the
+        # 10K hard cap below, so worst case is O(10K) per request.
+        stale = [ip for ip, ts in list(_rate_log.items()) if not [t for t in ts if t > cutoff]]
+        for ip in stale:
+            del _rate_log[ip]
         # Hard cap: if dict exceeds 10K IPs, clear entirely (DoS defense)
         if len(_rate_log) > 10_000:
             _rate_log.clear()
@@ -243,6 +287,25 @@ async def health():
     if code == 503:
         raise HTTPException(status_code=503, detail=status)
     return status
+
+
+@app.get("/metrics")
+async def metrics_endpoint():
+    """Prometheus exposition endpoint.
+
+    Returns HTTP 404 when ``settings.enable_metrics_endpoint`` is False (the
+    default) so the endpoint is hidden in environments that do not opt-in.
+    The flag is checked at request time so tests can toggle it without
+    rebuilding the app.
+    """
+    if not settings.enable_metrics_endpoint:
+        raise HTTPException(status_code=404, detail="Not found.")
+    from fastapi.responses import Response as _Response
+
+    from observability.metrics import render_latest
+
+    data, content_type = render_latest()
+    return _Response(content=data, media_type=content_type)
 
 
 @app.post("/query", response_model=QueryResponse)
@@ -292,12 +355,26 @@ async def query_stream(req: QueryRequest):
 
         The sync ``answer_stream`` generator performs blocking I/O per chunk,
         so we call ``next()`` in a thread for each iteration.
+
+        Each chunk fetch is wrapped in asyncio.wait_for to bound CLIENT-SIDE
+        latency (P1-C1).  NOTE: wait_for cancels only the awaiting coroutine;
+        the to_thread worker blocked on a C-level socket read is NOT cancelled
+        here -- that reclamation is handled by the finite httpx read timeout in
+        local_llm.py (WP-LLM P1-C1-stream-timeout).
         """
         done_sentinel = object()
         it = iter(rag.answer_stream(req.text, relevant_docs))
         try:
             while True:
-                chunk = await asyncio.to_thread(next, it, done_sentinel)
+                try:
+                    chunk = await asyncio.wait_for(
+                        asyncio.to_thread(next, it, done_sentinel),
+                        timeout=settings.llm_timeout_seconds,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning("SSE chunk timed out after %ss", settings.llm_timeout_seconds)
+                    yield {"event": "error", "data": "Stream timed out."}
+                    return
                 if chunk is done_sentinel:
                     break
                 yield {"data": chunk}
@@ -326,7 +403,7 @@ async def analyze(req: AnalyzeRequest):
         def _to_ratio_dict(obj):
             if isinstance(obj, dict):
                 return obj or None
-            if obj is not None and hasattr(obj, 'to_dict') and callable(obj.to_dict):
+            if obj is not None and hasattr(obj, "to_dict") and callable(obj.to_dict):
                 try:
                     d = obj.to_dict()
                     return d if isinstance(d, dict) else None
@@ -334,13 +411,13 @@ async def analyze(req: AnalyzeRequest):
                     return None
             return None
 
-        liq = _to_ratio_dict(analysis.get('liquidity_ratios'))
-        prof = _to_ratio_dict(analysis.get('profitability_ratios'))
-        lev = _to_ratio_dict(analysis.get('leverage_ratios'))
-        eff = _to_ratio_dict(analysis.get('efficiency_ratios'))
-        health = analysis.get('composite_health')
-        h_score = getattr(health, 'overall_score', None)
-        h_grade = getattr(health, 'grade', None)
+        liq = _to_ratio_dict(analysis.get("liquidity_ratios"))
+        prof = _to_ratio_dict(analysis.get("profitability_ratios"))
+        lev = _to_ratio_dict(analysis.get("leverage_ratios"))
+        eff = _to_ratio_dict(analysis.get("efficiency_ratios"))
+        health = analysis.get("composite_health")
+        h_score = getattr(health, "overall_score", None)
+        h_grade = getattr(health, "grade", None)
 
         return AnalyzeResponse(
             executive_summary=report.executive_summary,
@@ -353,6 +430,12 @@ async def analyze(req: AnalyzeRequest):
             composite_health_score=h_score if isinstance(h_score, (int, float)) else None,
             composite_health_grade=h_grade if isinstance(h_grade, str) else None,
         )
+    except LLMConnectionError as exc:
+        logger.warning("LLM unavailable during analyze: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="LLM service temporarily unavailable.",
+        ) from exc
     except Exception as exc:
         logger.warning("Analyze request failed: %s", type(exc).__name__)
         raise HTTPException(
@@ -368,6 +451,7 @@ async def analyze(req: AnalyzeRequest):
 
 class RatioData(BaseModel):
     """A single ratio from the graph store."""
+
     name: str
     value: Optional[float] = None
     category: str = ""
@@ -375,6 +459,7 @@ class RatioData(BaseModel):
 
 class ScoreData(BaseModel):
     """A single scoring model result from the graph store."""
+
     model: str
     value: Optional[float] = None
     grade: str = ""
@@ -409,13 +494,19 @@ async def graph_context(period_label: str = Path(..., max_length=100)):
     raw_scores = await asyncio.to_thread(store.scores_by_period_label, period_label)
     return PeriodContext(
         period_label=period_label,
-        ratios=[RatioData(name=r.get("name", ""), value=r.get("value"), category=r.get("category", "")) for r in raw_ratios],
-        scores=[ScoreData(model=s.get("model", ""), value=s.get("value"), grade=s.get("grade", "")) for s in raw_scores],
+        ratios=[
+            RatioData(name=r.get("name", ""), value=r.get("value"), category=r.get("category", "")) for r in raw_ratios
+        ],
+        scores=[
+            ScoreData(model=s.get("model", ""), value=s.get("value"), grade=s.get("grade", "")) for s in raw_scores
+        ],
     )
 
 
 @app.get("/graph/ratios/{period_label}", response_model=List[RatioEntry])
-async def graph_ratios(period_label: str = Path(..., max_length=100), category: Optional[str] = Query(default=None, max_length=100)):
+async def graph_ratios(
+    period_label: str = Path(..., max_length=100), category: Optional[str] = Query(default=None, max_length=100)
+):
     """Return ratios for a fiscal period with optional category filter."""
     store = _require_graph_store()
     ratios = await asyncio.to_thread(store.ratios_by_period_label, period_label)
@@ -449,6 +540,7 @@ class PeriodDelta(BaseModel):
 
 class TrendDataPoint(BaseModel):
     """A single ratio value at a specific period."""
+
     ratio_name: str
     period: str
     value: Optional[float] = None
@@ -477,9 +569,7 @@ async def compare_periods(req: CompareRequest):
     # Graph path: query cross-period trends
     if store is not None:
         try:
-            raw_trends = await asyncio.to_thread(
-                store.cross_period_ratio_trend, req.period_labels
-            )
+            raw_trends = await asyncio.to_thread(store.cross_period_ratio_trend, req.period_labels)
             if raw_trends:
                 graph_trend_data = [
                     TrendDataPoint(
@@ -528,10 +618,7 @@ async def compare_periods(req: CompareRequest):
                 deteriorations=[],
                 deltas=[],
                 graph_trend_data=graph_trend_data,
-                summary=(
-                    f"Compared {len(req.period_labels)} periods: "
-                    "0 improvements, 0 deteriorations."
-                ),
+                summary=(f"Compared {len(req.period_labels)} periods: 0 improvements, 0 deteriorations."),
             )
 
         period_data = getattr(rag, "_period_financial_data", {})
@@ -543,6 +630,7 @@ async def compare_periods(req: CompareRequest):
         if period_data and rag.charlie_analyzer:
             try:
                 from ratio_framework import run_all_ratios
+
                 for label in req.period_labels:
                     fd = period_data.get(label)
                     if fd:
@@ -556,10 +644,12 @@ async def compare_periods(req: CompareRequest):
                                         found = True
                                         break
                                 if not found:
-                                    deltas.append(PeriodDelta(
-                                        ratio_name=result.name,
-                                        periods={label: result.value},
-                                    ))
+                                    deltas.append(
+                                        PeriodDelta(
+                                            ratio_name=result.name,
+                                            periods={label: result.value},
+                                        )
+                                    )
 
                 # Compute deltas between first and last period
                 for d in deltas:
@@ -579,8 +669,7 @@ async def compare_periods(req: CompareRequest):
     n_improvements = len(improvements)
     n_deteriorations = len(deteriorations)
     summary = (
-        f"Compared {len(req.period_labels)} periods: "
-        f"{n_improvements} improvements, {n_deteriorations} deteriorations."
+        f"Compared {len(req.period_labels)} periods: {n_improvements} improvements, {n_deteriorations} deteriorations."
     )
 
     return CompareResponse(
@@ -606,9 +695,7 @@ class ExportRequest(BaseModel):
     @classmethod
     def validate_field_count(cls, v: Dict[str, Any]) -> Dict[str, Any]:
         if len(v) > settings.max_financial_fields:
-            raise ValueError(
-                f"Too many fields ({len(v)}); max {settings.max_financial_fields}."
-            )
+            raise ValueError(f"Too many fields ({len(v)}); max {settings.max_financial_fields}.")
         return v
 
 
@@ -627,6 +714,12 @@ async def export_xlsx(req: ExportRequest):
 
         exporter = FinancialExcelExporter()
         xlsx_bytes = exporter.export_full_report(data, analysis, report=report)
+    except LLMConnectionError as exc:
+        logger.warning("LLM unavailable during XLSX export: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="LLM service temporarily unavailable.",
+        ) from exc
     except Exception as exc:
         logger.warning("XLSX export failed: %s", exc)
         raise HTTPException(
@@ -656,6 +749,12 @@ async def export_pdf(req: ExportRequest):
 
         exporter = FinancialPDFExporter()
         pdf_bytes = exporter.export_full_report(data, analysis, report=report)
+    except LLMConnectionError as exc:
+        logger.warning("LLM unavailable during PDF export: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="LLM service temporarily unavailable.",
+        ) from exc
     except Exception as exc:
         logger.warning("PDF export failed: %s", exc)
         raise HTTPException(
@@ -680,7 +779,8 @@ _MAX_PORTFOLIO_COMPANIES = 50
 
 class PortfolioRequest(BaseModel):
     companies: Dict[str, Dict[str, Any]] = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description="Map of company_name -> financial_data dict (at least 1)",
     )
 
@@ -688,15 +788,12 @@ class PortfolioRequest(BaseModel):
     @classmethod
     def limit_company_count(cls, v):
         if len(v) > _MAX_PORTFOLIO_COMPANIES:
-            raise ValueError(
-                f"Too many companies ({len(v)}). Maximum is {_MAX_PORTFOLIO_COMPANIES}."
-            )
+            raise ValueError(f"Too many companies ({len(v)}). Maximum is {_MAX_PORTFOLIO_COMPANIES}.")
         # Validate field count per company
         for name, data in v.items():
             if len(data) > settings.max_financial_fields:
                 raise ValueError(
-                    f"Company '{name}' has too many fields ({len(data)}); "
-                    f"max {settings.max_financial_fields}."
+                    f"Company '{name}' has too many fields ({len(data)}); max {settings.max_financial_fields}."
                 )
         return v
 
@@ -730,6 +827,7 @@ def _get_portfolio_analyzer():
         with _portfolio_lock:
             if not hasattr(_get_portfolio_analyzer, "_inst"):
                 from portfolio_analyzer import PortfolioAnalyzer
+
                 _get_portfolio_analyzer._inst = PortfolioAnalyzer()
     return _get_portfolio_analyzer._inst
 
@@ -743,13 +841,14 @@ def _get_compliance_scorer():
         with _compliance_lock:
             if not hasattr(_get_compliance_scorer, "_inst"):
                 from compliance_scorer import ComplianceScorer
+
                 _get_compliance_scorer._inst = ComplianceScorer()
     return _get_compliance_scorer._inst
 
 
-def _parse_financial_data(raw: Dict[str, Any]) -> "FinancialData":
+def _parse_financial_data(raw: Dict[str, Any]) -> "FinancialData":  # noqa: F821 — forward ref; FinancialData imported in-function
     """Parse a raw dict into FinancialData, filtering unknown fields."""
-    from financial_analyzer import FinancialData
+    from financial_analyzer import FinancialData  # local import: forward ref for type checker
 
     if not hasattr(_parse_financial_data, "_fields"):
         _parse_financial_data._fields = frozenset(FinancialData.__dataclass_fields__)
@@ -770,7 +869,30 @@ async def portfolio_analyze(req: PortfolioRequest):
         ) from exc
 
     pa = _get_portfolio_analyzer()
-    report = await asyncio.to_thread(pa.full_portfolio_analysis, companies)
+    try:
+        report = await asyncio.to_thread(pa.full_portfolio_analysis, companies)
+    except LLMConnectionError as exc:
+        logger.warning("LLM unavailable during portfolio analyze: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="LLM service temporarily unavailable.",
+        ) from exc
+
+    # D3: best-effort graph-store persist (never fails the request).
+    rag = _get_rag()
+    store = getattr(rag, "_graph_store", None)
+    if store is not None:
+        try:
+            portfolio_name = ", ".join(sorted(companies.keys()))
+            await asyncio.to_thread(
+                store.store_portfolio_analysis,
+                portfolio_name,
+                list(companies.keys()),
+                report.risk_summary,
+                report.diversification.overall_score,
+            )
+        except Exception as _exc:
+            logger.debug("store_portfolio_analysis failed (best-effort): %s", _exc)
 
     return PortfolioResponse(
         num_companies=report.num_companies,
@@ -798,7 +920,36 @@ async def portfolio_correlation(req: PortfolioRequest):
         ) from exc
 
     pa = _get_portfolio_analyzer()
-    corr = await asyncio.to_thread(pa.correlation_matrix, companies)
+    try:
+        corr = await asyncio.to_thread(pa.correlation_matrix, companies)
+    except LLMConnectionError as exc:
+        logger.warning("LLM unavailable during portfolio correlation: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="LLM service temporarily unavailable.",
+        ) from exc
+
+    # D3: best-effort graph-store persist (never fails the request).
+    rag = _get_rag()
+    store = getattr(rag, "_graph_store", None)
+    if store is not None:
+        try:
+            from portfolio_analyzer import PortfolioRiskSummary
+
+            minimal_risk = PortfolioRiskSummary(
+                num_companies=len(corr.company_names),
+                overall_risk_level="unknown",
+            )
+            portfolio_name = ", ".join(sorted(companies.keys()))
+            await asyncio.to_thread(
+                store.store_portfolio_analysis,
+                portfolio_name,
+                list(corr.company_names),
+                minimal_risk,
+                0,
+            )
+        except Exception as _exc:
+            logger.debug("store_portfolio_analysis (correlation) failed (best-effort): %s", _exc)
 
     return CorrelationResponse(
         company_names=corr.company_names,
@@ -842,7 +993,28 @@ async def compliance_analyze(req: AnalyzeRequest):
         ) from exc
 
     cs = _get_compliance_scorer()
-    report = await asyncio.to_thread(cs.full_compliance_report, data)
+    try:
+        report = await asyncio.to_thread(cs.full_compliance_report, data)
+    except LLMConnectionError as exc:
+        logger.warning("LLM unavailable during compliance analyze: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="LLM service temporarily unavailable.",
+        ) from exc
+
+    # D4: best-effort graph-store persist (never fails the request).
+    rag = _get_rag()
+    store = getattr(rag, "_graph_store", None)
+    if store is not None:
+        try:
+            company_name = str(req.financial_data.get("company_name", "unknown"))
+            await asyncio.to_thread(
+                store.store_compliance_report,
+                company_name,
+                report,
+            )
+        except Exception as _exc:
+            logger.debug("store_compliance_report failed (best-effort): %s", _exc)
 
     return ComplianceResponse(
         sox_risk=report.sox.overall_risk,
@@ -920,25 +1092,36 @@ async def compliance_regulatory(req: AnalyzeRequest):
 
 
 @app.get("/documents", response_model=List[DocumentInfo])
-async def list_documents():
-    """List indexed document chunks with pipeline metadata."""
+async def list_documents(
+    limit: int = Query(100, ge=1, description="Maximum number of results to return."),
+    offset: int = Query(0, ge=0, description="Number of results to skip."),
+    source: str | None = Query(None, description="Filter by exact source filename."),
+):
+    """List indexed document chunks with pipeline metadata.
+
+    Supports optional pagination (limit/offset) and source filtering.
+    """
     rag = _get_rag()
     results = []
     seen = set()
     for doc in rag.documents:
-        source = doc.get("source", "unknown")
-        if source in seen:
+        doc_source = doc.get("source", "unknown")
+        if doc_source in seen:
             continue
-        seen.add(source)
+        seen.add(doc_source)
+        if source is not None and doc_source != source:
+            continue
         meta = doc.get("metadata", {})
         if not isinstance(meta, dict):
             meta = {}
-        results.append(DocumentInfo(
-            source=source,
-            type=doc.get("type", "unknown"),
-            content_preview=doc.get("content", "")[:200],
-            section_type=meta.get("section_type"),
-            chunk_level=meta.get("chunk_level"),
-            has_parent=bool(meta.get("parent_id")),
-        ))
-    return results
+        results.append(
+            DocumentInfo(
+                source=doc_source,
+                type=doc.get("type", "unknown"),
+                content_preview=doc.get("content", "")[:200],
+                section_type=meta.get("section_type"),
+                chunk_level=meta.get("chunk_level"),
+                has_parent=bool(meta.get("parent_id")),
+            )
+        )
+    return results[offset : offset + limit]

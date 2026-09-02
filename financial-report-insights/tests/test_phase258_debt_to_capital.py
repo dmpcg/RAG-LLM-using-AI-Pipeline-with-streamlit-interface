@@ -4,10 +4,11 @@ Tests for debt_to_capital_analysis() and DebtToCapitalResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DebtToCapitalResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDebtToCapitalDataclass:
     def test_defaults(self):
         r = DebtToCapitalResult()
@@ -68,6 +70,7 @@ class TestDebtToCapitalDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDebtToCapitalAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -105,6 +108,7 @@ class TestDebtToCapitalAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestDebtToCapitalScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """DTC=0.25 in (0.20,0.30]=>base 8.5. NDC=0.219<0.25-0.05=0.20? No, 0.219<0.25-0.05=0.20 is false. ER=0.75>=0.60(+0.5). Score=9.0."""
@@ -137,6 +141,7 @@ class TestDebtToCapitalScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase258EdgeCases:
     def test_empty_data(self, analyzer):

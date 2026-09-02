@@ -4,6 +4,7 @@ Tests for fixed_asset_efficiency_analysis() and FixedAssetEfficiencyResult datac
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestFixedAssetEfficiencyDataclass:
     def test_defaults(self):
         r = FixedAssetEfficiencyResult()
@@ -68,6 +70,7 @@ class TestFixedAssetEfficiencyDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestFixedAssetEfficiencyAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestFixedAssetEfficiencyAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestFixedAssetEfficiencyScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """FAT=0.667 => base 2.5. CTF=0.053 (neither). FAC=0.80 (neither). Score=2.5."""
@@ -154,6 +158,7 @@ class TestFixedAssetEfficiencyScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase138EdgeCases:
     def test_empty_data(self, analyzer):

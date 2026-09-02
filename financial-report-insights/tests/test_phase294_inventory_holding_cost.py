@@ -4,6 +4,7 @@ Tests for inventory_holding_cost_analysis() and InventoryHoldingCostResult datac
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestInventoryHoldingCostDataclass:
     def test_defaults(self):
         r = InventoryHoldingCostResult()
@@ -68,6 +70,7 @@ class TestInventoryHoldingCostDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestInventoryHoldingCostAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestInventoryHoldingCostAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestInventoryHoldingCostScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -133,6 +137,7 @@ class TestInventoryHoldingCostScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase294EdgeCases:
     def test_empty_data(self, analyzer):

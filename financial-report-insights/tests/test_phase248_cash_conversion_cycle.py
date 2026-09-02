@@ -4,10 +4,11 @@ Tests for cash_conversion_cycle_analysis() and CashConversionCycleResult datacla
 """
 
 import pytest
+
 from financial_analyzer import (
+    CashConversionCycleResult,
     CharlieAnalyzer,
     FinancialData,
-    CashConversionCycleResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCashConversionCycleDataclass:
     def test_defaults(self):
         r = CashConversionCycleResult()
@@ -68,6 +70,7 @@ class TestCashConversionCycleDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCashConversionCycleAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -104,6 +107,7 @@ class TestCashConversionCycleAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestCashConversionCycleScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -144,6 +148,7 @@ class TestCashConversionCycleScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase248EdgeCases:
     def test_empty_data(self, analyzer):

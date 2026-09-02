@@ -4,6 +4,7 @@ Tests for sustainable_growth_analysis() and SustainableGrowthResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -46,6 +47,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestSustainableGrowthDataclass:
     def test_defaults(self):
         r = SustainableGrowthResult()
@@ -68,6 +70,7 @@ class TestSustainableGrowthDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestSustainableGrowth:
     def test_returns_result(self, analyzer, sample_data):
@@ -148,6 +151,7 @@ class TestSustainableGrowth:
 
 # ===== SCORING TESTS =====
 
+
 class TestGrowthScoring:
     def test_high_growth(self, analyzer):
         """High SGR, high ROE, full retention, high reinvestment."""
@@ -208,6 +212,7 @@ class TestGrowthScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase25EdgeCases:
     def test_empty_data(self, analyzer):

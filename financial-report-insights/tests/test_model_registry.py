@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 import json
-import tempfile
 import uuid
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Any
 
 import pytest
 
 from ml.registry import ModelMetadata, ModelRegistry, TrainingPipeline
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -354,12 +350,20 @@ class TestModelRegistryOperations:
         registry = ModelRegistry(registry_dir=str(tmp_path))
         ts = datetime.now(timezone.utc).isoformat()
         meta_a = ModelMetadata(
-            model_id=str(uuid.uuid4()), model_name="A", model_type="c",
-            version="1", created_at=ts, metrics={"accuracy": 0.8},
+            model_id=str(uuid.uuid4()),
+            model_name="A",
+            model_type="c",
+            version="1",
+            created_at=ts,
+            metrics={"accuracy": 0.8},
         )
         meta_b = ModelMetadata(
-            model_id=str(uuid.uuid4()), model_name="B", model_type="c",
-            version="2", created_at=ts, metrics={"accuracy": 0.6},
+            model_id=str(uuid.uuid4()),
+            model_name="B",
+            model_type="c",
+            version="2",
+            created_at=ts,
+            metrics={"accuracy": 0.6},
         )
         id_a = registry.register(dummy_model, meta_a)
         id_b = registry.register(dummy_model, meta_b)
@@ -370,12 +374,20 @@ class TestModelRegistryOperations:
         registry = ModelRegistry(registry_dir=str(tmp_path))
         ts = datetime.now(timezone.utc).isoformat()
         meta_a = ModelMetadata(
-            model_id=str(uuid.uuid4()), model_name="A", model_type="c",
-            version="1", created_at=ts, metrics={"accuracy": 0.9},
+            model_id=str(uuid.uuid4()),
+            model_name="A",
+            model_type="c",
+            version="1",
+            created_at=ts,
+            metrics={"accuracy": 0.9},
         )
         meta_b = ModelMetadata(
-            model_id=str(uuid.uuid4()), model_name="B", model_type="c",
-            version="2", created_at=ts, metrics={"accuracy": 0.9},
+            model_id=str(uuid.uuid4()),
+            model_name="B",
+            model_type="c",
+            version="2",
+            created_at=ts,
+            metrics={"accuracy": 0.9},
         )
         id_a = registry.register(dummy_model, meta_a)
         id_b = registry.register(dummy_model, meta_b)
@@ -386,12 +398,20 @@ class TestModelRegistryOperations:
         registry = ModelRegistry(registry_dir=str(tmp_path))
         ts = datetime.now(timezone.utc).isoformat()
         meta_a = ModelMetadata(
-            model_id=str(uuid.uuid4()), model_name="A", model_type="c",
-            version="1", created_at=ts, metrics={"accuracy": 0.9, "only_a": 1.0},
+            model_id=str(uuid.uuid4()),
+            model_name="A",
+            model_type="c",
+            version="1",
+            created_at=ts,
+            metrics={"accuracy": 0.9, "only_a": 1.0},
         )
         meta_b = ModelMetadata(
-            model_id=str(uuid.uuid4()), model_name="B", model_type="c",
-            version="2", created_at=ts, metrics={"accuracy": 0.85, "only_b": 2.0},
+            model_id=str(uuid.uuid4()),
+            model_name="B",
+            model_type="c",
+            version="2",
+            created_at=ts,
+            metrics={"accuracy": 0.85, "only_b": 2.0},
         )
         id_a = registry.register(dummy_model, meta_a)
         id_b = registry.register(dummy_model, meta_b)
@@ -415,9 +435,7 @@ class TestRegistryMultipleModels:
                 model_name=f"Model{i}",
                 model_type="classifier",
                 version=f"1.{i}",
-                created_at=(
-                    datetime.now(timezone.utc) + timedelta(seconds=i)
-                ).isoformat(),
+                created_at=(datetime.now(timezone.utc) + timedelta(seconds=i)).isoformat(),
             )
             ids.append(tmp_registry.register(dummy_model, meta))
 
@@ -472,7 +490,9 @@ class TestTrainingPipelineClassifier:
         features, labels = self._make_data(40)
         feature_names = ["f1", "f2", "f3", "f4", "f5"]
         model_id = pipeline.train_classifier(
-            features, labels, feature_names,
+            features,
+            labels,
+            feature_names,
             model_type="logistic_regression",
             model_name="LRModel",
             version="2.0",
@@ -535,7 +555,8 @@ class TestTrainingPipelineForecaster:
     def test_train_forecaster_metadata_correct(self, pipeline):
         values = self._make_series(20)
         model_id = pipeline.train_forecaster(
-            values, method="ar",
+            values,
+            method="ar",
             model_name="ARModel",
             version="3.0",
         )

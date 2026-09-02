@@ -4,10 +4,11 @@ Tests for equity_reinvestment_analysis() and EquityReinvestmentResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     EquityReinvestmentResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestEquityReinvestmentDataclass:
     def test_defaults(self):
         r = EquityReinvestmentResult()
@@ -68,6 +70,7 @@ class TestEquityReinvestmentDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestEquityReinvestmentAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -110,6 +113,7 @@ class TestEquityReinvestmentAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestEquityReinvestmentScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """RR=0.733 => base 7.0. DC=3.75 >=3.0 => +0.5. EGP=0.50 >=0.50 => +0.5. Score=8.0."""
@@ -149,6 +153,7 @@ class TestEquityReinvestmentScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase139EdgeCases:
     def test_empty_data(self, analyzer):

@@ -3,10 +3,9 @@ Visualization Utilities for Financial Insights Dashboard.
 Reusable Plotly components for CFO-grade financial visualizations.
 """
 
-from typing import Dict, List, Optional, Tuple
-import pandas as pd
-import numpy as np
+from typing import Dict, List, Optional
 
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -21,10 +20,7 @@ class FinancialVizUtils:
     WARNING_COLOR = "#ffa15a"
 
     # Color palette for multiple series
-    PALETTE = [
-        "#636efa", "#00cc96", "#ffa15a", "#ef553b",
-        "#ab63fa", "#19d3f3", "#e763fa", "#b6e880"
-    ]
+    PALETTE = ["#636efa", "#00cc96", "#ffa15a", "#ef553b", "#ab63fa", "#19d3f3", "#e763fa", "#b6e880"]
 
     # Theme colors
     BACKGROUND_COLOR = "#fafafa"
@@ -41,11 +37,11 @@ class FinancialVizUtils:
         sign = "-" if value < 0 else ""
 
         if abs_value >= 1e9:
-            return f"{sign}{currency}{abs_value/1e9:.{decimals}f}B"
+            return f"{sign}{currency}{abs_value / 1e9:.{decimals}f}B"
         elif abs_value >= 1e6:
-            return f"{sign}{currency}{abs_value/1e6:.{decimals}f}M"
+            return f"{sign}{currency}{abs_value / 1e6:.{decimals}f}M"
         elif abs_value >= 1e3:
-            return f"{sign}{currency}{abs_value/1e3:.{decimals}f}K"
+            return f"{sign}{currency}{abs_value / 1e3:.{decimals}f}K"
         return f"{sign}{currency}{abs_value:.{decimals}f}"
 
     @staticmethod
@@ -62,7 +58,7 @@ class FinancialVizUtils:
         title: str = "",
         delta: Optional[float] = None,
         format_type: str = "currency",
-        reference: Optional[float] = None
+        reference: Optional[float] = None,
     ) -> go.Figure:
         """
         Create a KPI indicator card.
@@ -91,8 +87,8 @@ class FinancialVizUtils:
             "title": {"text": title, "font": {"size": 14}},
             "number": {
                 "font": {"size": 36, "color": cls.TEXT_COLOR},
-                "valueformat": ",.0f" if format_type == "number" else None
-            }
+                "valueformat": ",.0f" if format_type == "number" else None,
+            },
         }
 
         if format_type == "currency":
@@ -111,17 +107,12 @@ class FinancialVizUtils:
                 "relative": True,
                 "valueformat": ".1%",
                 "increasing": {"color": cls.POSITIVE_COLOR},
-                "decreasing": {"color": cls.NEGATIVE_COLOR}
+                "decreasing": {"color": cls.NEGATIVE_COLOR},
             }
 
         fig.add_trace(go.Indicator(**indicator_args))
 
-        fig.update_layout(
-            height=150,
-            margin=dict(l=20, r=20, t=40, b=20),
-            paper_bgcolor="white",
-            plot_bgcolor="white"
-        )
+        fig.update_layout(height=150, margin=dict(l=20, r=20, t=40, b=20), paper_bgcolor="white", plot_bgcolor="white")
 
         return fig
 
@@ -133,7 +124,7 @@ class FinancialVizUtils:
         min_val: float = 0,
         max_val: float = 100,
         thresholds: Optional[Dict[str, float]] = None,
-        format_type: str = "number"
+        format_type: str = "number",
     ) -> go.Figure:
         """
         Create a gauge chart for ratio visualization.
@@ -154,41 +145,35 @@ class FinancialVizUtils:
         steps = [
             {"range": [min_val, thresholds["warning"]], "color": "#ffcdd2"},
             {"range": [thresholds["warning"], thresholds["good"]], "color": "#fff9c4"},
-            {"range": [thresholds["good"], max_val], "color": "#c8e6c9"}
+            {"range": [thresholds["good"], max_val], "color": "#c8e6c9"},
         ]
 
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=value,
-            title={"text": title, "font": {"size": 16}},
-            number={"font": {"size": 28}},
-            gauge={
-                "axis": {"range": [min_val, max_val], "tickwidth": 1},
-                "bar": {"color": cls.NEUTRAL_COLOR},
-                "steps": steps,
-                "threshold": {
-                    "line": {"color": "red", "width": 4},
-                    "thickness": 0.75,
-                    "value": thresholds["warning"]
-                }
-            }
-        ))
-
-        fig.update_layout(
-            height=250,
-            margin=dict(l=30, r=30, t=50, b=30),
-            paper_bgcolor="white"
+        fig = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=value,
+                title={"text": title, "font": {"size": 16}},
+                number={"font": {"size": 28}},
+                gauge={
+                    "axis": {"range": [min_val, max_val], "tickwidth": 1},
+                    "bar": {"color": cls.NEUTRAL_COLOR},
+                    "steps": steps,
+                    "threshold": {
+                        "line": {"color": "red", "width": 4},
+                        "thickness": 0.75,
+                        "value": thresholds["warning"],
+                    },
+                },
+            )
         )
+
+        fig.update_layout(height=250, margin=dict(l=30, r=30, t=50, b=30), paper_bgcolor="white")
 
         return fig
 
     @classmethod
     def create_waterfall(
-        cls,
-        categories: List[str],
-        values: List[float],
-        title: str = "Variance Analysis",
-        show_total: bool = True
+        cls, categories: List[str], values: List[float], title: str = "Variance Analysis", show_total: bool = True
     ) -> go.Figure:
         """
         Create a waterfall chart for variance analysis.
@@ -206,19 +191,21 @@ class FinancialVizUtils:
             values = values + [sum(values)]
             measures = measures + ["total"]
 
-        fig = go.Figure(go.Waterfall(
-            name="Variance",
-            orientation="v",
-            x=categories,
-            y=values,
-            measure=measures,
-            textposition="outside",
-            text=[cls.format_currency(v) for v in values],
-            connector={"line": {"color": "rgb(63, 63, 63)"}},
-            decreasing={"marker": {"color": cls.NEGATIVE_COLOR}},
-            increasing={"marker": {"color": cls.POSITIVE_COLOR}},
-            totals={"marker": {"color": cls.NEUTRAL_COLOR}}
-        ))
+        fig = go.Figure(
+            go.Waterfall(
+                name="Variance",
+                orientation="v",
+                x=categories,
+                y=values,
+                measure=measures,
+                textposition="outside",
+                text=[cls.format_currency(v) for v in values],
+                connector={"line": {"color": "rgb(63, 63, 63)"}},
+                decreasing={"marker": {"color": cls.NEGATIVE_COLOR}},
+                increasing={"marker": {"color": cls.POSITIVE_COLOR}},
+                totals={"marker": {"color": cls.NEUTRAL_COLOR}},
+            )
+        )
 
         fig.update_layout(
             title=title,
@@ -227,19 +214,14 @@ class FinancialVizUtils:
             margin=dict(l=50, r=50, t=60, b=50),
             paper_bgcolor="white",
             plot_bgcolor="white",
-            yaxis_title="Amount"
+            yaxis_title="Amount",
         )
 
         return fig
 
     @classmethod
     def create_bullet_chart(
-        cls,
-        actual: float,
-        target: float,
-        ranges: List[float],
-        title: str = "",
-        format_type: str = "currency"
+        cls, actual: float, target: float, ranges: List[float], title: str = "", format_type: str = "currency"
     ) -> go.Figure:
         """
         Create a bullet chart for target comparison.
@@ -258,55 +240,42 @@ class FinancialVizUtils:
         # Background ranges
         colors = ["#ffcdd2", "#fff9c4", "#c8e6c9"]
         for i, (r, color) in enumerate(zip(sorted(ranges), colors)):
-            fig.add_trace(go.Bar(
-                x=[r],
-                y=[title],
-                orientation='h',
-                marker_color=color,
-                showlegend=False,
-                hoverinfo='skip'
-            ))
+            fig.add_trace(
+                go.Bar(x=[r], y=[title], orientation="h", marker_color=color, showlegend=False, hoverinfo="skip")
+            )
 
         # Actual bar
-        fig.add_trace(go.Bar(
-            x=[actual],
-            y=[title],
-            orientation='h',
-            marker_color=cls.NEUTRAL_COLOR,
-            width=0.3,
-            name="Actual",
-            text=cls.format_currency(actual) if format_type == "currency" else f"{actual:,.0f}",
-            textposition="outside"
-        ))
-
-        # Target line
-        fig.add_shape(
-            type="line",
-            x0=target, x1=target,
-            y0=-0.3, y1=0.3,
-            yref="paper",
-            line=dict(color="red", width=3)
+        fig.add_trace(
+            go.Bar(
+                x=[actual],
+                y=[title],
+                orientation="h",
+                marker_color=cls.NEUTRAL_COLOR,
+                width=0.3,
+                name="Actual",
+                text=cls.format_currency(actual) if format_type == "currency" else f"{actual:,.0f}",
+                textposition="outside",
+            )
         )
 
+        # Target line
+        fig.add_shape(type="line", x0=target, x1=target, y0=-0.3, y1=0.3, yref="paper", line=dict(color="red", width=3))
+
         fig.update_layout(
-            barmode='overlay',
+            barmode="overlay",
             height=100,
             margin=dict(l=100, r=50, t=30, b=30),
             paper_bgcolor="white",
             plot_bgcolor="white",
             xaxis=dict(range=[0, max_range]),
-            showlegend=False
+            showlegend=False,
         )
 
         return fig
 
     @classmethod
     def create_sparkline(
-        cls,
-        values: List[float],
-        highlight_last: bool = True,
-        show_area: bool = True,
-        height: int = 60
+        cls, values: List[float], highlight_last: bool = True, show_area: bool = True, height: int = 60
     ) -> go.Figure:
         """
         Create a mini sparkline chart.
@@ -323,37 +292,43 @@ class FinancialVizUtils:
 
         # Area fill
         if show_area:
-            fig.add_trace(go.Scatter(
-                x=x,
-                y=values,
-                fill='tozeroy',
-                fillcolor='rgba(99, 110, 250, 0.2)',
-                line=dict(width=0),
-                showlegend=False,
-                hoverinfo='skip'
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=x,
+                    y=values,
+                    fill="tozeroy",
+                    fillcolor="rgba(99, 110, 250, 0.2)",
+                    line=dict(width=0),
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
 
         # Line
-        fig.add_trace(go.Scatter(
-            x=x,
-            y=values,
-            mode='lines',
-            line=dict(color=cls.NEUTRAL_COLOR, width=2),
-            showlegend=False,
-            hoverinfo='y'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=values,
+                mode="lines",
+                line=dict(color=cls.NEUTRAL_COLOR, width=2),
+                showlegend=False,
+                hoverinfo="y",
+            )
+        )
 
         # Highlight last point
         if highlight_last and values:
             color = cls.POSITIVE_COLOR if len(values) > 1 and values[-1] >= values[-2] else cls.NEGATIVE_COLOR
-            fig.add_trace(go.Scatter(
-                x=[x[-1]],
-                y=[values[-1]],
-                mode='markers',
-                marker=dict(size=8, color=color),
-                showlegend=False,
-                hoverinfo='y'
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=[x[-1]],
+                    y=[values[-1]],
+                    mode="markers",
+                    marker=dict(size=8, color=color),
+                    showlegend=False,
+                    hoverinfo="y",
+                )
+            )
 
         fig.update_layout(
             height=height,
@@ -361,18 +336,14 @@ class FinancialVizUtils:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             xaxis=dict(visible=False),
-            yaxis=dict(visible=False)
+            yaxis=dict(visible=False),
         )
 
         return fig
 
     @classmethod
     def create_heatmap(
-        cls,
-        data: pd.DataFrame,
-        title: str = "",
-        color_scale: str = "RdYlGn",
-        show_values: bool = True
+        cls, data: pd.DataFrame, title: str = "", color_scale: str = "RdYlGn", show_values: bool = True
     ) -> go.Figure:
         """
         Create a heatmap for correlation or period comparison.
@@ -383,23 +354,20 @@ class FinancialVizUtils:
             color_scale: Plotly color scale name
             show_values: Whether to show values in cells
         """
-        fig = go.Figure(data=go.Heatmap(
-            z=data.values,
-            x=data.columns.tolist(),
-            y=data.index.tolist(),
-            colorscale=color_scale,
-            text=data.values.round(2) if show_values else None,
-            texttemplate="%{text}" if show_values else None,
-            textfont={"size": 10},
-            hoverongaps=False
-        ))
-
-        fig.update_layout(
-            title=title,
-            height=400,
-            margin=dict(l=100, r=50, t=60, b=50),
-            paper_bgcolor="white"
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=data.values,
+                x=data.columns.tolist(),
+                y=data.index.tolist(),
+                colorscale=color_scale,
+                text=data.values.round(2) if show_values else None,
+                texttemplate="%{text}" if show_values else None,
+                textfont={"size": 10},
+                hoverongaps=False,
+            )
         )
+
+        fig.update_layout(title=title, height=400, margin=dict(l=100, r=50, t=60, b=50), paper_bgcolor="white")
 
         return fig
 
@@ -411,7 +379,7 @@ class FinancialVizUtils:
         y_cols: List[str],
         title: str = "",
         y_title: str = "",
-        show_markers: bool = True
+        show_markers: bool = True,
     ) -> go.Figure:
         """
         Create a multi-line time series chart.
@@ -427,14 +395,16 @@ class FinancialVizUtils:
         fig = go.Figure()
 
         for i, col in enumerate(y_cols):
-            fig.add_trace(go.Scatter(
-                x=df[x_col],
-                y=df[col],
-                name=col,
-                mode='lines+markers' if show_markers else 'lines',
-                line=dict(color=cls.PALETTE[i % len(cls.PALETTE)], width=2),
-                marker=dict(size=6)
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=df[x_col],
+                    y=df[col],
+                    name=col,
+                    mode="lines+markers" if show_markers else "lines",
+                    line=dict(color=cls.PALETTE[i % len(cls.PALETTE)], width=2),
+                    marker=dict(size=6),
+                )
+            )
 
         fig.update_layout(
             title=title,
@@ -444,14 +414,8 @@ class FinancialVizUtils:
             margin=dict(l=50, r=50, t=60, b=50),
             paper_bgcolor="white",
             plot_bgcolor="white",
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
-            hovermode="x unified"
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            hovermode="x unified",
         )
 
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor=cls.GRID_COLOR)
@@ -468,7 +432,7 @@ class FinancialVizUtils:
         name1: str = "Actual",
         name2: str = "Budget",
         title: str = "",
-        horizontal: bool = False
+        horizontal: bool = False,
     ) -> go.Figure:
         """
         Create a grouped bar chart for comparison.
@@ -484,51 +448,45 @@ class FinancialVizUtils:
         """
         fig = go.Figure()
 
-        orientation = 'h' if horizontal else 'v'
+        orientation = "h" if horizontal else "v"
         x_data, y_data = (values1, categories) if horizontal else (categories, values1)
         x_data2, y_data2 = (values2, categories) if horizontal else (categories, values2)
 
-        fig.add_trace(go.Bar(
-            x=x_data if not horizontal else values1,
-            y=y_data if not horizontal else categories,
-            name=name1,
-            marker_color=cls.NEUTRAL_COLOR,
-            orientation=orientation
-        ))
+        fig.add_trace(
+            go.Bar(
+                x=x_data if not horizontal else values1,
+                y=y_data if not horizontal else categories,
+                name=name1,
+                marker_color=cls.NEUTRAL_COLOR,
+                orientation=orientation,
+            )
+        )
 
-        fig.add_trace(go.Bar(
-            x=x_data2 if not horizontal else values2,
-            y=y_data2 if not horizontal else categories,
-            name=name2,
-            marker_color=cls.WARNING_COLOR,
-            orientation=orientation
-        ))
+        fig.add_trace(
+            go.Bar(
+                x=x_data2 if not horizontal else values2,
+                y=y_data2 if not horizontal else categories,
+                name=name2,
+                marker_color=cls.WARNING_COLOR,
+                orientation=orientation,
+            )
+        )
 
         fig.update_layout(
             title=title,
-            barmode='group',
+            barmode="group",
             height=400,
             margin=dict(l=50, r=50, t=60, b=50),
             paper_bgcolor="white",
             plot_bgcolor="white",
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            )
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         )
 
         return fig
 
     @classmethod
     def create_donut_chart(
-        cls,
-        labels: List[str],
-        values: List[float],
-        title: str = "",
-        hole_size: float = 0.4
+        cls, labels: List[str], values: List[float], title: str = "", hole_size: float = 0.4
     ) -> go.Figure:
         """
         Create a donut chart.
@@ -539,14 +497,18 @@ class FinancialVizUtils:
             title: Chart title
             hole_size: Size of center hole (0-1)
         """
-        fig = go.Figure(data=[go.Pie(
-            labels=labels,
-            values=values,
-            hole=hole_size,
-            marker_colors=cls.PALETTE[:len(labels)],
-            textinfo='percent+label',
-            textposition='outside'
-        )])
+        fig = go.Figure(
+            data=[
+                go.Pie(
+                    labels=labels,
+                    values=values,
+                    hole=hole_size,
+                    marker_colors=cls.PALETTE[: len(labels)],
+                    textinfo="percent+label",
+                    textposition="outside",
+                )
+            ]
+        )
 
         fig.update_layout(
             title=title,
@@ -554,13 +516,7 @@ class FinancialVizUtils:
             margin=dict(l=50, r=50, t=60, b=50),
             paper_bgcolor="white",
             showlegend=True,
-            legend=dict(
-                orientation="v",
-                yanchor="middle",
-                y=0.5,
-                xanchor="left",
-                x=1.05
-            )
+            legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05),
         )
 
         return fig
@@ -570,7 +526,7 @@ class FinancialVizUtils:
         cls,
         ratios: Dict[str, float],
         benchmarks: Optional[Dict[str, Dict[str, float]]] = None,
-        title: str = "Financial Ratios"
+        title: str = "Financial Ratios",
     ) -> go.Figure:
         """
         Create a comprehensive ratio dashboard with multiple gauges.
@@ -585,9 +541,7 @@ class FinancialVizUtils:
         rows = (n_ratios + cols - 1) // cols
 
         fig = make_subplots(
-            rows=rows, cols=cols,
-            specs=[[{"type": "indicator"}] * cols for _ in range(rows)],
-            vertical_spacing=0.3
+            rows=rows, cols=cols, specs=[[{"type": "indicator"}] * cols for _ in range(rows)], vertical_spacing=0.3
         )
 
         for i, (name, value) in enumerate(ratios.items()):
@@ -599,24 +553,22 @@ class FinancialVizUtils:
 
             # Get benchmark if available
             benchmark = benchmarks.get(name, {}) if benchmarks else {}
-            reference = benchmark.get('target', benchmark.get('good'))
+            reference = benchmark.get("target", benchmark.get("good"))
 
             fig.add_trace(
                 go.Indicator(
                     mode="number+delta" if reference else "number",
                     value=value,
-                    title={"text": name.replace('_', ' ').title(), "font": {"size": 12}},
+                    title={"text": name.replace("_", " ").title(), "font": {"size": 12}},
                     number={"font": {"size": 24}},
-                    delta={"reference": reference, "relative": True} if reference else None
+                    delta={"reference": reference, "relative": True} if reference else None,
                 ),
-                row=row, col=col
+                row=row,
+                col=col,
             )
 
         fig.update_layout(
-            title=title,
-            height=150 * rows + 60,
-            margin=dict(l=30, r=30, t=60, b=30),
-            paper_bgcolor="white"
+            title=title, height=150 * rows + 60, margin=dict(l=30, r=30, t=60, b=30), paper_bgcolor="white"
         )
 
         return fig
@@ -629,7 +581,7 @@ class FinancialVizUtils:
         title: str = "",
         show_forecast: bool = False,
         forecast_periods: Optional[List[str]] = None,
-        forecast_values: Optional[List[float]] = None
+        forecast_values: Optional[List[float]] = None,
     ) -> go.Figure:
         """
         Create a trend chart with optional forecast.
@@ -645,14 +597,16 @@ class FinancialVizUtils:
         fig = go.Figure()
 
         # Historical line
-        fig.add_trace(go.Scatter(
-            x=periods,
-            y=values,
-            name="Historical",
-            mode='lines+markers',
-            line=dict(color=cls.NEUTRAL_COLOR, width=2),
-            marker=dict(size=8)
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=periods,
+                y=values,
+                name="Historical",
+                mode="lines+markers",
+                line=dict(color=cls.NEUTRAL_COLOR, width=2),
+                marker=dict(size=8),
+            )
+        )
 
         # Forecast line
         if show_forecast and forecast_periods and forecast_values:
@@ -660,14 +614,16 @@ class FinancialVizUtils:
             all_periods = [periods[-1]] + forecast_periods
             all_values = [values[-1]] + forecast_values
 
-            fig.add_trace(go.Scatter(
-                x=all_periods,
-                y=all_values,
-                name="Forecast",
-                mode='lines+markers',
-                line=dict(color=cls.WARNING_COLOR, width=2, dash='dash'),
-                marker=dict(size=8, symbol='diamond')
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=all_periods,
+                    y=all_values,
+                    name="Forecast",
+                    mode="lines+markers",
+                    line=dict(color=cls.WARNING_COLOR, width=2, dash="dash"),
+                    marker=dict(size=8, symbol="diamond"),
+                )
+            )
 
         fig.update_layout(
             title=title,
@@ -677,14 +633,8 @@ class FinancialVizUtils:
             margin=dict(l=50, r=50, t=60, b=50),
             paper_bgcolor="white",
             plot_bgcolor="white",
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
-            hovermode="x unified"
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            hovermode="x unified",
         )
 
         fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor=cls.GRID_COLOR)
@@ -694,11 +644,7 @@ class FinancialVizUtils:
 
     @classmethod
     def create_variance_table_chart(
-        cls,
-        categories: List[str],
-        actual: List[float],
-        budget: List[float],
-        title: str = "Budget vs Actual"
+        cls, categories: List[str], actual: List[float], budget: List[float], title: str = "Budget vs Actual"
     ) -> go.Figure:
         """
         Create a table-style chart showing variances.
@@ -712,15 +658,17 @@ class FinancialVizUtils:
         fig = go.Figure()
 
         # Variance bars
-        fig.add_trace(go.Bar(
-            y=categories,
-            x=variance,
-            orientation='h',
-            marker_color=colors,
-            text=[f"{v:+,.0f} ({p:+.1f}%)" for v, p in zip(variance, variance_pct)],
-            textposition='outside',
-            name="Variance"
-        ))
+        fig.add_trace(
+            go.Bar(
+                y=categories,
+                x=variance,
+                orientation="h",
+                marker_color=colors,
+                text=[f"{v:+,.0f} ({p:+.1f}%)" for v, p in zip(variance, variance_pct)],
+                textposition="outside",
+                name="Variance",
+            )
+        )
 
         fig.update_layout(
             title=title,
@@ -729,10 +677,67 @@ class FinancialVizUtils:
             margin=dict(l=150, r=100, t=60, b=50),
             paper_bgcolor="white",
             plot_bgcolor="white",
-            showlegend=False
+            showlegend=False,
         )
 
         # Add zero line
         fig.add_vline(x=0, line_width=2, line_color="gray")
 
+        return fig
+
+    @classmethod
+    def create_simple_bar(
+        cls,
+        labels: List[str],
+        values: List[float],
+        colors: Optional[List[str]],
+        title: str,
+        y_title: str = "",
+        height: int = 350,
+        show_legend: bool = False,
+    ) -> go.Figure:
+        """
+        Create a single-series vertical bar chart.
+
+        This is the shared helper for the high-frequency inline pattern:
+            fig = go.Figure(data=[go.Bar(x=labels, y=values, marker_color=colors)])
+            fig.update_layout(title=title, yaxis_title=y_title,
+                              height=height, showlegend=False)
+
+        Used in place of that boilerplate across profitability, returns,
+        coverage, and working-capital render methods.
+
+        Args:
+            labels: X-axis bar labels.
+            values: Y-axis bar heights.
+            colors: Per-bar colour strings (len must match labels). If None,
+                    the class PALETTE is used cyclically.
+            title:  Chart title.
+            y_title: Y-axis label.
+            height: Chart height in pixels (default 350).
+            show_legend: Whether to show the Plotly legend (default False).
+
+        Returns:
+            go.Figure with a single Bar trace.
+        """
+        bar_colors = colors if colors is not None else [cls.PALETTE[i % len(cls.PALETTE)] for i in range(len(labels))]
+        fig = go.Figure(
+            data=[
+                go.Bar(
+                    x=labels,
+                    y=values,
+                    marker_color=bar_colors,
+                )
+            ]
+        )
+        fig.update_layout(
+            title=title,
+            yaxis_title=y_title,
+            height=height,
+            showlegend=show_legend,
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+            margin=dict(l=50, r=50, t=60, b=50),
+        )
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=cls.GRID_COLOR)
         return fig

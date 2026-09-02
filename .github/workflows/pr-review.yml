@@ -13,10 +13,10 @@ jobs:
   auto-label:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4 (WS-1 P1-F1)
 
       - name: Label PR by changed files
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -56,12 +56,12 @@ jobs:
   review-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4 (WS-1 P1-F1)
         with:
           fetch-depth: 0
 
       - name: Check PR size and missing tests
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -91,18 +91,34 @@ jobs:
               warnings.push(`**Missing tests** - Source files changed (${changed}) but no test files were modified.`);
             }
 
-            // LOC guardrail check for large files
-            const exec = require('child_process');
+            // LOC guardrail check for large files.
+            // SECURITY (WS-1 P0-15, 2026-05-07): never pass PR-supplied filenames
+            // through a shell.  Use fs.readFileSync + line counting; reject any
+            // path that escapes the workspace or contains shell metacharacters.
+            const fs = require('fs');
+            const path = require('path');
+            const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
             for (const f of srcFiles) {
+              const rawName = f.filename;
+              if (typeof rawName !== 'string' || /[\r\n\0]/.test(rawName) || rawName.includes('..')) {
+                continue;
+              }
+              const resolved = path.resolve(workspace, rawName);
+              if (!resolved.startsWith(path.resolve(workspace) + path.sep)) {
+                continue;
+              }
               try {
-                const result = exec.execSync(`wc -l < "${f.filename}"`, { encoding: 'utf8' }).trim();
-                const loc = parseInt(result);
+                const content = fs.readFileSync(resolved, 'utf8');
+                // Count LF; trailing newline is intentional (mirrors `wc -l`).
+                const loc = content.split('\n').length - (content.endsWith('\n') ? 1 : 0);
                 if (loc > 20000) {
-                  warnings.push(`**CRITICAL**: \`${f.filename.split('/').pop()}\` is ${loc.toLocaleString()} LOC (exceeds 20K block threshold)`);
+                  warnings.push(`**CRITICAL**: \`${rawName.split('/').pop()}\` is ${loc.toLocaleString()} LOC (exceeds 20K block threshold)`);
                 } else if (loc > 15000) {
-                  warnings.push(`**Warning**: \`${f.filename.split('/').pop()}\` is ${loc.toLocaleString()} LOC (exceeds 15K warning threshold)`);
+                  warnings.push(`**Warning**: \`${rawName.split('/').pop()}\` is ${loc.toLocaleString()} LOC (exceeds 15K warning threshold)`);
                 }
-              } catch (e) {}
+              } catch (e) {
+                // Missing file (deleted in PR) or read error -- skip silently.
+              }
             }
 
             if (warnings.length > 0) {

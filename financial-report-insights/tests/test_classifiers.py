@@ -10,18 +10,16 @@ Covers:
 
 from __future__ import annotations
 
-import math
 import random
 
-import numpy as np
 import pytest
 
 from ml.classifiers import DistressExplainer, FinancialDistressClassifier
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_features(n_samples: int = 50, n_features: int = 8, seed: int = 0) -> list[list[float]]:
     rng = random.Random(seed)
@@ -42,6 +40,7 @@ FEATURE_NAMES = ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"]
 # ---------------------------------------------------------------------------
 # FinancialDistressClassifier — model creation
 # ---------------------------------------------------------------------------
+
 
 class TestModelCreation:
     def test_default_is_random_forest(self):
@@ -66,16 +65,19 @@ class TestModelCreation:
 
     def test_create_model_factory_lr(self):
         from sklearn.linear_model import LogisticRegression
+
         m = FinancialDistressClassifier._create_model("logistic_regression")
         assert isinstance(m, LogisticRegression)
 
     def test_create_model_factory_rf(self):
         from sklearn.ensemble import RandomForestClassifier
+
         m = FinancialDistressClassifier._create_model("random_forest")
         assert isinstance(m, RandomForestClassifier)
 
     def test_create_model_factory_gb(self):
         from sklearn.ensemble import GradientBoostingClassifier
+
         m = FinancialDistressClassifier._create_model("gradient_boosting")
         assert isinstance(m, GradientBoostingClassifier)
 
@@ -87,6 +89,7 @@ class TestModelCreation:
 # ---------------------------------------------------------------------------
 # generate_pseudo_labels
 # ---------------------------------------------------------------------------
+
 
 class TestGeneratePseudoLabels:
     """Tests for Z-score-based pseudo-label generation."""
@@ -210,6 +213,7 @@ class TestGeneratePseudoLabels:
 # Training
 # ---------------------------------------------------------------------------
 
+
 class TestTrain:
     """Tests for the train() method across model types."""
 
@@ -270,6 +274,7 @@ class TestTrain:
 # ---------------------------------------------------------------------------
 # predict / predict_proba
 # ---------------------------------------------------------------------------
+
 
 class TestPredict:
     @pytest.fixture(autouse=True)
@@ -335,6 +340,7 @@ class TestPredict:
 # Feature importance
 # ---------------------------------------------------------------------------
 
+
 class TestFeatureImportance:
     @pytest.fixture(autouse=True)
     def _setup(self):
@@ -384,6 +390,7 @@ class TestFeatureImportance:
 # ---------------------------------------------------------------------------
 # DistressExplainer
 # ---------------------------------------------------------------------------
+
 
 class TestDistressExplainer:
     @pytest.fixture(autouse=True)
@@ -485,6 +492,7 @@ class TestDistressExplainer:
 # End-to-end integration with pseudo-labels
 # ---------------------------------------------------------------------------
 
+
 class TestEndToEnd:
     """Integration tests using pseudo-label generation -> training -> prediction."""
 
@@ -515,9 +523,14 @@ class TestEndToEnd:
 
         # Build simple feature vectors from the records
         feature_names = [
-            "current_assets", "current_liabilities", "total_assets",
-            "retained_earnings", "ebit", "total_equity",
-            "total_liabilities", "revenue",
+            "current_assets",
+            "current_liabilities",
+            "total_assets",
+            "retained_earnings",
+            "ebit",
+            "total_equity",
+            "total_liabilities",
+            "revenue",
         ]
         features = [[r.get(k, 0) or 0 for k in feature_names] for r in records]
 

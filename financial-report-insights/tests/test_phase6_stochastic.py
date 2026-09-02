@@ -4,11 +4,12 @@ Tests for stochastic modeling, DCF valuation, and code quality fixes.
 """
 
 import pytest
+
 from financial_analyzer import (
+    CashFlowForecast,
     CharlieAnalyzer,
     FinancialData,
     MonteCarloResult,
-    CashFlowForecast,
 )
 
 
@@ -56,6 +57,7 @@ def minimal_data():
 
 # ===== MONTE CARLO RESULT DATACLASS =====
 
+
 class TestMonteCarloResultDataclass:
     def test_defaults(self):
         r = MonteCarloResult()
@@ -73,6 +75,7 @@ class TestMonteCarloResultDataclass:
 
 # ===== CASH FLOW FORECAST DATACLASS =====
 
+
 class TestCashFlowForecastDataclass:
     def test_defaults(self):
         r = CashFlowForecast()
@@ -88,6 +91,7 @@ class TestCashFlowForecastDataclass:
 
 # ===== MONTE CARLO SIMULATION =====
 
+
 class TestMonteCarloSimulation:
     def test_returns_monte_carlo_result(self, analyzer, sample_data):
         result = analyzer.monte_carlo_simulation(sample_data, n_simulations=50)
@@ -100,27 +104,27 @@ class TestMonteCarloSimulation:
     def test_default_assumptions_use_available_fields(self, analyzer, sample_data):
         result = analyzer.monte_carlo_simulation(sample_data, n_simulations=50)
         # Should auto-detect revenue, cogs, operating_expenses
-        assert 'revenue' in result.variable_assumptions
-        assert 'cogs' in result.variable_assumptions
-        assert 'operating_expenses' in result.variable_assumptions
+        assert "revenue" in result.variable_assumptions
+        assert "cogs" in result.variable_assumptions
+        assert "operating_expenses" in result.variable_assumptions
 
     def test_custom_assumptions(self, analyzer, sample_data):
-        assumptions = {'revenue': {'mean_pct': 5.0, 'std_pct': 15.0}}
+        assumptions = {"revenue": {"mean_pct": 5.0, "std_pct": 15.0}}
         result = analyzer.monte_carlo_simulation(sample_data, assumptions, n_simulations=50)
-        assert 'revenue' in result.variable_assumptions
-        assert result.variable_assumptions['revenue']['std_pct'] == 15.0
+        assert "revenue" in result.variable_assumptions
+        assert result.variable_assumptions["revenue"]["std_pct"] == 15.0
 
     def test_percentiles_computed(self, analyzer, sample_data):
         result = analyzer.monte_carlo_simulation(sample_data, n_simulations=100)
-        assert 'health_score' in result.percentiles
-        pcts = result.percentiles['health_score']
-        assert 'p10' in pcts
-        assert 'p50' in pcts
-        assert 'p90' in pcts
-        assert 'mean' in pcts
-        assert 'std' in pcts
+        assert "health_score" in result.percentiles
+        pcts = result.percentiles["health_score"]
+        assert "p10" in pcts
+        assert "p50" in pcts
+        assert "p90" in pcts
+        assert "mean" in pcts
+        assert "std" in pcts
         # P10 <= P50 <= P90
-        assert pcts['p10'] <= pcts['p50'] <= pcts['p90']
+        assert pcts["p10"] <= pcts["p50"] <= pcts["p90"]
 
     def test_distributions_have_correct_length(self, analyzer, sample_data):
         n = 200
@@ -130,8 +134,7 @@ class TestMonteCarloSimulation:
 
     def test_all_standard_metrics_present(self, analyzer, sample_data):
         result = analyzer.monte_carlo_simulation(sample_data, n_simulations=50)
-        expected = {'health_score', 'z_score', 'f_score', 'net_margin',
-                    'current_ratio', 'roe'}
+        expected = {"health_score", "z_score", "f_score", "net_margin", "current_ratio", "roe"}
         assert expected.issubset(set(result.metric_distributions.keys()))
 
     def test_summary_not_empty(self, analyzer, sample_data):
@@ -148,18 +151,16 @@ class TestMonteCarloSimulation:
         """Same seed should produce same results."""
         r1 = analyzer.monte_carlo_simulation(sample_data, n_simulations=50)
         r2 = analyzer.monte_carlo_simulation(sample_data, n_simulations=50)
-        assert r1.percentiles['health_score']['p50'] == r2.percentiles['health_score']['p50']
+        assert r1.percentiles["health_score"]["p50"] == r2.percentiles["health_score"]["p50"]
 
     def test_higher_std_wider_range(self, analyzer, sample_data):
         """Higher uncertainty should produce wider outcome range."""
-        narrow = {'revenue': {'mean_pct': 0.0, 'std_pct': 5.0}}
-        wide = {'revenue': {'mean_pct': 0.0, 'std_pct': 30.0}}
+        narrow = {"revenue": {"mean_pct": 0.0, "std_pct": 5.0}}
+        wide = {"revenue": {"mean_pct": 0.0, "std_pct": 30.0}}
         r_narrow = analyzer.monte_carlo_simulation(sample_data, narrow, n_simulations=500)
         r_wide = analyzer.monte_carlo_simulation(sample_data, wide, n_simulations=500)
-        narrow_spread = (r_narrow.percentiles['health_score']['p90'] -
-                         r_narrow.percentiles['health_score']['p10'])
-        wide_spread = (r_wide.percentiles['health_score']['p90'] -
-                       r_wide.percentiles['health_score']['p10'])
+        narrow_spread = r_narrow.percentiles["health_score"]["p90"] - r_narrow.percentiles["health_score"]["p10"]
+        wide_spread = r_wide.percentiles["health_score"]["p90"] - r_wide.percentiles["health_score"]["p10"]
         # Wide uncertainty should generally have wider spread
         # (with 500 sims and these parameters, this is very reliable)
         assert wide_spread >= narrow_spread * 0.5  # Generous tolerance
@@ -171,6 +172,7 @@ class TestMonteCarloSimulation:
 
 
 # ===== CASH FLOW FORECASTING =====
+
 
 class TestCashFlowForecast:
     def test_returns_cashflow_forecast(self, analyzer, sample_data):
@@ -251,11 +253,12 @@ class TestCashFlowForecast:
 
 # ===== EDGE CASES =====
 
+
 class TestPhase6EdgeCases:
     def test_monte_carlo_single_sim(self, analyzer, sample_data):
         result = analyzer.monte_carlo_simulation(sample_data, n_simulations=1)
         assert result.n_simulations == 1
-        assert len(result.metric_distributions['health_score']) == 1
+        assert len(result.metric_distributions["health_score"]) == 1
 
     def test_forecast_single_period(self, analyzer, sample_data):
         result = analyzer.forecast_cashflow(sample_data, periods=1)
@@ -269,13 +272,11 @@ class TestPhase6EdgeCases:
 
     def test_forecast_equal_discount_and_terminal(self, analyzer, sample_data):
         """When discount_rate equals terminal_growth, GGM is undefined."""
-        result = analyzer.forecast_cashflow(
-            sample_data, discount_rate=0.05, terminal_growth=0.05, periods=3
-        )
+        result = analyzer.forecast_cashflow(sample_data, discount_rate=0.05, terminal_growth=0.05, periods=3)
         assert result.terminal_value is None  # undefined, not misleading 0.0
 
     def test_monte_carlo_extreme_std(self, analyzer, sample_data):
         """Very high uncertainty should not crash."""
-        assumptions = {'revenue': {'mean_pct': 0.0, 'std_pct': 80.0}}
+        assumptions = {"revenue": {"mean_pct": 0.0, "std_pct": 80.0}}
         result = analyzer.monte_carlo_simulation(sample_data, assumptions, n_simulations=50)
         assert result.n_simulations == 50

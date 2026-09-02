@@ -4,10 +4,11 @@ Tests for beneish_m_score_analysis() and BeneishMScoreResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    BeneishMScoreResult,
     CharlieAnalyzer,
     FinancialData,
-    BeneishMScoreResult,
 )
 
 
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestBeneishMScoreDataclass:
     def test_defaults(self):
         r = BeneishMScoreResult()
@@ -73,6 +75,7 @@ class TestBeneishMScoreDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestBeneishMScoreAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -129,9 +132,7 @@ class TestBeneishMScoreAnalysis:
 
     def test_grade_assigned(self, analyzer, sample_data):
         result = analyzer.beneish_m_score_analysis(sample_data)
-        assert result.manipulation_grade in [
-            "Unlikely", "Possible", "Likely", "Highly Likely"
-        ]
+        assert result.manipulation_grade in ["Unlikely", "Possible", "Likely", "Highly Likely"]
 
     def test_summary_present(self, analyzer, sample_data):
         result = analyzer.beneish_m_score_analysis(sample_data)
@@ -139,6 +140,7 @@ class TestBeneishMScoreAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestBeneishMScoreScoring:
     def test_unlikely(self, analyzer):
@@ -164,15 +166,15 @@ class TestBeneishMScoreScoring:
         """Large positive TATA + high indices => Highly Likely."""
         data = FinancialData(
             revenue=500_000,
-            gross_profit=50_000,          # GM = 10%; gmi = (1-0.10)/0.60 = 1.50
-            operating_expenses=200_000,   # sgai = 0.40/0.20 = 2.0
+            gross_profit=50_000,  # GM = 10%; gmi = (1-0.10)/0.60 = 1.50
+            operating_expenses=200_000,  # sgai = 0.40/0.20 = 2.0
             net_income=400_000,
-            operating_cash_flow=10_000,   # TATA = (400k-10k)/1M = 0.39
+            operating_cash_flow=10_000,  # TATA = (400k-10k)/1M = 0.39
             total_assets=1_000_000,
-            total_liabilities=700_000,    # lvgi = 0.70/0.40 = 1.75
+            total_liabilities=700_000,  # lvgi = 0.70/0.40 = 1.75
             accounts_receivable=200_000,  # dsri = (200k/500k)/0.15 = 2.667
             current_assets=300_000,
-            depreciation=5_000,           # dep_rate = 0.005; depi = 0.05/0.005 = 10
+            depreciation=5_000,  # dep_rate = 0.005; depi = 0.05/0.005 = 10
         )
         result = analyzer.beneish_m_score_analysis(data)
         # M-Score pushed highly positive by TATA=0.39 and large indices
@@ -181,6 +183,7 @@ class TestBeneishMScoreScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase43EdgeCases:
     def test_empty_data(self, analyzer):

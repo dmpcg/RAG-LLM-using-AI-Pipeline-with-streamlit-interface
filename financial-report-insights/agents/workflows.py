@@ -22,7 +22,6 @@ from __future__ import annotations
 import logging
 import string
 import time
-from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
@@ -306,9 +305,7 @@ class ParallelWorkflow:
         self.steps = steps
         self.max_workers = max_workers
 
-    def _build_dependency_levels(
-        self, context_keys: set[str]
-    ) -> List[List[WorkflowStep]]:
+    def _build_dependency_levels(self, context_keys: set[str]) -> List[List[WorkflowStep]]:
         """Group steps into sequential execution waves.
 
         A step moves to the next wave once all its dependencies appear
@@ -326,15 +323,12 @@ class ParallelWorkflow:
         waves: List[List[WorkflowStep]] = []
 
         while remaining:
-            ready = [
-                s for s in remaining if set(s.depends_on) <= completed_keys
-            ]
+            ready = [s for s in remaining if set(s.depends_on) <= completed_keys]
             if not ready:
                 # Circular or unsatisfiable dependency -- force remaining steps
                 # into a final wave so the workflow does not hang.
                 logger.warning(
-                    "Unresolvable dependencies for steps: %s. "
-                    "Running them in a final wave.",
+                    "Unresolvable dependencies for steps: %s. Running them in a final wave.",
                     [s.output_key for s in remaining],
                 )
                 waves.append(remaining)
@@ -398,10 +392,7 @@ class ParallelWorkflow:
                             context[step_record["output_key"]] = step_record["result"]
                             result.final_output = step_record["result"]
                 except TimeoutError:
-                    timed_out = [
-                        s.output_key for s in wave
-                        if future_to_step.get(future) and not future.done()
-                    ]
+                    timed_out = [s.output_key for s in wave if future_to_step.get(future) and not future.done()]
                     msg = f"Wave timed out after {_STEP_TIMEOUT_SECONDS}s; incomplete steps: {timed_out}"
                     logger.warning(msg)
                     result.errors.append(msg)
@@ -557,17 +548,13 @@ def create_comprehensive_analysis_workflow(
         ),
         WorkflowStep(
             agent_name="trend_forecaster",
-            query_template=(
-                "Identify trends based on the following ratio analysis: {ratio_analysis}"
-            ),
+            query_template=("Identify trends based on the following ratio analysis: {ratio_analysis}"),
             depends_on=["ratio_analysis"],
             output_key="trend_analysis",
         ),
         WorkflowStep(
             agent_name="risk_assessor",
-            query_template=(
-                "Assess risk given ratios: {ratio_analysis} and trends: {trend_analysis}"
-            ),
+            query_template=("Assess risk given ratios: {ratio_analysis} and trends: {trend_analysis}"),
             depends_on=["ratio_analysis", "trend_analysis"],
             output_key="risk_assessment",
         ),
@@ -625,9 +612,7 @@ def create_quick_scan_workflow(
         ),
         WorkflowStep(
             agent_name="report_writer",
-            query_template=(
-                "Quick report from: {ratio_analysis} | {risk_assessment} | {trend_analysis}"
-            ),
+            query_template=("Quick report from: {ratio_analysis} | {risk_assessment} | {trend_analysis}"),
             depends_on=["ratio_analysis", "risk_assessment", "trend_analysis"],
             output_key="report",
         ),

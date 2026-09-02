@@ -4,6 +4,7 @@ Tests for internal_growth_capacity_analysis() and InternalGrowthCapacityResult d
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestInternalGrowthCapacityDataclass:
     def test_defaults(self):
         r = InternalGrowthCapacityResult()
@@ -68,6 +70,7 @@ class TestInternalGrowthCapacityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestInternalGrowthCapacityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -116,6 +119,7 @@ class TestInternalGrowthCapacityAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestInternalGrowthCapacityScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """GFR=1.833 => base 7.0. PB=0.733 >=0.60 => +0.5. RR=1.60 in [1.0,2.5] => +0.5. Score=8.0."""
@@ -158,6 +162,7 @@ class TestInternalGrowthCapacityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase159EdgeCases:
     def test_empty_data(self, analyzer):

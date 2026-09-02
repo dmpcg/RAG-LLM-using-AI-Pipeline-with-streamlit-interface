@@ -4,6 +4,7 @@ Tests for risk_adjusted_performance() and RiskAdjustedResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -46,6 +47,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestRiskAdjustedDataclass:
     def test_defaults(self):
         r = RiskAdjustedResult()
@@ -68,6 +70,7 @@ class TestRiskAdjustedDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestRiskAdjustedPerformance:
     def test_returns_result(self, analyzer, sample_data):
@@ -138,6 +141,7 @@ class TestRiskAdjustedPerformance:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestRiskAdjustedScoring:
     def test_superior_risk(self, analyzer):
@@ -216,6 +220,7 @@ class TestRiskAdjustedScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase22EdgeCases:
     def test_empty_data(self, analyzer):

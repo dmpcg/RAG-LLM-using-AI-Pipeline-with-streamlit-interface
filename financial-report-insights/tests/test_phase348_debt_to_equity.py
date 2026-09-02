@@ -4,10 +4,11 @@ Tests for debt_to_equity_analysis() and DebtToEquityResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DebtToEquityResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDebtToEquityDataclass:
     def test_defaults(self):
         r = DebtToEquityResult()
@@ -68,6 +70,7 @@ class TestDebtToEquityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDebtToEquityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestDebtToEquityAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestDebtToEquityScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -133,6 +137,7 @@ class TestDebtToEquityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase348EdgeCases:
     def test_empty_data(self, analyzer):

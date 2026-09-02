@@ -4,6 +4,7 @@ Tests for revenue_growth_analysis() and RevenueGrowthResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestRevenueGrowthDataclass:
     def test_defaults(self):
         r = RevenueGrowthResult()
@@ -68,6 +70,7 @@ class TestRevenueGrowthDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestRevenueGrowthAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestRevenueGrowthAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestRevenueGrowthScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -137,6 +141,7 @@ class TestRevenueGrowthScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase350EdgeCases:
     def test_empty_data(self, analyzer):

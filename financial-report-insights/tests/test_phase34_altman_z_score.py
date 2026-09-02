@@ -4,10 +4,11 @@ Tests for altman_z_score_analysis() and AltmanZScoreResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    AltmanZScoreResult,
     CharlieAnalyzer,
     FinancialData,
-    AltmanZScoreResult,
 )
 
 
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestAltmanZScoreDataclass:
     def test_defaults(self):
         r = AltmanZScoreResult()
@@ -68,6 +70,7 @@ class TestAltmanZScoreDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestAltmanZScore:
     def test_returns_result(self, analyzer, sample_data):
@@ -128,6 +131,7 @@ class TestAltmanZScore:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestAltmanZScoreScoring:
     def test_strong_safe_zone(self, analyzer):
@@ -197,6 +201,7 @@ class TestAltmanZScoreScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase34EdgeCases:
     def test_empty_data(self, analyzer):

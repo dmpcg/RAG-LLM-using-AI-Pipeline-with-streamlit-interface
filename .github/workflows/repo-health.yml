@@ -13,10 +13,10 @@ jobs:
   health-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4 (WS-1 P1-F1)
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
 
@@ -28,7 +28,7 @@ jobs:
         run: python .github/scripts/health_check.py
 
       - name: Close previous health issues
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
           script: |
             const { data: issues } = await github.rest.issues.listForRepo({
@@ -49,7 +49,7 @@ jobs:
             }
 
       - name: Create health report issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
           script: |
             const fs = require('fs');
@@ -72,7 +72,7 @@ jobs:
             });
 
       - name: Upload health metrics as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         if: always()
         with:
           name: health-metrics

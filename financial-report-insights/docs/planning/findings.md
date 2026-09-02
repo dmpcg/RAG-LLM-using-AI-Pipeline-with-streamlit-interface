@@ -108,3 +108,24 @@
 3. **ML explainability** - SHAP required for ALL user-facing predictions
 4. **Eval visibility** - Surface confidence scores to users
 5. **Agent transparency** - Show agent activity as progress steps
+
+---
+
+## RAG Pipeline Audit Findings (2026-06-17, 4 read-only agents + adversarial swarm)
+
+Verified against source during the "A-prime" remediation (see progress.md; PR #48).
+
+**P0 (fixed):**
+- Excel `chunk_excel_sheet` emitted ~1200-token atomic blocks, never child chunks → ~11k-char chunks overflowing mxbai's 512-tok window, truncated to ~18% coverage.
+- `_count_tokens_approx` (`words*1.3`) under-counts markdown tables ~3x → "within budget" blocks overflow.
+- `_df_to_markdown` via pandas `to_markdown` → 82% empty-cell/alignment padding (embeds whitespace; ~5x volume).
+- Parent/child expansion (`_expand_parent_chunks`) was dead code — Excel chunks never set `chunk_level='child'`+`parent_id`+`parent_text`.
+- `.env OLLAMA_HOST=12434` (DMR, not running) → "0 chunks indexed"; live backend is Ollama 11434 (CPU-only, no GPU).
+
+**P1 (deferred):**
+- Eval harness non-functional as a gate: `enable_evaluation=False`, not in CI, synthetic golden Q&A referencing files absent from repo, can't detect truncation.
+- Vector index silently on O(n) `NumpyFlatIndex` (faiss/hnswlib not installed); RRF fusion keyed on fragile `id(doc)`; no similarity threshold; result `score` never set (avg_similarity always 0); index `.load()` doesn't validate dimension; BM25 over-aggressive stemming.
+
+**Infra:** Ollama's CPU embedding runner deadlocks under sustained load (`/v1/embeddings` hangs, `/api/ps` OK) → resumable embedder required.
+
+**Accepted risk:** if numeric recall stays weak after chunking fix, hybrid BM25/keyword retrieval is the #1 follow-up (general-purpose embedders may not distinguish e.g. 1,240 vs 1,420).

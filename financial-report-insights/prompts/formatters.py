@@ -8,7 +8,7 @@ and easily testable.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Dict, Any
+from typing import TYPE_CHECKING, Any, Dict, List
 
 if TYPE_CHECKING:
     from prompts.templates import PromptTemplate

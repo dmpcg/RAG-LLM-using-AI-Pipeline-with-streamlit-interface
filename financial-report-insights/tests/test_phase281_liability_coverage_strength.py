@@ -4,6 +4,7 @@ Tests for liability_coverage_strength_analysis() and LiabilityCoverageStrengthRe
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestLiabilityCoverageStrengthDataclass:
     def test_defaults(self):
         r = LiabilityCoverageStrengthResult()
@@ -68,6 +70,7 @@ class TestLiabilityCoverageStrengthDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestLiabilityCoverageStrengthAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -105,6 +108,7 @@ class TestLiabilityCoverageStrengthAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestLiabilityCoverageStrengthScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """OCF/TL=0.275 in [0.25,0.35)=>base 7.0. TA/TL=2.5>=2.0(+0.5). OCF>0&TL>0(+0.5). Score=8.0."""
@@ -138,6 +142,7 @@ class TestLiabilityCoverageStrengthScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase281EdgeCases:
     def test_empty_data(self, analyzer):

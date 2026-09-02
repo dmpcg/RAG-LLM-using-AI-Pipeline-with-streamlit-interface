@@ -4,6 +4,7 @@ Tests for operating_expense_ratio_analysis() and OperatingExpenseRatioResult dat
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestOperatingExpenseRatioDataclass:
     def test_defaults(self):
         r = OperatingExpenseRatioResult()
@@ -68,6 +70,7 @@ class TestOperatingExpenseRatioDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestOperatingExpenseRatioAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestOperatingExpenseRatioAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestOperatingExpenseRatioScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -133,6 +137,7 @@ class TestOperatingExpenseRatioScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase330EdgeCases:
     def test_empty_data(self, analyzer):

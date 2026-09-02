@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pytest
 
 from ml.clustering import FinancialClusterer, optimal_k
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_well_separated_clusters(
     n_per_cluster: int = 30,
@@ -47,6 +45,7 @@ def _make_with_outliers(seed: int = 42) -> list[list[float]]:
 # KMeans basics
 # ---------------------------------------------------------------------------
 
+
 class TestKMeansClustering:
     def test_fit_creates_labels(self):
         data, _ = _make_well_separated_clusters()
@@ -76,6 +75,7 @@ class TestKMeansClustering:
         # Check that predicted labels partition similarly to true labels
         # (ignoring label permutation)
         from collections import Counter
+
         for true_id in range(3):
             indices = [i for i, tl in enumerate(true_labels) if tl == true_id]
             pred = [int(c.labels_[i]) for i in indices]
@@ -96,6 +96,7 @@ class TestKMeansClustering:
 # ---------------------------------------------------------------------------
 # DBSCAN
 # ---------------------------------------------------------------------------
+
 
 class TestDBSCAN:
     def test_dbscan_fit(self):
@@ -123,6 +124,7 @@ class TestDBSCAN:
 # ---------------------------------------------------------------------------
 # Predict
 # ---------------------------------------------------------------------------
+
 
 class TestPredict:
     def test_predict_after_fit(self):
@@ -155,6 +157,7 @@ class TestPredict:
 # ---------------------------------------------------------------------------
 # Cluster profiles
 # ---------------------------------------------------------------------------
+
 
 class TestClusterProfiles:
     def test_returns_one_profile_per_cluster(self):
@@ -197,6 +200,7 @@ class TestClusterProfiles:
 # ---------------------------------------------------------------------------
 # Find peers
 # ---------------------------------------------------------------------------
+
 
 class TestFindPeers:
     def test_returns_k_results(self):
@@ -241,6 +245,7 @@ class TestFindPeers:
 # Outlier detection
 # ---------------------------------------------------------------------------
 
+
 class TestOutliers:
     def test_detects_planted_outliers(self):
         data = _make_with_outliers()
@@ -267,6 +272,7 @@ class TestOutliers:
 # ---------------------------------------------------------------------------
 # Visualization data
 # ---------------------------------------------------------------------------
+
 
 class TestVisualizationData:
     def test_returns_2d_coords(self):
@@ -307,6 +313,7 @@ class TestVisualizationData:
 # optimal_k
 # ---------------------------------------------------------------------------
 
+
 class TestOptimalK:
     def test_returns_reasonable_k_for_3_clusters(self):
         data, _ = _make_well_separated_clusters(n_per_cluster=50)
@@ -333,6 +340,7 @@ class TestOptimalK:
 # ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestEdgeCases:
     def test_single_sample(self):

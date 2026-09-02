@@ -4,6 +4,7 @@ Tests for resource_optimization_analysis() and ResourceOptimizationResult datacl
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestResourceOptimizationDataclass:
     def test_defaults(self):
         r = ResourceOptimizationResult()
@@ -68,6 +70,7 @@ class TestResourceOptimizationDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestResourceOptimizationAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestResourceOptimizationAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestResourceOptimizationScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """FCF/Rev=0.14 >=0.12 => base 7.0. OCF/Rev=0.22 >=0.20 => +0.5. CapEx/Rev=0.08 <=0.05? No. >0.20? No => no adj. Score=7.5."""
@@ -152,6 +156,7 @@ class TestResourceOptimizationScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase210EdgeCases:
     def test_empty_data(self, analyzer):

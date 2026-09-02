@@ -3,16 +3,13 @@
 All functions in this module return plain Python dicts/lists with no
 Streamlit dependency.  The caller is responsible for rendering.
 """
-import math
-import time
+
 from typing import Any, Dict, List
 
 from observability.metrics import MetricsCollector
 
 
-def _bucket_by_minute(
-    entries: List[Dict[str, Any]], ts_key: str = "timestamp"
-) -> Dict[str, int]:
+def _bucket_by_minute(entries: List[Dict[str, Any]], ts_key: str = "timestamp") -> Dict[str, int]:
     """Group entries by UTC minute bucket (ISO-8601 ``HH:MM``).
 
     Args:
@@ -156,8 +153,7 @@ def get_dashboard_data(collector: MetricsCollector) -> Dict[str, Any]:
             minute_hits[bucket] = minute_hits.get(bucket, 0) + 1
 
     cache_hit_rate_over_time: Dict[str, float] = {
-        bucket: round(minute_hits.get(bucket, 0) / total, 4)
-        for bucket, total in sorted(minute_totals.items())
+        bucket: round(minute_hits.get(bucket, 0) / total, 4) for bucket, total in sorted(minute_totals.items())
     }
 
     return {

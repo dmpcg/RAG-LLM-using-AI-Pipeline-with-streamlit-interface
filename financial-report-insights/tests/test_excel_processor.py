@@ -1,11 +1,9 @@
 """Tests for excel_processor.py core processing engine."""
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -22,11 +20,13 @@ def processor(tmp_path):
 @pytest.fixture
 def sample_xlsx(tmp_path):
     """Create a sample xlsx file with financial data."""
-    df = pd.DataFrame({
-        "Line Item": ["Revenue", "COGS", "Gross Profit", "Operating Expenses", "Net Income"],
-        "Q1 2024": [1000000, 400000, 600000, 200000, 400000],
-        "Q2 2024": [1100000, 440000, 660000, 210000, 450000],
-    })
+    df = pd.DataFrame(
+        {
+            "Line Item": ["Revenue", "COGS", "Gross Profit", "Operating Expenses", "Net Income"],
+            "Q1 2024": [1000000, 400000, 600000, 200000, 400000],
+            "Q2 2024": [1100000, 440000, 660000, 210000, 450000],
+        }
+    )
     path = tmp_path / "test_financials.xlsx"
     df.to_excel(path, index=False)
     return path
@@ -35,10 +35,12 @@ def sample_xlsx(tmp_path):
 @pytest.fixture
 def sample_csv(tmp_path):
     """Create a sample CSV file."""
-    df = pd.DataFrame({
-        "Category": ["Revenue", "Expenses", "Net Income"],
-        "Amount": [500000, 300000, 200000],
-    })
+    df = pd.DataFrame(
+        {
+            "Category": ["Revenue", "Expenses", "Net Income"],
+            "Amount": [500000, 300000, 200000],
+        }
+    )
     path = tmp_path / "test_data.csv"
     df.to_csv(path, index=False)
     return path
@@ -47,10 +49,12 @@ def sample_csv(tmp_path):
 @pytest.fixture
 def sample_tsv(tmp_path):
     """Create a sample TSV file."""
-    df = pd.DataFrame({
-        "Item": ["Cash", "Inventory", "Receivables"],
-        "Value": [100000, 50000, 75000],
-    })
+    df = pd.DataFrame(
+        {
+            "Item": ["Cash", "Inventory", "Receivables"],
+            "Value": [100000, 50000, 75000],
+        }
+    )
     path = tmp_path / "test_data.tsv"
     df.to_csv(path, index=False, sep="\t")
     return path
@@ -382,6 +386,7 @@ class TestDuplicateColumnHandling:
     def test_openpyxl_deduplicates_columns(self, tmp_path):
         """_load_openpyxl should rename duplicate columns with _N suffix."""
         from excel_processor import ExcelProcessor
+
         df = pd.DataFrame({"A": [1, 2], "B": [3, 4], "A_dup": [5, 6]})
         df.columns = ["A", "B", "A"]  # Force duplicate
         path = tmp_path / "dup_cols.xlsx"
@@ -406,6 +411,7 @@ class TestEmbeddingSanitization:
     def test_empty_texts_return_zero_vectors(self):
         """Empty/whitespace-only texts should return zero vectors."""
         from unittest.mock import MagicMock
+
         from local_llm import LocalEmbedder
 
         embedder = object.__new__(LocalEmbedder)
@@ -420,7 +426,8 @@ class TestEmbeddingSanitization:
 
     def test_nul_bytes_stripped(self):
         """NUL bytes in text should be stripped before sending to DMR."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
+
         from local_llm import LocalEmbedder
 
         embedder = object.__new__(LocalEmbedder)
@@ -430,9 +437,7 @@ class TestEmbeddingSanitization:
         embedder._client = MagicMock()
 
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "data": [{"embedding": [1.0, 2.0, 3.0, 4.0]}]
-        }
+        mock_resp.json.return_value = {"data": [{"embedding": [1.0, 2.0, 3.0, 4.0]}]}
         mock_resp.raise_for_status = MagicMock()
         embedder._client.post.return_value = mock_resp
 
@@ -446,6 +451,7 @@ class TestEmbeddingSanitization:
     def test_mixed_empty_and_real_texts(self):
         """Mix of empty and real texts should return correct-length result."""
         from unittest.mock import MagicMock
+
         from local_llm import LocalEmbedder
 
         embedder = object.__new__(LocalEmbedder)
@@ -455,9 +461,7 @@ class TestEmbeddingSanitization:
         embedder._client = MagicMock()
 
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "data": [{"embedding": [1.0, 2.0]}]
-        }
+        mock_resp.json.return_value = {"data": [{"embedding": [1.0, 2.0]}]}
         mock_resp.raise_for_status = MagicMock()
         embedder._client.post.return_value = mock_resp
 
@@ -466,3 +470,38 @@ class TestEmbeddingSanitization:
         assert result[0] == [0.0, 0.0]  # empty -> zero vector
         assert result[1] == [1.0, 2.0]  # real text -> actual embedding
         assert result[2] == [0.0, 0.0]  # whitespace -> zero vector
+
+
+# ---------------------------------------------------------------------------
+# CSV encoding fallback (regression for errors= -> encoding_errors=)
+# ---------------------------------------------------------------------------
+
+
+class TestCsvEncodingFallback:
+    def test_load_csv_falls_back_when_all_encodings_fail(self, processor, tmp_path):
+        """When every probed encoding raises UnicodeDecodeError, _load_csv must
+        still return rows via the encoding_errors='ignore' fallback.
+
+        Regression: the fallback previously used the non-existent pandas
+        kwarg errors='ignore', which raised TypeError and made _load_csv
+        silently return []."""
+        import pandas as pd
+
+        # CSV with a byte invalid in utf-8 (0xe9, lone latin-1 'é').
+        path = tmp_path / "weird_encoding.csv"
+        path.write_bytes(b"Category,Amount\nRevenue,500\nCaf\xe9,300\n")
+
+        real_read_csv = pd.read_csv
+
+        def fake_read_csv(*args, **kwargs):
+            # Force the encoding-probe loop (which passes encoding=...) to fail,
+            # but let the fallback (which passes encoding_errors=...) through.
+            if "encoding_errors" not in kwargs:
+                raise UnicodeDecodeError("utf-8", b"", 0, 1, "forced")
+            return real_read_csv(*args, **kwargs)
+
+        with patch("excel_processor.pd.read_csv", side_effect=fake_read_csv):
+            sheets = processor._load_csv(path, delimiter=",")
+
+        assert sheets, "fallback path returned no sheets (errors= kwarg bug)"
+        assert len(sheets[0].df) >= 2

@@ -4,6 +4,7 @@ Tests for receivables_turnover_analysis() and ReceivablesTurnoverResult dataclas
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestReceivablesTurnoverDataclass:
     def test_defaults(self):
         r = ReceivablesTurnoverResult()
@@ -68,6 +70,7 @@ class TestReceivablesTurnoverDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestReceivablesTurnoverAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestReceivablesTurnoverAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestReceivablesTurnoverScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -135,6 +139,7 @@ class TestReceivablesTurnoverScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase245EdgeCases:
     def test_empty_data(self, analyzer):

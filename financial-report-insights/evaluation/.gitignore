@@ -1,0 +1,3 @@
+# Golden Q&A is generated from a private workbook (real financial figures + PII).
+# Never commit it; regenerate per deployment from your own documents.
+golden_financial_qa.py

@@ -4,6 +4,7 @@ Tests for revenue_predictability_analysis() and RevenuePredictabilityResult data
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestRevenuePredictabilityDataclass:
     def test_defaults(self):
         r = RevenuePredictabilityResult()
@@ -68,6 +70,7 @@ class TestRevenuePredictabilityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestRevenuePredictabilityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestRevenuePredictabilityAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestRevenuePredictabilityScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """OM=0.20 => base 7.0. GM=0.40 (neither). NM=0.15 >=0.15 => +0.5. Score=7.5."""
@@ -156,6 +160,7 @@ class TestRevenuePredictabilityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase142EdgeCases:
     def test_empty_data(self, analyzer):

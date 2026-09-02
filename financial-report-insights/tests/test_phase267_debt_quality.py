@@ -4,10 +4,11 @@ Tests for debt_quality_analysis() and DebtQualityResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DebtQualityResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDebtQualityDataclass:
     def test_defaults(self):
         r = DebtQualityResult()
@@ -68,6 +70,7 @@ class TestDebtQualityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDebtQualityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -105,6 +108,7 @@ class TestDebtQualityAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestDebtQualityScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """D/E=0.333 in (0.20,0.50]=>base 8.5. IC=6.667>=5.0(+0.5). D/EBITDA=1.60<=3.0(+0.5). Score=9.5."""
@@ -141,6 +145,7 @@ class TestDebtQualityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase267EdgeCases:
     def test_empty_data(self, analyzer):

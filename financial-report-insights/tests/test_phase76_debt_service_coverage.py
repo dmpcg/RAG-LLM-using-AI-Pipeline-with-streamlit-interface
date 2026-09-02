@@ -4,10 +4,11 @@ Tests for debt_service_coverage_analysis() and DebtServiceCoverageResult datacla
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DebtServiceCoverageResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDebtServiceCoverageDataclass:
     def test_defaults(self):
         r = DebtServiceCoverageResult()
@@ -68,6 +70,7 @@ class TestDebtServiceCoverageDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDebtServiceCoverageAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -114,6 +117,7 @@ class TestDebtServiceCoverageAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestDebtServiceCoverageScoring:
     def test_very_high_dscr(self, analyzer, sample_data):
@@ -190,6 +194,7 @@ class TestDebtServiceCoverageScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase76EdgeCases:
     def test_empty_data(self, analyzer):

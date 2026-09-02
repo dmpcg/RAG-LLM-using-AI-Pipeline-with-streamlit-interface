@@ -12,7 +12,6 @@ Use ``create_index()`` to obtain the best available backend automatically.
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import List, Protocol, Tuple, runtime_checkable
 
@@ -126,19 +125,13 @@ class NumpyFlatIndex:
             ValueError: If *embeddings* and *ids* have different lengths.
         """
         if len(embeddings) != len(ids):
-            raise ValueError(
-                f"embeddings and ids must have the same length "
-                f"(got {len(embeddings)} vs {len(ids)})"
-            )
+            raise ValueError(f"embeddings and ids must have the same length (got {len(embeddings)} vs {len(ids)})")
         if not embeddings:
             return
 
         new_matrix = np.asarray(embeddings, dtype=np.float32)
         if new_matrix.ndim != 2 or new_matrix.shape[1] != self.dimension:
-            raise ValueError(
-                f"Expected vectors of dimension {self.dimension}, "
-                f"got shape {new_matrix.shape}"
-            )
+            raise ValueError(f"Expected vectors of dimension {self.dimension}, got shape {new_matrix.shape}")
 
         # Pre-normalize at add time so search is a pure dot product
         new_matrix = self._l2_normalize(new_matrix)
@@ -330,9 +323,7 @@ class FAISSIndex:
             ValueError: On length mismatch.
         """
         if len(embeddings) != len(ids):
-            raise ValueError(
-                f"embeddings and ids must match in length (got {len(embeddings)} vs {len(ids)})"
-            )
+            raise ValueError(f"embeddings and ids must match in length (got {len(embeddings)} vs {len(ids)})")
         if not embeddings:
             return
 
@@ -353,9 +344,7 @@ class FAISSIndex:
         elif total >= getattr(self, "_next_retrain_n", 0):
             # IVF index: total crossed a power-of-two boundary — full rebuild
             # to retrain centroids on the enlarged corpus.
-            all_matrix = self._normalize(
-                np.asarray(self._raw_embeddings, dtype=np.float32)
-            )
+            all_matrix = self._normalize(np.asarray(self._raw_embeddings, dtype=np.float32))
             self._build_index(all_matrix)
             self._next_retrain_n = self._next_power_of_two(total)
             logger.debug(
@@ -505,9 +494,7 @@ class HNSWIndex:
             ValueError: On length mismatch.
         """
         if len(embeddings) != len(ids):
-            raise ValueError(
-                f"embeddings and ids must match in length (got {len(embeddings)} vs {len(ids)})"
-            )
+            raise ValueError(f"embeddings and ids must match in length (got {len(embeddings)} vs {len(ids)})")
         if not embeddings:
             return
 
@@ -553,10 +540,7 @@ class HNSWIndex:
 
         labels, distances = self._index.knn_query(q, k=top_k)
         # hnswlib cosine space returns 1 - cosine_similarity as distance
-        results = [
-            (int(lbl), float(1.0 - dist))
-            for lbl, dist in zip(labels[0], distances[0])
-        ]
+        results = [(int(lbl), float(1.0 - dist)) for lbl, dist in zip(labels[0], distances[0])]
         # Sort descending by score
         results.sort(key=lambda x: x[1], reverse=True)
         return results
@@ -614,6 +598,7 @@ def _check_faiss() -> bool:
     if _FAISS_AVAILABLE is None:
         try:
             import faiss  # noqa: F401
+
             _FAISS_AVAILABLE = True
         except ImportError:
             _FAISS_AVAILABLE = False
@@ -625,6 +610,7 @@ def _check_hnswlib() -> bool:
     if _HNSW_AVAILABLE is None:
         try:
             import hnswlib  # noqa: F401
+
             _HNSW_AVAILABLE = True
         except ImportError:
             _HNSW_AVAILABLE = False
@@ -660,10 +646,7 @@ def create_index(
     backend = backend.lower()
 
     if backend not in ("auto", "faiss", "hnswlib", "numpy"):
-        raise ValueError(
-            f"Unknown backend {backend!r}. "
-            "Expected one of: 'auto', 'faiss', 'hnswlib', 'numpy'."
-        )
+        raise ValueError(f"Unknown backend {backend!r}. Expected one of: 'auto', 'faiss', 'hnswlib', 'numpy'.")
 
     if backend == "faiss":
         if not _check_faiss():
@@ -691,8 +674,7 @@ def create_index(
         return HNSWIndex(dimension, m=hnsw_m, ef=hnsw_ef)
 
     logger.info(
-        "VectorIndex (auto): FAISS and hnswlib not available, "
-        "falling back to NumpyFlatIndex (dimension=%d)",
+        "VectorIndex (auto): FAISS and hnswlib not available, falling back to NumpyFlatIndex (dimension=%d)",
         dimension,
     )
     return NumpyFlatIndex(dimension)

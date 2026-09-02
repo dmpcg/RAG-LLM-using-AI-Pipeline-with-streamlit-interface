@@ -4,6 +4,7 @@ Tests for income_quality_analysis() and IncomeQualityResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestIncomeQualityDataclass:
     def test_defaults(self):
         r = IncomeQualityResult()
@@ -68,6 +70,7 @@ class TestIncomeQualityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestIncomeQualityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestIncomeQualityAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestIncomeQualityScoring:
     def test_strong_quality(self, analyzer, sample_data):
         """OCF/NI=1.467 => base 8.5. Accruals=-0.035 (not <=-0.05) => 0. CER=0.88 (not >=0.90, not <0.50) => 0. Score=8.5."""
@@ -156,6 +160,7 @@ class TestIncomeQualityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase124EdgeCases:
     def test_empty_data(self, analyzer):

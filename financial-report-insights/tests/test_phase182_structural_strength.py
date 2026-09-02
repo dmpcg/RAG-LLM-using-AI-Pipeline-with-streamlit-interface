@@ -4,6 +4,7 @@ Tests for structural_strength_analysis() and StructuralStrengthResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestStructuralStrengthDataclass:
     def test_defaults(self):
         r = StructuralStrengthResult()
@@ -68,6 +70,7 @@ class TestStructuralStrengthDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestStructuralStrengthAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestStructuralStrengthAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestStructuralStrengthScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """EM=1.667 => base 7.0. DtE=0.333 <=0.50 => +0.5. EC=0.40 >=0.30 => +0.5. Score=8.0."""
@@ -153,6 +157,7 @@ class TestStructuralStrengthScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase182EdgeCases:
     def test_empty_data(self, analyzer):

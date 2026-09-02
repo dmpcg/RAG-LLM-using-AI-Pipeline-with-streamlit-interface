@@ -4,10 +4,11 @@ Tests for asset_deployment_efficiency_analysis() and AssetDeploymentEfficiencyRe
 """
 
 import pytest
+
 from financial_analyzer import (
+    AssetDeploymentEfficiencyResult,
     CharlieAnalyzer,
     FinancialData,
-    AssetDeploymentEfficiencyResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestAssetDeploymentEfficiencyDataclass:
     def test_defaults(self):
         r = AssetDeploymentEfficiencyResult()
@@ -68,6 +70,7 @@ class TestAssetDeploymentEfficiencyDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestAssetDeploymentEfficiencyAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestAssetDeploymentEfficiencyAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestAssetDeploymentEfficiencyScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """AT=0.50 => base 4.0. AIY=0.10 >=0.10 => +0.5. ACY=0.11 >=0.10 => +0.5. Score=5.0."""
@@ -155,6 +159,7 @@ class TestAssetDeploymentEfficiencyScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase172EdgeCases:
     def test_empty_data(self, analyzer):

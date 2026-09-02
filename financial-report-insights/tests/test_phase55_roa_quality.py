@@ -4,6 +4,7 @@ Tests for roa_quality_analysis() and ROAQualityResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestROAQualityDataclass:
     def test_defaults(self):
         r = ROAQualityResult()
@@ -70,6 +72,7 @@ class TestROAQualityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestROAQualityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -116,6 +119,7 @@ class TestROAQualityAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestROAQualityScoring:
     def test_high_roa(self, analyzer):
@@ -172,6 +176,7 @@ class TestROAQualityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase55EdgeCases:
     def test_empty_data(self, analyzer):

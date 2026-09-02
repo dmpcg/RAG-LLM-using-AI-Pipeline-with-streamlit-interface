@@ -4,6 +4,7 @@ Tests for payables_turnover_analysis() and PayablesTurnoverResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestPayablesTurnoverDataclass:
     def test_defaults(self):
         r = PayablesTurnoverResult()
@@ -68,6 +70,7 @@ class TestPayablesTurnoverDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestPayablesTurnoverAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestPayablesTurnoverAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestPayablesTurnoverScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -134,6 +138,7 @@ class TestPayablesTurnoverScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase246EdgeCases:
     def test_empty_data(self, analyzer):

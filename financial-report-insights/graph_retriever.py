@@ -9,7 +9,7 @@ Extends standard RAG retrieval with graph traversal capabilities:
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from structured_types import GraphChunk, GraphFinancialContext, GraphRetrievalResult
 
@@ -42,22 +42,26 @@ def graph_enhanced_search(
     financial_context = []
 
     for r in results:
-        chunks.append(GraphChunk(
-            source=r.get("source", ""),
-            content=r.get("content", ""),
-            score=r.get("score", 0.0),
-        ))
+        chunks.append(
+            GraphChunk(
+                source=r.get("source", ""),
+                content=r.get("content", ""),
+                score=r.get("score", 0.0),
+            )
+        )
 
         # Collect connected financial data
         ratios = r.get("ratios", [])
         scores = r.get("scores", [])
         if ratios or scores:
-            financial_context.append(GraphFinancialContext(
-                document=r.get("document", ""),
-                period=r.get("period", ""),
-                ratios=[rt for rt in ratios if rt.get("name")],
-                scores=[sc for sc in scores if sc.get("model")],
-            ))
+            financial_context.append(
+                GraphFinancialContext(
+                    document=r.get("document", ""),
+                    period=r.get("period", ""),
+                    ratios=[rt for rt in ratios if rt.get("name")],
+                    scores=[sc for sc in scores if sc.get("model")],
+                )
+            )
 
     return GraphRetrievalResult(chunks=chunks, financial_context=financial_context)
 
@@ -143,7 +147,7 @@ def persist_analysis_to_graph(
             if ":" in line and not line.startswith("="):
                 parts = line.split(":", 1)
                 # Sanitize name extracted from LLM text to prevent property injection
-                name = re.sub(r'[^a-zA-Z0-9_ -]', '', parts[0].strip().lower().replace(" ", "_"))[:100]
+                name = re.sub(r"[^a-zA-Z0-9_ -]", "", parts[0].strip().lower().replace(" ", "_"))[:100]
                 value_str = parts[1].strip()
                 try:
                     # Try to parse numeric value
@@ -160,13 +164,13 @@ def persist_analysis_to_graph(
             if ":" in line and not line.startswith("="):
                 parts = line.split(":", 1)
                 # Sanitize model name extracted from LLM text to prevent property injection
-                model = re.sub(r'[^a-zA-Z0-9_ -]', '', parts[0].strip().lower().replace(" ", "_"))[:100]
+                model = re.sub(r"[^a-zA-Z0-9_ -]", "", parts[0].strip().lower().replace(" ", "_"))[:100]
                 rest = parts[1].strip()
                 try:
                     value = float(rest.split()[0])
                     grade = ""
                     if "(" in rest and ")" in rest:
-                        grade = rest[rest.index("(") + 1:rest.index(")")]
+                        grade = rest[rest.index("(") + 1 : rest.index(")")]
                     scores[model] = {"value": value, "grade": grade, "interpretation": rest}
                 except (ValueError, IndexError):
                     pass
@@ -178,8 +182,7 @@ def persist_analysis_to_graph(
             ratios=ratios,
             scores=scores,
         )
-        logger.info("Persisted %d ratios and %d scores for %s/%s",
-                     len(ratios), len(scores), doc_id, period_label)
+        logger.info("Persisted %d ratios and %d scores for %s/%s", len(ratios), len(scores), doc_id, period_label)
 
 
 def persist_structured_analysis_to_graph(
@@ -235,5 +238,8 @@ def persist_structured_analysis_to_graph(
 
     logger.info(
         "Persisted structured analysis for %s/%s (%d ratios, line_items=%s)",
-        doc_id, period_label, len(ratios), financial_data is not None,
+        doc_id,
+        period_label,
+        len(ratios),
+        financial_data is not None,
     )

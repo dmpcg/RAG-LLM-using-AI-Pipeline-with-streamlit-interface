@@ -4,6 +4,7 @@ Tests for inventory_coverage_analysis() and InventoryCoverageResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestInventoryCoverageDataclass:
     def test_defaults(self):
         r = InventoryCoverageResult()
@@ -68,6 +70,7 @@ class TestInventoryCoverageDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestInventoryCoverageAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestInventoryCoverageAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestInventoryCoverageScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -133,6 +137,7 @@ class TestInventoryCoverageScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase309EdgeCases:
     def test_empty_data(self, analyzer):

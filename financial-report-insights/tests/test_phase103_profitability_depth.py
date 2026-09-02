@@ -4,6 +4,7 @@ Tests for profitability_depth_analysis() and ProfitabilityDepthResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestProfitabilityDepthDataclass:
     def test_defaults(self):
         r = ProfitabilityDepthResult()
@@ -68,6 +70,7 @@ class TestProfitabilityDepthDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestProfitabilityDepthAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestProfitabilityDepthAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestProfitabilityDepthScoring:
     def test_good_margins(self, analyzer, sample_data):
         """OM=0.20 => base 8.5. Score=8.5."""
@@ -152,6 +156,7 @@ class TestProfitabilityDepthScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase103EdgeCases:
     def test_empty_data(self, analyzer):

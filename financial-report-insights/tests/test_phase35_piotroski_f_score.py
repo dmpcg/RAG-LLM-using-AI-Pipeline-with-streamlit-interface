@@ -4,6 +4,7 @@ Tests for piotroski_f_score_analysis() and PiotroskiFScoreResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestPiotroskiFScoreDataclass:
     def test_defaults(self):
         r = PiotroskiFScoreResult()
@@ -66,6 +68,7 @@ class TestPiotroskiFScoreDataclass:
 
 
 # ===== CORE SIGNAL TESTS =====
+
 
 class TestPiotroskiFScore:
     def test_returns_result(self, analyzer, sample_data):
@@ -123,6 +126,7 @@ class TestPiotroskiFScore:
 
 # ===== SCORING TESTS =====
 
+
 class TestPiotroskiScoring:
     def test_strong_value(self, analyzer):
         """All 7 signals pass."""
@@ -175,6 +179,7 @@ class TestPiotroskiScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase35EdgeCases:
     def test_empty_data(self, analyzer):

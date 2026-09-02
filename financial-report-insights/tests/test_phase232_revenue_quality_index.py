@@ -4,6 +4,7 @@ Tests for revenue_quality_index_analysis() and RevenueQualityIndexResult datacla
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestRevenueQualityIndexDataclass:
     def test_defaults(self):
         r = RevenueQualityIndexResult()
@@ -68,6 +70,7 @@ class TestRevenueQualityIndexDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestRevenueQualityIndexAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -110,6 +113,7 @@ class TestRevenueQualityIndexAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestRevenueQualityIndexScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """OCF/Rev=0.22 >=0.20 => base 8.5. GM=0.40 <0.50 no bonus. AR/Rev=0.15 >0.10 no bonus. Score=8.5."""
@@ -145,6 +149,7 @@ class TestRevenueQualityIndexScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase232EdgeCases:
     def test_empty_data(self, analyzer):

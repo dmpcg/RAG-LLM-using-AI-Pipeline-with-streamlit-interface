@@ -11,15 +11,66 @@ import re
 import sys
 from datetime import datetime, timezone
 
+# WS-1 P0-12 (2026-05-07): Extended secrets redaction.
+# Each pattern matches a recognised secret format and substitutes a labelled
+# REDACTED placeholder so log readers can still tell which type of secret was
+# present without leaking the value.
 _SECRETS_RE = re.compile(
     r"(password|secret|token|api[_-]?key|credential)[=:]\s*\S+",
     re.IGNORECASE,
 )
 
+# Bearer JWT / opaque tokens in Authorization headers.
+# Matches:  Authorization: Bearer eyJhbGciOiJ...   (JWT)
+#           Authorization: Bearer abc123def...     (opaque)
+_BEARER_RE = re.compile(
+    r"(authorization\s*[:=]\s*)(?:bearer|jwt)\s+([A-Za-z0-9._\-+/=]{8,})",
+    re.IGNORECASE,
+)
+
+# AWS access keys (AKIA*, ASIA*, AGPA*, AROA*, AIDA*, ANPA*, ANVA*) followed by
+# 16 chars; and AWS secret keys (40-char base64-ish).
+_AWS_ACCESS_KEY_RE = re.compile(r"\b((?:AKIA|ASIA|AGPA|AROA|AIDA|ANPA|ANVA)[0-9A-Z]{16})\b")
+_AWS_SECRET_KEY_RE = re.compile(
+    r"(aws_secret_access_key|aws[_-]?secret)\s*[=:]\s*([A-Za-z0-9/+=]{40})",
+    re.IGNORECASE,
+)
+
+# Bolt / Neo4j connection URLs with embedded credentials:
+# bolt://user:password@host:7687, neo4j://user:pw@host, neo4j+s://user:pw@host
+_BOLT_URL_RE = re.compile(
+    r"(bolt|neo4j(?:\+s|\+ssc)?)://([^:/@\s]+):([^@\s]+)@",
+    re.IGNORECASE,
+)
+
+# OpenAI / Anthropic SDK keys.  OpenAI: sk-XXXXXXXX (>=20 chars, includes
+# project-scoped sk-proj-..., sk-svcacct-...).  Anthropic: sk-ant-... .
+_OPENAI_KEY_RE = re.compile(r"\bsk-(?!ant-)[A-Za-z0-9_\-]{20,}\b")
+_ANTHROPIC_KEY_RE = re.compile(r"\bsk-ant-(?:api\d+|admin\d+)?-?[A-Za-z0-9_\-]{20,}\b")
+
 
 def _redact(text: str) -> str:
-    """Replace password/token/key values with ***REDACTED***."""
-    return _SECRETS_RE.sub(r"\1=***REDACTED***", text)
+    """Replace recognised secret values with ***REDACTED*** sentinels.
+
+    Covers (since WS-1 P0-12, 2026-05-07):
+      * password / secret / token / api_key / credential = value
+      * Authorization: Bearer ...
+      * AWS access/secret keys
+      * bolt:// / neo4j:// URIs with embedded passwords
+      * OpenAI sk-... and Anthropic sk-ant-... API keys
+    """
+    # Order matters: SDK-specific patterns must run before the generic
+    # `password|secret|token|api_key|credential` pattern so that
+    # ``OPENAI_API_KEY=sk-...`` is recognised as an OpenAI key (preserves
+    # the ``sk-***REDACTED***`` shape) rather than the generic redaction.
+    text = _ANTHROPIC_KEY_RE.sub("sk-ant-***REDACTED***", text)
+    text = _OPENAI_KEY_RE.sub("sk-***REDACTED***", text)
+    text = _BEARER_RE.sub(r"\1Bearer ***REDACTED***", text)
+    text = _AWS_ACCESS_KEY_RE.sub("***AWS_ACCESS_KEY_REDACTED***", text)
+    text = _AWS_SECRET_KEY_RE.sub(r"\1=***REDACTED***", text)
+    text = _BOLT_URL_RE.sub(r"\1://\2:***REDACTED***@", text)
+    text = _SECRETS_RE.sub(r"\1=***REDACTED***", text)
+    return text
 
 
 class RedactingTextFormatter(logging.Formatter):
@@ -75,10 +126,12 @@ def setup_logging() -> None:
     if log_format == "json":
         handler.setFormatter(JSONFormatter())
     else:
-        handler.setFormatter(RedactingTextFormatter(
-            "%(asctime)s %(name)s %(levelname)s %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        ))
+        handler.setFormatter(
+            RedactingTextFormatter(
+                "%(asctime)s %(name)s %(levelname)s %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
 
     root.addHandler(handler)
 

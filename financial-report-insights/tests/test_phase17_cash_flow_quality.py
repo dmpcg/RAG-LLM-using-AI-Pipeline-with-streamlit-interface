@@ -4,10 +4,11 @@ Tests for cash_flow_quality() and CashFlowQualityResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    CashFlowQualityResult,
     CharlieAnalyzer,
     FinancialData,
-    CashFlowQualityResult,
 )
 
 
@@ -46,6 +47,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestCashFlowQualityDataclass:
     def test_defaults(self):
         r = CashFlowQualityResult()
@@ -67,6 +69,7 @@ class TestCashFlowQualityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestCashFlowQuality:
     def test_returns_result(self, analyzer, sample_data):
@@ -128,6 +131,7 @@ class TestCashFlowQuality:
 
 
 # ===== QUALITY SCORING TESTS =====
+
 
 class TestQualityScoring:
     def test_strong_company_high_score(self, analyzer):
@@ -221,6 +225,7 @@ class TestQualityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase17EdgeCases:
     def test_empty_data(self, analyzer):

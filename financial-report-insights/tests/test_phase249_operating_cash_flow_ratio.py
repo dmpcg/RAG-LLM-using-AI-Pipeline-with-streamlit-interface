@@ -4,6 +4,7 @@ Tests for operating_cash_flow_ratio_analysis() and OperatingCashFlowRatioResult 
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestOperatingCashFlowRatioDataclass:
     def test_defaults(self):
         r = OperatingCashFlowRatioResult()
@@ -68,6 +70,7 @@ class TestOperatingCashFlowRatioDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestOperatingCashFlowRatioAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestOperatingCashFlowRatioAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestOperatingCashFlowRatioScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -137,6 +141,7 @@ class TestOperatingCashFlowRatioScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase249EdgeCases:
     def test_empty_data(self, analyzer):

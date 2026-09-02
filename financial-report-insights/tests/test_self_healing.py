@@ -1,10 +1,8 @@
 """Tests for self-healing: embedding retry, warm-up, ingestion retry, chunk count."""
 
-import time
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Embedding retry tests (LocalEmbedder._send_embedding_batch)
@@ -19,6 +17,7 @@ class TestEmbeddingRetry:
         with patch.dict("os.environ", {"OLLAMA_HOST": "http://localhost:11434"}):
             with patch("httpx.Client"):
                 from local_llm import LocalEmbedder
+
                 embedder = LocalEmbedder.__new__(LocalEmbedder)
                 embedder.model_name = "test-model"
                 embedder._url = "http://localhost:11434/v1/embeddings"
@@ -58,9 +57,7 @@ class TestEmbeddingRetry:
                 resp = MagicMock()
                 resp.status_code = 500
                 resp.request = MagicMock()
-                resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-                    "500", request=MagicMock(), response=resp
-                )
+                resp.raise_for_status.side_effect = httpx.HTTPStatusError("500", request=MagicMock(), response=resp)
                 return resp
             return ok_resp
 
@@ -81,9 +78,7 @@ class TestEmbeddingRetry:
             resp = MagicMock()
             resp.status_code = 500
             resp.request = MagicMock()
-            resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-                "500", request=MagicMock(), response=resp
-            )
+            resp.raise_for_status.side_effect = httpx.HTTPStatusError("500", request=MagicMock(), response=resp)
             return resp
 
         embedder._client.post.side_effect = always_500
@@ -103,9 +98,7 @@ class TestEmbeddingRetry:
             resp = MagicMock()
             resp.status_code = 400
             resp.request = MagicMock()
-            resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-                "400", request=MagicMock(), response=resp
-            )
+            resp.raise_for_status.side_effect = httpx.HTTPStatusError("400", request=MagicMock(), response=resp)
             return resp
 
         embedder._client.post.side_effect = always_400
@@ -129,6 +122,7 @@ class TestEmbeddingWarmUp:
         with patch.dict("os.environ", {"OLLAMA_HOST": "http://localhost:11434"}):
             with patch("httpx.Client"):
                 from local_llm import LocalEmbedder
+
                 embedder = LocalEmbedder.__new__(LocalEmbedder)
                 embedder.model_name = "test-model"
                 embedder._url = "http://localhost:11434/v1/embeddings"
@@ -204,9 +198,12 @@ class TestChunkCountValidation:
 
             if n_files > 0 and n_chunks < n_files * 5:
                 import logging as _log
+
                 _log.getLogger("test").warning(
                     "Only %d chunks indexed from %d files (expected >%d).",
-                    n_chunks, n_files, n_files * 5,
+                    n_chunks,
+                    n_files,
+                    n_files * 5,
                 )
 
         assert any("chunks indexed" in r.message for r in caplog.records)
@@ -225,9 +222,12 @@ class TestChunkCountValidation:
 
             if n_files > 0 and n_chunks < n_files * 5:
                 import logging as _log
+
                 _log.getLogger("test").warning(
                     "Only %d chunks indexed from %d files (expected >%d).",
-                    n_chunks, n_files, n_files * 5,
+                    n_chunks,
+                    n_files,
+                    n_files * 5,
                 )
 
         assert not any("chunks indexed" in r.message for r in caplog.records)
@@ -247,6 +247,7 @@ class TestGraduatedWarmUp:
         with patch.dict("os.environ", {"OLLAMA_HOST": "http://localhost:11434"}):
             with patch("httpx.Client"):
                 from local_llm import LocalEmbedder
+
                 embedder = LocalEmbedder.__new__(LocalEmbedder)
                 embedder.model_name = "test-model"
                 embedder._url = "http://localhost:11434/v1/embeddings"
@@ -267,9 +268,7 @@ class TestGraduatedWarmUp:
             inputs = kwargs.get("json", args[1] if len(args) > 1 else {}).get("input", [])
             batch_sizes.append(len(inputs))
             resp = MagicMock()
-            resp.json.return_value = {
-                "data": [{"embedding": [0.1]} for _ in inputs]
-            }
+            resp.json.return_value = {"data": [{"embedding": [0.1]} for _ in inputs]}
             resp.raise_for_status = MagicMock()
             return resp
 
@@ -320,6 +319,7 @@ class TestLargeBatchRetry:
         with patch.dict("os.environ", {"OLLAMA_HOST": "http://localhost:11434"}):
             with patch("httpx.Client"):
                 from local_llm import LocalEmbedder
+
                 embedder = LocalEmbedder.__new__(LocalEmbedder)
                 embedder.model_name = "test-model"
                 embedder._url = "http://localhost:11434/v1/embeddings"
@@ -337,9 +337,7 @@ class TestLargeBatchRetry:
             resp = MagicMock()
             resp.status_code = 500
             resp.request = MagicMock()
-            resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-                "500", request=MagicMock(), response=resp
-            )
+            resp.raise_for_status.side_effect = httpx.HTTPStatusError("500", request=MagicMock(), response=resp)
             return resp
 
         embedder._client.post.side_effect = always_500
@@ -360,9 +358,7 @@ class TestLargeBatchRetry:
         def capture_send(texts, max_retries=3, large_batch=False):
             large_batch_flags.append(large_batch)
             resp = MagicMock()
-            resp.json.return_value = {
-                "data": [{"embedding": [0.1]} for _ in texts]
-            }
+            resp.json.return_value = {"data": [{"embedding": [0.1]} for _ in texts]}
             resp.raise_for_status = MagicMock()
             embedder._client.post.return_value = resp
             return original_send(texts, max_retries=max_retries)
@@ -385,9 +381,7 @@ class TestLargeBatchRetry:
         def capture_send(texts, max_retries=3, large_batch=False):
             large_batch_flags.append(large_batch)
             resp = MagicMock()
-            resp.json.return_value = {
-                "data": [{"embedding": [0.1]} for _ in texts]
-            }
+            resp.json.return_value = {"data": [{"embedding": [0.1]} for _ in texts]}
             resp.raise_for_status = MagicMock()
             embedder._client.post.return_value = resp
             return original_send(texts, max_retries=max_retries)
@@ -413,6 +407,7 @@ class TestBatchItemCap:
         with patch.dict("os.environ", {"OLLAMA_HOST": "http://localhost:11434"}):
             with patch("httpx.Client"):
                 from local_llm import LocalEmbedder
+
                 embedder = LocalEmbedder.__new__(LocalEmbedder)
                 embedder.model_name = "test-model"
                 embedder._url = "http://localhost:11434/v1/embeddings"
@@ -429,9 +424,7 @@ class TestBatchItemCap:
             inputs = kwargs.get("json", args[1] if len(args) > 1 else {}).get("input", [])
             batch_sizes.append(len(inputs))
             resp = MagicMock()
-            resp.json.return_value = {
-                "data": [{"embedding": [0.1]} for _ in inputs]
-            }
+            resp.json.return_value = {"data": [{"embedding": [0.1]} for _ in inputs]}
             resp.raise_for_status = MagicMock()
             return resp
 
