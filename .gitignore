@@ -56,3 +56,17 @@ financial-report-insights/.claude/
 # Generated artifacts
 *.bak
 README.pdf
+launch_financial_insights.log
+ruvector.db
+
+# ---------------------------------------------------------------------------
+# Client financial data & derived artifacts — NEVER COMMIT
+# `*.xlsx` above covers source workbooks, but not the legacy .xls format nor
+# anything derived from them (PDF/PNG/embeddings), which are equally sensitive.
+# Directory-level rules so new artifacts are covered by default, not by luck.
+# ---------------------------------------------------------------------------
+*.xls
+*.pdf
+financial-report-insights/data/
+financial-report-insights/reports/
+financial-report-insights/_superseded_docs/
