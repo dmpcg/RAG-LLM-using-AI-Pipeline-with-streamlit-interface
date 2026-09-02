@@ -16,6 +16,8 @@ from ingestion_pipeline import (
     _detect_sheet_section_type,
     _find_label_column,
     _df_to_markdown,
+    _read_csv_robust,
+    _detect_excel_header_row,
     EXCEL_EXTENSIONS,
     PDF_EXTENSIONS,
     TEXT_EXTENSIONS,
@@ -319,3 +321,121 @@ class TestExtensions:
         assert ".txt" in TEXT_EXTENSIONS
         assert ".md" in TEXT_EXTENSIONS
         assert ".docx" in TEXT_EXTENSIONS
+
+
+def _write_csv(text: str) -> Path:
+    """Write CSV text to a temp file and return its path."""
+    path = Path(tempfile.mkdtemp()) / "sample.csv"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+class TestReadCsvRobust:
+    """Preamble/footer-aware CSV reader.
+
+    The reader replaced pd.read_csv to strip banner and footer rows, so these
+    tests pin the behaviour pandas gave us for free: no data row may be lost.
+    """
+
+    def test_short_row_is_kept_not_dropped(self):
+        # A row missing a trailing field is a transaction with a blank, not a
+        # footer. pandas kept it as NaN; dropping it loses money silently.
+        path = _write_csv(
+            "Date,Description,Amount\n"
+            "2026-01-01,Coffee,4.50\n"
+            "2026-01-02,Rent\n"
+            "2026-01-03,Payroll,1200.00\n"
+        )
+        df = _read_csv_robust(path, ",")
+        assert len(df) == 3
+        assert df["Description"].str.contains("Rent").any()
+
+    def test_banner_and_footer_are_dropped(self):
+        path = _write_csv(
+            "ACME Corp Q1 Report\n"
+            "Date,Description,Amount\n"
+            "2026-01-01,Coffee,4.50\n"
+            "2026-01-02,Rent\n"
+            "Grand Total\n"
+        )
+        df = _read_csv_robust(path, ",")
+        assert list(df.columns) == ["Date", "Description", "Amount"]
+        assert len(df) == 2
+        assert not df.astype(str).apply(lambda c: c.str.contains("Grand Total")).any().any()
+
+    def test_width_tie_does_not_collapse_table(self):
+        # Two single-cell rows and two 3-field rows: a plain modal count ties
+        # and can pick width 1, collapsing the sheet to one column.
+        path = _write_csv(
+            "Title Banner\n"
+            "A,B,C\n"
+            "1,2,3\n"
+            "Footer Note\n"
+        )
+        df = _read_csv_robust(path, ",")
+        assert list(df.columns) == ["A", "B", "C"]
+        assert len(df) == 1
+
+    def test_wellformed_csv_is_unchanged(self):
+        path = _write_csv("A,B,C\n1,2,3\n4,5,6\n")
+        df = _read_csv_robust(path, ",")
+        assert list(df.columns) == ["A", "B", "C"]
+        assert len(df) == 2
+
+    def test_row_count_is_bounded(self):
+        from config import settings
+
+        rows = "\n".join(f"{i},item{i},{i * 1.5}" for i in range(settings.max_workbook_rows + 250))
+        path = _write_csv("Id,Name,Value\n" + rows + "\n")
+        df = _read_csv_robust(path, ",")
+        assert len(df) <= settings.max_workbook_rows
+
+    def test_quoted_delimiter_is_honoured(self):
+        path = _write_csv('Date,Description,Amount\n2026-01-01,"Rent, office",1200.00\n')
+        df = _read_csv_robust(path, ",")
+        assert len(df) == 1
+        assert df.iloc[0]["Description"] == "Rent, office"
+
+
+class TestFindLabelColumnDtypeIndependence:
+    """_find_label_column must judge parsed values, not storage dtype.
+
+    _read_csv_robust returns an all-str frame, so an amounts column arrives as
+    strings and must not win over the real line-item column.
+    """
+
+    def test_string_stored_numbers_do_not_win(self):
+        df = pd.DataFrame(
+            [["%.2f" % (i * 10.5), f"Line item {i}"] for i in range(1, 11)],
+            columns=["Amount", "Note"],
+        )
+        assert _find_label_column(df) == 1
+
+    def test_native_dtype_frame_unchanged(self):
+        df = pd.DataFrame(
+            [[i * 10.5, f"Line item {i}"] for i in range(1, 11)],
+            columns=["Amount", "Note"],
+        )
+        assert _find_label_column(df) == 1
+
+
+class TestDetectExcelHeaderRow:
+    def test_dense_first_row_returns_zero(self):
+        raw = pd.DataFrame([["Line", "2026", "2025", "Var"], ["Revenue", 1, 2, 3]])
+        assert _detect_excel_header_row(raw) == 0
+
+    def test_banner_rows_are_skipped(self):
+        raw = pd.DataFrame(
+            [
+                ["ACME P&L", None, None, None],
+                ["Source: QuickBooks", None, None, None],
+                ["Line", "2026", "2025", "Var"],
+                ["Revenue", 1, 2, 3],
+            ]
+        )
+        assert _detect_excel_header_row(raw) == 2
+
+    def test_narrow_statement_left_at_zero(self):
+        # Label/value statements have no wide header row; skipping would eat data.
+        raw = pd.DataFrame([["Revenue", 100.0], ["COGS", 40.0], ["Net", 60.0]])
+        assert _detect_excel_header_row(raw) == 0

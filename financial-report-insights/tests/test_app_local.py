@@ -461,8 +461,15 @@ class TestFuseResultsRRF:
         semantic = [docs[1], docs[0]]
         bm25 = [docs[1], docs[2]]
         fused = rag_with_docs._fuse_results_rrf(semantic, bm25, top_k=3)
-        # docs[1] should be first (highest combined RRF score)
-        assert fused[0] is docs[1]
+        # docs[1] should be first (highest combined RRF score). Fusion now keys
+        # on a stable content id and returns scored *copies* (so the canonical
+        # doc is never mutated), hence identity-by-key, not `is`.
+        assert rag_with_docs._doc_key(fused[0]) == rag_with_docs._doc_key(docs[1])
+        # New contract: every fused result carries its RRF score...
+        assert all("score" in d for d in fused)
+        assert fused[0]["score"] >= fused[-1]["score"]
+        # ...and the canonical document is not mutated by scoring.
+        assert "score" not in docs[1]
 
     def test_empty_lists(self, rag_with_docs):
         fused = rag_with_docs._fuse_results_rrf([], [], top_k=3)

@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     bm25_weight: float = 0.4
     semantic_weight: float = 0.6
     rrf_k: int = 60
+    # Per-system candidate pool before RRF fusion = top_k * this. A wider pool
+    # lets a relevant chunk that ranks mid-list in one system still survive
+    # fusion + MMR + parent-dedup down to top_k. Was hardcoded at 2.
+    fusion_candidate_multiplier: int = 5
+    # Drop fused results whose RRF score is below this floor (0.0 = no floor).
+    min_rrf_score: float = 0.0
 
     # File upload limits
     max_file_size_mb: int = 200
@@ -87,7 +93,13 @@ class Settings(BaseSettings):
     export_company_name: str = ""  # Default company name for exports
 
     # Query enhancement
-    enable_hyde: bool = True  # HyDE query expansion
+    enable_hyde: bool = False  # HyDE query expansion (see note below)
+    # HyDE default OFF (2026-06-24): HyDE generates a hypothetical answer via the
+    # LLM and embeds THAT — nondeterministic (fresh draw per query) and it drifts
+    # on specific figure-lookup queries, causing ±1 TOP1 swings at the gate
+    # threshold. Raw-query embedding is deterministic and at least as accurate
+    # here. Re-enable for broad/exploratory corpora where query<->doc vocabulary
+    # mismatch is large.
     enable_query_decomposition: bool = True  # LLM-based query decomposition
     max_sub_queries: int = 4  # Max sub-queries for decomposition
 
@@ -96,16 +108,20 @@ class Settings(BaseSettings):
     reranking_model: str = "cross-encoder"  # Placeholder model name
     rerank_top_n: int = 20  # Candidates to rerank from initial retrieval
     mmr_lambda: float = 0.7  # MMR diversity parameter (1.0 = pure relevance, 0.0 = pure diversity)
-    enable_mmr: bool = True  # Maximal Marginal Relevance diversification
+    # MMR default OFF: this is a figure-lookup RAG where the single most
+    # relevant chunk matters more than result diversity. A 2026-06-24 config
+    # sweep on the golden set showed MMR demoting exact-figure matches
+    # (DEEP-TOP1 1/4 -> 2/4 with MMR off) at no TOP3 cost; the dedup pass
+    # already removed the near-duplicate redundancy MMR was guarding against.
+    enable_mmr: bool = False  # Maximal Marginal Relevance diversification
     enable_citations: bool = True  # Citation tracking in responses
     enable_parent_expansion: bool = True  # Expand child chunks to parent text for LLM context
 
-    # Semantic cache (Phase 4.3)
-    semantic_cache_threshold: float = 0.95
-    semantic_cache_max_entries: int = 1000
-    enable_semantic_cache: bool = False  # off by default
-    enable_chunk_dedup: bool = True
-    adaptive_top_k: bool = True
+    # NOTE: the Phase 4.3 semantic-cache settings (semantic_cache_threshold,
+    # semantic_cache_max_entries, enable_semantic_cache, enable_chunk_dedup,
+    # adaptive_top_k) were removed alongside ml/semantic_cache.py and
+    # ml/embedding_optimizer.py. They had no readers left, and the two that
+    # defaulted True advertised behaviour that no longer exists.
 
     # Evaluation
     enable_evaluation: bool = False  # RAG evaluation harness

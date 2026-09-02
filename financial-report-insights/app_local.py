@@ -910,17 +910,27 @@ class SimpleRAG:
             # Perform both semantic and BM25 search
             from observability.tracing import get_current_trace
 
+            # Per-system candidate pool: gives RRF more overlap evidence to rank
+            # on, so a chunk found by both systems can outrank one found by one.
+            # NOTE: it does NOT widen what survives later stages -- fusion
+            # truncates to top_k before rerank/MMR/parent-dedup run, so those can
+            # still reduce the final count below top_k. Widening the survivor set
+            # would require fusing to the pool and truncating after dedup.
+            pool = max(
+                top_k * max(2, getattr(settings, "fusion_candidate_multiplier", 5)),
+                top_k,
+            )
             trace = get_current_trace()
             if trace:
                 with trace.span("semantic_search"):
-                    semantic_results = self._semantic_search(query, top_k * 2)
+                    semantic_results = self._semantic_search(query, pool)
                 with trace.span("bm25_search"):
-                    bm25_results = self._bm25_search(query, top_k * 2)
+                    bm25_results = self._bm25_search(query, pool)
                 with trace.span("rrf_fusion"):
                     results = self._fuse_results_rrf(semantic_results, bm25_results, top_k)
             else:
-                semantic_results = self._semantic_search(query, top_k * 2)
-                bm25_results = self._bm25_search(query, top_k * 2)
+                semantic_results = self._semantic_search(query, pool)
+                bm25_results = self._bm25_search(query, pool)
                 results = self._fuse_results_rrf(semantic_results, bm25_results, top_k)
 
         # Post-processing: reranking, MMR diversification, citations
@@ -1143,6 +1153,36 @@ class SimpleRAG:
 
         return [self.documents[i] for i in top_indices]
 
+    @staticmethod
+    def _doc_key(doc: dict) -> str:
+        """Stable identity for a chunk across retrieval systems.
+
+        Used to fuse semantic and BM25 hits without relying on ``id(doc)``
+        (object identity), which only works while both systems return the same
+        shared dict and breaks silently the moment one returns a copy. Prefers
+        an explicit chunk id; otherwise hashes source + content so the same
+        logical chunk always maps to the same key.
+
+        KNOWN LIMITATION: this fuses the local semantic and BM25 paths, which
+        both carry ``metadata.chunk_id``. It does NOT fuse the Neo4j path --
+        ``_semantic_search`` returns dicts with no ``metadata``, so the same
+        logical chunk keys as ``id:<cid>`` from one source and ``h:<sha1>`` from
+        the other, occupying two top_k slots and splitting its RRF contribution.
+        Fixing that means giving the Neo4j rows a chunk_id, not changing this
+        function; doing so shifts ranking, so it needs a golden-QA gate run.
+        """
+        meta = doc.get("metadata") or {}
+        cid = meta.get("chunk_id") or doc.get("id")
+        if cid:
+            return f"id:{cid}"
+        src = str(doc.get("source") or meta.get("source_file") or "")
+        sheet = str(meta.get("sheet_name") or "")
+        content = str(doc.get("content", ""))
+        digest = hashlib.sha1(  # noqa: S324 - non-crypto dedup key
+            f"{src}\x00{sheet}\x00{content}".encode("utf-8", "replace")
+        ).hexdigest()
+        return f"h:{digest}"
+
     def _fuse_results_rrf(
         self,
         semantic_results: list,
@@ -1163,40 +1203,51 @@ class SimpleRAG:
         Returns:
             Fused list of document chunks
         """
-        # Build rank maps (doc_id -> rank) for each system
-        semantic_ranks = {id(doc): rank for rank, doc in enumerate(semantic_results)}
-        bm25_ranks = {id(doc): rank for rank, doc in enumerate(bm25_results)}
+        # Build rank maps keyed by a STABLE content key, not id(doc). Both
+        # searches currently return shared self.documents refs (so id() happens
+        # to match), but that is luck: the Neo4j path and any future copy would
+        # produce distinct objects for the same logical chunk and silently
+        # double-count. A content-based key fuses correctly by construction.
+        semantic_ranks: dict[str, int] = {}
+        for rank, doc in enumerate(semantic_results):
+            semantic_ranks.setdefault(self._doc_key(doc), rank)
+        bm25_ranks: dict[str, int] = {}
+        for rank, doc in enumerate(bm25_results):
+            bm25_ranks.setdefault(self._doc_key(doc), rank)
 
-        # Get all unique documents
-        all_docs = {}
+        # First occurrence of each key wins as the canonical doc object.
+        all_docs: dict[str, Any] = {}
         for doc in semantic_results + bm25_results:
-            all_docs[id(doc)] = doc
+            all_docs.setdefault(self._doc_key(doc), doc)
 
-        # Calculate RRF scores
-        rrf_scores = {}
         k = settings.rrf_k
-
-        for doc_id, doc in all_docs.items():
+        rrf_scores: dict[str, float] = {}
+        for key in all_docs:
             score = 0.0
+            if key in semantic_ranks:
+                score += settings.semantic_weight / (k + semantic_ranks[key])
+            if key in bm25_ranks:
+                score += settings.bm25_weight / (k + bm25_ranks[key])
+            rrf_scores[key] = score
 
-            # Semantic contribution
-            if doc_id in semantic_ranks:
-                score += settings.semantic_weight / (k + semantic_ranks[doc_id])
+        # Optional floor: drop weakly-fused results (default 0.0 = keep all).
+        floor = getattr(settings, "min_rrf_score", 0.0)
+        ordered = sorted(all_docs, key=lambda key: rrf_scores[key], reverse=True)
 
-            # BM25 contribution
-            if doc_id in bm25_ranks:
-                score += settings.bm25_weight / (k + bm25_ranks[doc_id])
+        fused: list[dict] = []
+        for key in ordered:
+            if floor > 0.0 and rrf_scores[key] < floor:
+                break  # ordered desc -> nothing below is >= floor
+            # Shallow-copy before attaching score so the canonical doc in
+            # self.documents is never mutated (scores would otherwise leak
+            # across queries and corrupt metrics).
+            scored = dict(all_docs[key])
+            scored["score"] = rrf_scores[key]
+            fused.append(scored)
+            if len(fused) >= top_k:
+                break
 
-            rrf_scores[doc_id] = score
-
-        # Sort by RRF score and return top-k
-        sorted_docs = sorted(
-            all_docs.items(),
-            key=lambda x: rrf_scores[x[0]],
-            reverse=True
-        )[:top_k]
-
-        return [doc for doc_id, doc in sorted_docs]
+        return fused
 
     def answer(self, query: str, retrieved_docs: Optional[List[Dict[str, Any]]] = None) -> str:
         """

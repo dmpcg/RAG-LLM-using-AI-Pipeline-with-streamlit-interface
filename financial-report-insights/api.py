@@ -749,7 +749,7 @@ def _get_compliance_scorer():
 
 def _parse_financial_data(raw: Dict[str, Any]) -> "FinancialData":
     """Parse a raw dict into FinancialData, filtering unknown fields."""
-    from financial_analyzer import FinancialData
+    from financial_analyzer import FinancialData  # local import: forward ref for type checker
 
     if not hasattr(_parse_financial_data, "_fields"):
         _parse_financial_data._fields = frozenset(FinancialData.__dataclass_fields__)

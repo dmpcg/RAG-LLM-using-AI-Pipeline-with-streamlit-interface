@@ -336,5 +336,8 @@ class TestConfigDefaults:
         assert s.reranking_model == "cross-encoder"
         assert s.rerank_top_n == 20
         assert s.mmr_lambda == pytest.approx(0.7)
-        assert s.enable_mmr is True
+        # MMR default flipped to False 2026-06-24: diversity demoted exact-figure
+        # matches in this figure-lookup RAG (golden DEEP-TOP1 2->3 with it off);
+        # dedup already removed the redundancy MMR guarded against.
+        assert s.enable_mmr is False
         assert s.enable_citations is True

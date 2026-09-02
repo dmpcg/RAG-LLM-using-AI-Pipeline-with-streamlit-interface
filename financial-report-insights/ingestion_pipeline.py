@@ -8,8 +8,11 @@ Produces RAGChunk objects with embeddings ready for vector storage.
 Integrates with SimpleRAG's document/embedding stores.
 """
 
+import csv
 import logging
 import re
+from collections import Counter
+from itertools import islice
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -123,9 +126,14 @@ def _find_label_column(df: pd.DataFrame) -> Optional[int]:
 
     for col_idx in range(min(5, len(df.columns))):  # Check first 5 columns
         col = df.iloc[:, col_idx]
-        str_count = col.apply(lambda x: isinstance(x, str) and len(str(x).strip()) > 2).sum()
+        # Judge by parsed value, not storage dtype: the CSV reader returns an
+        # all-str frame, so "1234.50" is a str and would otherwise count as a
+        # label and let an amounts column win over the real line-item column.
+        numeric = pd.to_numeric(col, errors="coerce")
+        is_label = col.apply(lambda x: isinstance(x, str) and len(str(x).strip()) > 2) & numeric.isna()
+        str_count = int(is_label.sum())
         # Penalize columns that are mostly numeric
-        num_count = pd.to_numeric(col, errors="coerce").notna().sum()
+        num_count = int(numeric.notna().sum())
         score = str_count - num_count * 0.5
         if score > best_score:
             best_score = score
@@ -146,6 +154,11 @@ def _is_meaningful_header(name: str) -> bool:
         return False
     if re.match(r"^(unnamed|col)[\s_:]*\d*$", s, re.IGNORECASE):
         return False
+    # Date/period headers (e.g. "2026-02-20 00:00:00", "01/05/2026") carry no
+    # letters but are meaningful labels on time-series sheets: without them the
+    # weekly/monthly values render as bare numbers detached from their period.
+    if re.search(r"\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{2,4}", s):
+        return True
     return bool(re.search(r"[A-Za-z]", s))
 
 
@@ -182,6 +195,131 @@ def _df_to_markdown(df: pd.DataFrame, max_rows: int = 200) -> str:
     return "\n".join(lines)
 
 
+def _read_csv_robust(file_path: Path, sep: str) -> pd.DataFrame:
+    """Read a CSV/TSV that may be wrapped in banner/footer rows around the table.
+
+    Bank/QuickBooks exports routinely surround the real table with non-table
+    rows: a leading title or balance banner (e.g. "Available Balance : $X", a
+    blank line, then the genuine header), and a trailing summary footer (e.g. a
+    "Debit,Credit,Date" mini-header followed by a period-totals row). A naive
+    ``pd.read_csv`` infers the column count from the banner and chokes on the
+    wider data ("Expected 3 fields, saw 8"); even with skiprows, the narrow
+    footer rows get NaN-padded into the data columns, so a totals figure lands
+    under the wrong header and pollutes retrieval with a misleading chunk.
+
+    Strategy: the genuine table is the block of rows sharing the modal field
+    width. We find the header as the first modal-width row, then keep the rows
+    below it, padding those a field or two short (exports commonly omit trailing
+    empty fields) and dropping only what is far off-shape: banners, footers and
+    repeated headers. Stray BOMs are stripped. For a normal single-header CSV the
+    whole file is modal-width from row 0, so behaviour is unchanged.
+    csv.reader honours quoted commas, so field counts are accurate.
+    """
+    # Bound the read. The pandas path this replaced passed nrows=max_workbook_rows;
+    # an unbounded list() pulls an entire multi-GB CSV into memory before the row
+    # limit is applied below. The headroom covers banner/footer/repeated-header
+    # rows, which are dropped and so never count toward the data limit.
+    row_limit = settings.max_workbook_rows + 100
+
+    rows: list[list[str]] = []
+    for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
+        try:
+            with open(file_path, newline="", encoding=enc) as fh:
+                rows = list(islice(csv.reader(fh, delimiter=sep), row_limit))
+            break
+        except UnicodeDecodeError:
+            continue
+
+    if not rows:
+        # Could not read raw rows; fall back to a tolerant pandas read.
+        return pd.read_csv(
+            file_path, sep=sep, engine="python", on_bad_lines="skip",
+            encoding="utf-8-sig", nrows=settings.max_workbook_rows,
+        )
+
+    def _clean(cell: str) -> str:
+        return str(cell).replace("﻿", "").strip()
+
+    populated = [r for r in rows if any(_clean(c) for c in r)]
+    if not populated:
+        return pd.DataFrame()
+
+    # Infer the table width from rows that could actually be table rows. Banner
+    # and footer lines hold a single cell; counting them lets a file with as many
+    # banners as data rows infer a 1-column table and collapse the whole sheet.
+    # Ties break toward the wider shape for the same reason.
+    shaped = [r for r in populated if sum(1 for c in r if _clean(c)) >= 2]
+    width_counts = Counter(len(r) for r in (shaped or populated))
+    modal = max(width_counts.items(), key=lambda kv: (kv[1], kv[0]))[0]
+
+    header_idx = next(
+        (i for i, r in enumerate(rows)
+         if len(r) == modal and sum(1 for c in r if _clean(c)) >= max(2, modal * 0.5)),
+        0,
+    )
+    header = [_clean(c) for c in rows[header_idx]]
+    header_tokens = {h for h in header if h}
+
+    # A ragged row is only a banner/footer when it is *far* off the table shape.
+    # Real bank and QuickBooks exports routinely omit trailing empty fields, so a
+    # row one or two fields short is a transaction with blanks, not a footer --
+    # pandas keeps it as NaN, and dropping it silently loses the transaction.
+    min_data_width = max(2, int(modal * 0.6))
+
+    data: list[list[str]] = []
+    for r in rows[header_idx + 1:]:
+        cleaned = [_clean(c) for c in r]
+        if not any(cleaned):
+            continue  # fully blank
+        if len(cleaned) != modal:
+            # Off-shape: keep it only if it still looks like a table row.
+            if len(cleaned) < min_data_width or sum(1 for c in cleaned if c) < 2:
+                continue  # banner / footer / summary row off the table shape
+            cleaned = (cleaned + [""] * modal)[:modal]  # pad short, trim stray extras
+        if {c for c in cleaned if c} <= header_tokens and len(header_tokens) > 1:
+            continue  # repeated header block
+        data.append(cleaned)
+        if len(data) >= settings.max_workbook_rows:
+            break
+
+    dropped = len(populated) - 1 - len(data)
+    if header_idx or dropped > 0:
+        logger.info(
+            "CSV '%s': header at row %d (width %d), kept %d data rows, "
+            "dropped %d off-shape banner/footer row(s)",
+            file_path.name, header_idx, modal, len(data), max(dropped, 0),
+        )
+    return pd.DataFrame(data, columns=header)
+
+
+def _detect_excel_header_row(raw: pd.DataFrame, max_scan: int = 15) -> int:
+    """Pick the header row for a sheet that may have sparse banner rows above it.
+
+    Financial workbooks frequently prefix a table with a title row and a
+    provenance/source row (each populating a single cell), and the genuine
+    header is often a row of *dates* (period columns) rather than text -- so a
+    text-vs-numeric heuristic misfires. Row density is the robust signal: the
+    header is the first row whose populated-cell count reaches most of the
+    table's width. Returns 0 (no banner) when the first row is already dense,
+    so ordinary single-header sheets are unaffected.
+    """
+    if raw.empty:
+        return 0
+    pop = raw.notna().sum(axis=1)
+    max_pop = int(pop.max())
+    # Narrow sheets (label/value statements like a QuickBooks P&L or balance
+    # sheet) have no real column header -- the line items are 2-3 cells wide and
+    # any "dense" row is actually data. Skipping banners there would consume a
+    # data row as the header, so leave those as header=0 (original behaviour).
+    if max_pop < 4:
+        return 0
+    target = max(3, int(max_pop * 0.6))
+    for i in range(min(max_scan, len(raw))):
+        if pop.iloc[i] >= target:
+            return i
+    return 0
+
+
 def ingest_excel(
     file_path: Path,
     child_token_target: int = 250,
@@ -208,7 +346,7 @@ def ingest_excel(
         suffix = file_path.suffix.lower()
         if suffix in (".csv", ".tsv"):
             sep = "\t" if suffix == ".tsv" else ","
-            df = pd.read_csv(file_path, sep=sep, nrows=settings.max_workbook_rows)
+            df = _read_csv_robust(file_path, sep)
             # Fix unnamed columns from headerless Excel exports
             df.columns = [
                 c if not str(c).startswith("Unnamed") else f"Col_{i}"
@@ -220,12 +358,32 @@ def ingest_excel(
             sheets = []
             for sheet_name in xls.sheet_names:
                 try:
-                    df = pd.read_excel(xls, sheet_name=sheet_name, nrows=settings.max_workbook_rows)
-                    # Fix unnamed columns
+                    # Read raw (no header), detect the real header row below any
+                    # title/provenance banner, then re-key the frame from it.
+                    raw = pd.read_excel(
+                        xls, sheet_name=sheet_name, header=None,
+                        nrows=settings.max_workbook_rows,
+                    )
+                    if raw.empty:
+                        continue
+                    hdr = _detect_excel_header_row(raw)
+                    cols = raw.iloc[hdr].tolist()
+                    df = raw.iloc[hdr + 1:].reset_index(drop=True)
+                    # Name columns from the detected header; fall back to Col_N
+                    # for blank/unnamed cells.
                     df.columns = [
-                        c if not str(c).startswith("Unnamed") else f"Col_{i}"
-                        for i, c in enumerate(df.columns)
+                        str(c).strip()
+                        if (pd.notna(c) and str(c).strip()
+                            and not str(c).startswith("Unnamed"))
+                        else f"Col_{i}"
+                        for i, c in enumerate(cols)
                     ]
+                    if hdr:
+                        logger.info(
+                            "Excel '%s' sheet '%s': header detected at row %d "
+                            "(skipped %d banner row(s))",
+                            source, sheet_name, hdr, hdr,
+                        )
                     # Skip empty sheets
                     if df.empty or (df.shape[0] < 2 and df.shape[1] < 2):
                         continue

@@ -4074,6 +4074,7 @@ class FinancialInsightsPage:
 
         # Capital structure pie chart
         if result.debt_weight is not None and result.equity_weight is not None:
+            import plotly.graph_objects as go
             fig = go.Figure(data=[go.Pie(
                 labels=["Debt", "Equity"],
                 values=[result.debt_weight, result.equity_weight],
@@ -4125,6 +4126,7 @@ class FinancialInsightsPage:
 
         # EVA waterfall chart
         if result.nopat is not None and result.capital_charge is not None and result.eva is not None:
+            import plotly.graph_objects as go
             fig = go.Figure(go.Waterfall(
                 name="EVA",
                 orientation="v",
@@ -4181,6 +4183,7 @@ class FinancialInsightsPage:
 
         # FCF components bar chart
         if result.fcf is not None:
+            import plotly.graph_objects as go
             ocf_val = data.operating_cash_flow or 0
             capex_val = data.capex or 0
             fig = go.Figure(data=[go.Bar(

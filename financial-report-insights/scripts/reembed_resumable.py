@@ -6,14 +6,22 @@ answers, and the in-process embedder blocks forever. Because SimpleRAG only
 writes its embedding cache once the WHOLE file finishes, a single hang loses
 all progress.
 
-This script embeds the workbook's chunks in small batches, checkpoints every
+This script embeds each workbook's chunks in small batches, checkpoints every
 batch to disk, and on a hang restarts Ollama and resumes from the checkpoint --
 so the job always completes. When done it writes the SimpleRAG embedding cache
 (.cache/embeddings/<key>.json) so the app loads the index instantly with no
 re-embedding.
 
+It iterates EVERY supported file in documents/ (smallest first, to warm the
+embedder on light payloads), skips files whose content-hash cache already
+exists, and skips unsupported formats (e.g. .msg) with a clear notice. After
+this finishes, restart the Streamlit app so SimpleRAG rebuilds
+data/vector_index.npz from the full set of caches.
+
 Run from the financial-report-insights dir:
     ./.venv/Scripts/python.exe scripts/reembed_resumable.py
+Optionally pass one or more filenames (within documents/) to limit the run:
+    ./.venv/Scripts/python.exe scripts/reembed_resumable.py "SC MI Farm Inventory (1).xlsx"
 """
 
 import hashlib
@@ -39,22 +47,27 @@ BATCH = 4                    # small batches reduce Ollama CPU deadlock risk
 REQ_TIMEOUT = 45.0          # per-request; shorter than a true hang
 MAX_CHARS = 2500            # match LocalEmbedder truncation
 CACHE_DIR = Path(settings.embedding_cache_dir)
-PROGRESS = CACHE_DIR / "_reembed_progress.json"
+# Extensions the ingestion pipeline can actually parse + embed.
+SUPPORTED = {
+    ".pdf", ".txt", ".md", ".docx",
+    ".xlsx", ".xlsm", ".xls", ".csv", ".tsv",
+}
 # Resolve the shell to a full path (avoids PATH-hijack; satisfies ruff S607).
 _PWSH = shutil.which("powershell") or shutil.which("pwsh") or "powershell"
 
 
-def _docs_for_workbook():
-    f = next(Path("documents").glob("*.xlsx"))
-    docs = chunks_to_documents(ingest_file(f))
-    # SimpleRAG cache key: sha256(name:content_hash:model)
+def _cache_key(file_path: Path) -> str:
+    """SimpleRAG cache key: sha256(name:content_hash:model)."""
     h = hashlib.sha256()
-    with open(f, "rb") as fh:
+    with open(file_path, "rb") as fh:
         for chunk in iter(lambda: fh.read(65536), b""):
             h.update(chunk)
-    key_str = f"{f.name}:{h.hexdigest()}:{MODEL}"
-    cache_key = hashlib.sha256(key_str.encode()).hexdigest()
-    return f, docs, cache_key
+    key_str = f"{file_path.name}:{h.hexdigest()}:{MODEL}"
+    return hashlib.sha256(key_str.encode()).hexdigest()
+
+
+def _progress_path(cache_key: str) -> Path:
+    return CACHE_DIR / f"_reembed_progress_{cache_key[:16]}.json"
 
 
 def _sanitize(text: str) -> str:
@@ -102,26 +115,38 @@ def _embed_one_batch(texts):
         return [d["embedding"] for d in r.json()["data"]]
 
 
-def main() -> int:
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    f, docs, cache_key = _docs_for_workbook()
-    n = len(docs)
-    texts = [_sanitize(d["content"]) for d in docs]
-    print(f"workbook={f.name}  chunks={n}  cache_key={cache_key[:12]}", flush=True)
+def reembed_file(file_path: Path) -> int:
+    """Embed one file's chunks resumably and write its SimpleRAG cache.
 
-    # Resume from checkpoint if present.
+    Returns 0 on success (or skip), 1 on fatal embedding failure.
+    """
+    cache_key = _cache_key(file_path)
+    out = CACHE_DIR / f"{cache_key}.json"
+    if out.exists():
+        print(f"SKIP  {file_path.name}  (already cached {cache_key[:12]})", flush=True)
+        return 0
+
+    docs = chunks_to_documents(ingest_file(file_path))
+    n = len(docs)
+    if n == 0:
+        print(f"WARN  {file_path.name}  produced 0 chunks -- nothing to embed", flush=True)
+        return 0
+    texts = [_sanitize(d["content"]) for d in docs]
+    print(f"FILE  {file_path.name}  chunks={n}  cache_key={cache_key[:12]}", flush=True)
+
+    progress = _progress_path(cache_key)
     embeddings = [None] * n
     done = 0
-    if PROGRESS.exists():
+    if progress.exists():
         try:
-            saved = json.loads(PROGRESS.read_text())
+            saved = json.loads(progress.read_text())
             if saved.get("n") == n and saved.get("cache_key") == cache_key:
                 for i, e in enumerate(saved["embeddings"]):
                     embeddings[i] = e
                 done = sum(1 for e in embeddings if e is not None)
-                print(f"resumed from checkpoint: {done}/{n} already embedded", flush=True)
+                print(f"  resumed from checkpoint: {done}/{n} already embedded", flush=True)
         except Exception as exc:
-            print(f"(ignoring unreadable checkpoint: {exc})", flush=True)
+            print(f"  (ignoring unreadable checkpoint: {exc})", flush=True)
 
     if not _ollama_up():
         _restart_ollama()
@@ -132,7 +157,6 @@ def main() -> int:
         if embeddings[i] is not None:
             i += 1
             continue
-        # build next batch of not-yet-done items
         batch_idx = []
         j = i
         while j < n and len(batch_idx) < BATCH:
@@ -159,25 +183,55 @@ def main() -> int:
 
         done += len(batch_idx)
         i = batch_idx[-1] + 1
-        # checkpoint every ~20 batches
-        if done % (BATCH * 20) < BATCH or done >= n:
-            PROGRESS.write_text(json.dumps(
+        # Checkpoint every ~20 chunks (BATCH*5) so an external kill loses little.
+        if done % (BATCH * 5) < BATCH or done >= n:
+            progress.write_text(json.dumps(
                 {"n": n, "cache_key": cache_key, "embeddings": embeddings}))
             rate = done / max(time.time() - t0, 1e-6)
             eta = (n - done) / max(rate, 1e-6) / 60
             print(f"  {done}/{n}  ({rate:.1f}/s, ETA {eta:.0f} min)", flush=True)
 
-    # Fill any empty-text slots with zero vectors (consistent w/ app behavior).
     dim = len(next(e for e in embeddings if e))
     embeddings = [e if e is not None else [0.0] * dim for e in embeddings]
-
-    # Write the SimpleRAG cache: [documents, embeddings].
-    out = CACHE_DIR / f"{cache_key}.json"
     out.write_text(json.dumps([docs, embeddings]))
-    PROGRESS.unlink(missing_ok=True)
-    print(f"DONE wrote {out.name}  ({n} embeddings, dim={dim}) in "
+    progress.unlink(missing_ok=True)
+    print(f"DONE  {file_path.name}  wrote {out.name}  ({n} embeddings, dim={dim}) in "
           f"{time.time() - t0:.0f}s", flush=True)
     return 0
+
+
+def main() -> int:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    docs_dir = Path("documents")
+
+    if len(sys.argv) > 1:
+        targets = [docs_dir / name for name in sys.argv[1:]]
+    else:
+        targets = sorted(
+            (f for f in docs_dir.rglob("*") if f.is_file()),
+            key=lambda p: p.stat().st_size,
+        )
+
+    supported = [f for f in targets if f.suffix.lower() in SUPPORTED]
+    skipped = [f for f in targets if f.suffix.lower() not in SUPPORTED]
+    for f in skipped:
+        print(f"UNSUPPORTED  {f.name}  ({f.suffix}) -- pipeline cannot ingest; "
+              f"convert to xlsx/pdf/txt first", flush=True)
+
+    print(f"=== re-embed: {len(supported)} supported file(s) ===", flush=True)
+    rc = 0
+    for f in supported:
+        if not f.is_file():
+            print(f"MISSING  {f}  (not found)", flush=True)
+            continue
+        if reembed_file(f) != 0:
+            rc = 1
+            print(f"  -> stopping run due to fatal error on {f.name}", flush=True)
+            break
+
+    print("=== re-embed run complete. Restart Streamlit so SimpleRAG rebuilds "
+          "data/vector_index.npz from all caches. ===", flush=True)
+    return rc
 
 
 if __name__ == "__main__":

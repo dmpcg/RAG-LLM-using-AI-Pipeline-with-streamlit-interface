@@ -352,6 +352,9 @@ class TestQueryEnhancementConfig:
     def test_config_defaults(self):
         from config import Settings
         s = Settings()
-        assert s.enable_hyde is True
+        # HyDE default flipped to False 2026-06-24: nondeterministic LLM query
+        # expansion drifted on figure-lookup queries (golden gate TOP1 8->10
+        # with it off). Re-enable per-deploy for broad/exploratory corpora.
+        assert s.enable_hyde is False
         assert s.enable_query_decomposition is True
         assert s.max_sub_queries == 4
