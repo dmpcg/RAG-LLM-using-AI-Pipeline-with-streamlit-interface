@@ -5,8 +5,13 @@ streamlit>=1.57.0,<2.0.0
 pydantic>=2.13.4,<3.0.0
 pydantic-settings>=2.5.0,<3.0.0
 
-# LLM & Embeddings (served by Docker Model Runner)
+# LLM & Embeddings (served by Ollama on :11434 — mxbai-embed-large, 1024-dim)
 ollama>=0.3.0,<1.0.0
+
+# ANN vector index. Without this, vector_index.create_index("auto") falls back
+# to NumpyFlatIndex — a brute-force O(n) scan over every chunk. Tolerable at the
+# current ~4.9k chunks, linear in corpus size after that.
+faiss-cpu>=1.9.0,<2.0.0
 
 # Document Processing
 PyMuPDF>=1.23.0,<2.0.0

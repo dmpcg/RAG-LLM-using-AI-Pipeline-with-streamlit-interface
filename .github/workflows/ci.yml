@@ -159,6 +159,30 @@ jobs:
           pip install coverage
           python -m coverage report --fail-under=60
 
+      # Retrieval-quality gate. It scores real figures from a private workbook,
+      # so the golden set (evaluation/golden_financial_qa.py) is git-ignored and
+      # is NOT present here, and there is no Ollama embedder in CI either. This
+      # step therefore always SKIPS -- deliberately and visibly.
+      #
+      # The point is the visibility. Retrieval regressions (bad chunking, a
+      # broken fusion key) pass every unit test in this pipeline, so nothing
+      # else here would catch one. Run the gate locally before merging any
+      # change to ingestion, chunking, embedding or retrieval:
+      #
+      #   ollama serve &
+      #   export OLLAMA_HOST=http://localhost:11434
+      #   python3.13 -m evaluation.run_golden_qa      # exit 0 = PASS
+      #
+      # Without GOLDEN_QA_OPTIONAL=1 the runner now EXITS 1 on a missing golden
+      # set, so a fresh clone cannot mistake "never ran" for "passed".
+      - name: Retrieval golden-QA gate (skips in CI - see comment)
+        if: matrix.python-version == '3.12'
+        env:
+          GOLDEN_QA_OPTIONAL: "1"
+        run: |
+          python -m evaluation.run_golden_qa
+          echo "::warning title=Retrieval quality unverified::The golden-QA gate cannot run in CI (private corpus + no local embedder). Run it locally before merging retrieval changes."
+
   # ──────────────────────────────────────────────────────────────
   # Stage 4: Build Validation
   # ──────────────────────────────────────────────────────────────

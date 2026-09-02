@@ -13,6 +13,7 @@ Run from the financial-report-insights dir:
 Exit code 0 = gate passed, 1 = failed.
 """
 
+import os
 import sys
 
 from app_local import SimpleRAG
@@ -23,11 +24,23 @@ try:
     # is intentionally git-ignored; generate it per deployment from real docs.
     from evaluation.golden_financial_qa import GOLDEN
 except ImportError:
+    # A missing golden set used to exit 0 -- so an environment without one
+    # (CI, a fresh clone) reported a PASS it never actually ran, which is the
+    # precise shape of failure this gate exists to prevent. Absence is now a
+    # hard failure unless a caller opts out EXPLICITLY.
+    if os.environ.get("GOLDEN_QA_OPTIONAL") == "1":
+        print(
+            "SKIP: no evaluation/golden_financial_qa.py, and GOLDEN_QA_OPTIONAL=1. "
+            "Retrieval quality is NOT verified by this run."
+        )
+        sys.exit(0)
     print(
-        "No evaluation/golden_financial_qa.py found. This gate needs a golden set "
-        "built from your own documents (see the module that authored it). Skipping."
+        "GATE FAIL: no evaluation/golden_financial_qa.py found. This gate needs a "
+        "golden set built from your own documents. Generate one, or set "
+        "GOLDEN_QA_OPTIONAL=1 to skip deliberately -- but a skip verifies nothing.",
+        file=sys.stderr,
     )
-    sys.exit(0)
+    sys.exit(1)
 
 # Gate thresholds.
 MIN_TOP1 = 8  # >= this many of 12 with the figure in the TOP chunk
