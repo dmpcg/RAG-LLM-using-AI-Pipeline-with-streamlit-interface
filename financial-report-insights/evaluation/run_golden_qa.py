@@ -56,6 +56,28 @@ def _haystack(doc: dict) -> str:
 
 
 def main() -> int:
+    # Preflight: confirm the golden set still matches the corpus BEFORE scoring
+    # retrieval against it. A drifted expectation shows up here as a MISS, which
+    # sends you debugging the retriever for a bug in the fixtures -- it did
+    # exactly that on 2026-09-02, where a superseded figure made a correct
+    # top-1 answer look like a failure. Set GOLDEN_QA_SKIP_VALIDATE=1 to bypass
+    # (it re-renders every sheet, so it is not free).
+    if os.environ.get("GOLDEN_QA_SKIP_VALIDATE") != "1":
+        from evaluation.validate_golden import check_corpus_readable, check_golden_values
+
+        print("preflight: validating golden set against the corpus...")
+        unreadable = check_corpus_readable()
+        stale = check_golden_values()
+        if unreadable or stale:
+            print(
+                "\nGATE FAIL (preflight): the fixtures disagree with the corpus, so any "
+                "retrieval score below would be measuring the wrong thing. Fix the golden "
+                "set / corpus first -- see the lines above.",
+                file=sys.stderr,
+            )
+            return 1
+        print()
+
     rag = SimpleRAG(
         docs_folder="./documents",
         embedding_model=settings.embedding_model,
