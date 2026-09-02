@@ -4,6 +4,7 @@ Tests for margin_of_safety_analysis() and MarginOfSafetyResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -50,6 +51,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestMarginOfSafetyDataclass:
     def test_defaults(self):
         r = MarginOfSafetyResult()
@@ -73,6 +75,7 @@ class TestMarginOfSafetyDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestMarginOfSafety:
     def test_returns_result(self, analyzer, sample_data):
@@ -145,6 +148,7 @@ class TestMarginOfSafety:
 
 # ===== SCORING TESTS =====
 
+
 class TestMarginOfSafetyScoring:
     def test_wide_margin(self, analyzer):
         """Very cheap: high earnings yield, big IV margin, below book, net-net."""
@@ -208,6 +212,7 @@ class TestMarginOfSafetyScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase30EdgeCases:
     def test_empty_data(self, analyzer):

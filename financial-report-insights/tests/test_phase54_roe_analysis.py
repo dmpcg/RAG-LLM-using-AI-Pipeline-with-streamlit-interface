@@ -4,6 +4,7 @@ Tests for roe_analysis() and ROEAnalysisResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestROEAnalysisDataclass:
     def test_defaults(self):
         r = ROEAnalysisResult()
@@ -71,6 +73,7 @@ class TestROEAnalysisDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestROEAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -118,6 +121,7 @@ class TestROEAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestROEScoring:
     def test_high_roe(self, analyzer):
@@ -175,6 +179,7 @@ class TestROEScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase54EdgeCases:
     def test_empty_data(self, analyzer):

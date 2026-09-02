@@ -10,22 +10,22 @@ Covers:
 - INDUSTRY_BENCHMARKS constant structure
 """
 
-import pytest
-import pandas as pd
-from unittest.mock import MagicMock, patch, PropertyMock
-from dataclasses import dataclass
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pandas as pd
+import pytest
 
 from financial_analyzer import (
     CharlieAnalyzer,
+    CompositeHealthScore,
     FinancialData,
     FinancialReport,
-    CompositeHealthScore,
 )
 from insights_page import FinancialInsightsPage
 
-
 # ===== Fixtures =====
+
 
 @pytest.fixture
 def analyzer():
@@ -63,33 +63,36 @@ def healthy_data():
 @pytest.fixture
 def sample_df():
     """DataFrame with financial data for insights page tests."""
-    return pd.DataFrame({
-        'Revenue': [10_000_000],
-        'Cost of Goods Sold': [6_000_000],
-        'Gross Profit': [4_000_000],
-        'Operating Income': [2_000_000],
-        'Net Income': [1_350_000],
-        'Total Assets': [20_000_000],
-        'Current Assets': [8_000_000],
-        'Current Liabilities': [4_000_000],
-        'Total Liabilities': [10_000_000],
-        'Total Equity': [10_000_000],
-        'Total Debt': [6_000_000],
-        'Interest Expense': [200_000],
-        'Accounts Receivable': [2_500_000],
-        'Inventory': [2_000_000],
-        'Accounts Payable': [1_500_000],
-        'Cash': [3_000_000],
-    })
+    return pd.DataFrame(
+        {
+            "Revenue": [10_000_000],
+            "Cost of Goods Sold": [6_000_000],
+            "Gross Profit": [4_000_000],
+            "Operating Income": [2_000_000],
+            "Net Income": [1_350_000],
+            "Total Assets": [20_000_000],
+            "Current Assets": [8_000_000],
+            "Current Liabilities": [4_000_000],
+            "Total Liabilities": [10_000_000],
+            "Total Equity": [10_000_000],
+            "Total Debt": [6_000_000],
+            "Interest Expense": [200_000],
+            "Accounts Receivable": [2_500_000],
+            "Inventory": [2_000_000],
+            "Accounts Payable": [1_500_000],
+            "Cash": [3_000_000],
+        }
+    )
 
 
 def _make_mock_rag(charlie_analyzer=None, excel_processor=None, cache=None):
     """Create a mock SimpleRAG instance with controlled properties."""
     # Import the class
-    from app_local import SimpleRAG
-
     # Use __new__ to bypass __init__
     import threading
+
+    from app_local import SimpleRAG
+
     rag = SimpleRAG.__new__(SimpleRAG)
     rag._financial_analysis_cache = cache
     rag._financial_analysis_lock = threading.Lock()
@@ -104,6 +107,7 @@ def _make_mock_rag(charlie_analyzer=None, excel_processor=None, cache=None):
 
 
 # ===== _is_financial_query Tests =====
+
 
 class TestIsFinancialQuery:
     """Test enhanced financial query detection with Phase 4 keywords."""
@@ -160,6 +164,7 @@ class TestIsFinancialQuery:
 
 # ===== _get_financial_analysis_context Tests =====
 
+
 class TestGetFinancialAnalysisContext:
     """Test financial analysis context generation and caching."""
 
@@ -198,14 +203,16 @@ class TestGetFinancialAnalysisContext:
         mock_excel.scan_for_excel_files.return_value = [mock_file]
 
         # Create mock workbook with merged DataFrame
-        mock_df = pd.DataFrame({
-            'Revenue': [10_000_000],
-            'Net Income': [1_000_000],
-            'Total Assets': [20_000_000],
-            'Total Equity': [10_000_000],
-            'Current Assets': [5_000_000],
-            'Current Liabilities': [3_000_000],
-        })
+        mock_df = pd.DataFrame(
+            {
+                "Revenue": [10_000_000],
+                "Net Income": [1_000_000],
+                "Total Assets": [20_000_000],
+                "Total Equity": [10_000_000],
+                "Current Assets": [5_000_000],
+                "Current Liabilities": [3_000_000],
+            }
+        )
         mock_combined = MagicMock()
         mock_combined.merged_df = mock_df
         mock_workbook = MagicMock()
@@ -254,7 +261,7 @@ class TestGetFinancialAnalysisContext:
         mock_excel.scan_for_excel_files.return_value = [mock_file]
 
         # DataFrame with no financial columns
-        mock_df = pd.DataFrame({'Name': ['Alice'], 'Age': [30]})
+        mock_df = pd.DataFrame({"Name": ["Alice"], "Age": [30]})
         mock_combined = MagicMock()
         mock_combined.merged_df = mock_df
         mock_excel.load_workbook.return_value = MagicMock()
@@ -283,6 +290,7 @@ class TestGetFinancialAnalysisContext:
 
 
 # ===== _build_financial_prompt Tests =====
+
 
 class TestBuildFinancialPrompt:
     """Test enhanced prompt building with computed analysis."""
@@ -331,13 +339,15 @@ class TestBuildFinancialPrompt:
 
 # ===== reload_documents Cache Invalidation Tests =====
 
+
 class TestReloadDocumentsCacheInvalidation:
     """Test that reload_documents clears the financial analysis cache."""
 
     def test_cache_cleared_on_reload(self):
         """reload_documents resets _financial_analysis_cache to None."""
-        from app_local import SimpleRAG
         import threading
+
+        from app_local import SimpleRAG
 
         rag = SimpleRAG.__new__(SimpleRAG)
         rag.documents = ["doc1"]
@@ -349,7 +359,7 @@ class TestReloadDocumentsCacheInvalidation:
         rag._lock = threading.Lock()
 
         # Mock _load_documents to do nothing
-        with patch.object(SimpleRAG, '_load_documents'):
+        with patch.object(SimpleRAG, "_load_documents"):
             # Patch the properties to avoid __init__ dependency issues
             type(rag).charlie_analyzer = property(lambda s: None)
             type(rag).excel_processor = property(lambda s: None)
@@ -363,59 +373,68 @@ class TestReloadDocumentsCacheInvalidation:
 
 # ===== INDUSTRY_BENCHMARKS Constant Tests =====
 
+
 class TestIndustryBenchmarks:
     """Test the INDUSTRY_BENCHMARKS class constant structure."""
 
     def test_all_required_keys(self):
         """Each benchmark has label, benchmark, good, and unit."""
         for key, bench in FinancialInsightsPage.INDUSTRY_BENCHMARKS.items():
-            assert 'label' in bench, f"{key} missing 'label'"
-            assert 'benchmark' in bench, f"{key} missing 'benchmark'"
-            assert 'good' in bench, f"{key} missing 'good'"
-            assert 'unit' in bench, f"{key} missing 'unit'"
+            assert "label" in bench, f"{key} missing 'label'"
+            assert "benchmark" in bench, f"{key} missing 'benchmark'"
+            assert "good" in bench, f"{key} missing 'good'"
+            assert "unit" in bench, f"{key} missing 'unit'"
 
     def test_benchmark_values_are_numeric(self):
         """Benchmark and good values are numbers."""
         for key, bench in FinancialInsightsPage.INDUSTRY_BENCHMARKS.items():
-            assert isinstance(bench['benchmark'], (int, float)), f"{key} benchmark not numeric"
-            assert isinstance(bench['good'], (int, float)), f"{key} good not numeric"
+            assert isinstance(bench["benchmark"], (int, float)), f"{key} benchmark not numeric"
+            assert isinstance(bench["good"], (int, float)), f"{key} good not numeric"
 
     def test_unit_values_valid(self):
         """Units are either 'x' (multiple) or '%' (percentage)."""
         for key, bench in FinancialInsightsPage.INDUSTRY_BENCHMARKS.items():
-            assert bench['unit'] in ('x', '%'), f"{key} has invalid unit: {bench['unit']}"
+            assert bench["unit"] in ("x", "%"), f"{key} has invalid unit: {bench['unit']}"
 
     def test_expected_ratios_present(self):
         """Key financial ratios are included."""
         benchmarks = FinancialInsightsPage.INDUSTRY_BENCHMARKS
         expected = [
-            'current_ratio', 'quick_ratio', 'net_margin', 'roe', 'roa',
-            'debt_to_equity', 'interest_coverage', 'asset_turnover',
-            'gross_margin', 'operating_margin',
+            "current_ratio",
+            "quick_ratio",
+            "net_margin",
+            "roe",
+            "roa",
+            "debt_to_equity",
+            "interest_coverage",
+            "asset_turnover",
+            "gross_margin",
+            "operating_margin",
         ]
         for key in expected:
             assert key in benchmarks, f"Missing benchmark: {key}"
 
     def test_debt_to_equity_lower_is_better(self):
         """debt_to_equity should have lower_is_better=True."""
-        bench = FinancialInsightsPage.INDUSTRY_BENCHMARKS['debt_to_equity']
-        assert bench.get('lower_is_better') is True
+        bench = FinancialInsightsPage.INDUSTRY_BENCHMARKS["debt_to_equity"]
+        assert bench.get("lower_is_better") is True
 
     def test_good_thresholds_better_than_benchmark(self):
         """'good' values represent better-than-average performance."""
         for key, bench in FinancialInsightsPage.INDUSTRY_BENCHMARKS.items():
-            lower_is_better = bench.get('lower_is_better', False)
+            lower_is_better = bench.get("lower_is_better", False)
             if lower_is_better:
-                assert bench['good'] <= bench['benchmark'], (
+                assert bench["good"] <= bench["benchmark"], (
                     f"{key}: good ({bench['good']}) should be <= benchmark ({bench['benchmark']})"
                 )
             else:
-                assert bench['good'] >= bench['benchmark'], (
+                assert bench["good"] >= bench["benchmark"], (
                     f"{key}: good ({bench['good']}) should be >= benchmark ({bench['benchmark']})"
                 )
 
 
 # ===== Industry Benchmark Logic Tests =====
+
 
 class TestBenchmarkComparison:
     """Test benchmark comparison logic (extracted from _render_industry_benchmarks)."""
@@ -423,70 +442,71 @@ class TestBenchmarkComparison:
     def _classify_ratio(self, value, benchmark_key):
         """Apply the same classification logic from _render_industry_benchmarks."""
         bench = FinancialInsightsPage.INDUSTRY_BENCHMARKS[benchmark_key]
-        lower_is_better = bench.get('lower_is_better', False)
+        lower_is_better = bench.get("lower_is_better", False)
 
         if lower_is_better:
-            if value <= bench['good']:
+            if value <= bench["good"]:
                 return "Above Average"
-            elif value <= bench['benchmark']:
+            elif value <= bench["benchmark"]:
                 return "Average"
             else:
                 return "Below Average"
         else:
-            if value >= bench['good']:
+            if value >= bench["good"]:
                 return "Above Average"
-            elif value >= bench['benchmark']:
+            elif value >= bench["benchmark"]:
                 return "Average"
             else:
                 return "Below Average"
 
     def test_high_current_ratio_above_average(self):
         """Current ratio >= 2.0 is Above Average."""
-        assert self._classify_ratio(2.5, 'current_ratio') == "Above Average"
+        assert self._classify_ratio(2.5, "current_ratio") == "Above Average"
 
     def test_average_current_ratio(self):
         """Current ratio >= 1.5 but < 2.0 is Average."""
-        assert self._classify_ratio(1.7, 'current_ratio') == "Average"
+        assert self._classify_ratio(1.7, "current_ratio") == "Average"
 
     def test_low_current_ratio_below_average(self):
         """Current ratio < 1.5 is Below Average."""
-        assert self._classify_ratio(0.8, 'current_ratio') == "Below Average"
+        assert self._classify_ratio(0.8, "current_ratio") == "Below Average"
 
     def test_low_debt_to_equity_above_average(self):
         """Low debt_to_equity is Above Average (lower_is_better)."""
-        assert self._classify_ratio(0.3, 'debt_to_equity') == "Above Average"
+        assert self._classify_ratio(0.3, "debt_to_equity") == "Above Average"
 
     def test_high_debt_to_equity_below_average(self):
         """High debt_to_equity is Below Average (lower_is_better)."""
-        assert self._classify_ratio(2.0, 'debt_to_equity') == "Below Average"
+        assert self._classify_ratio(2.0, "debt_to_equity") == "Below Average"
 
     def test_average_debt_to_equity(self):
         """Moderate debt_to_equity between good and benchmark is Average."""
-        assert self._classify_ratio(0.8, 'debt_to_equity') == "Average"
+        assert self._classify_ratio(0.8, "debt_to_equity") == "Average"
 
     def test_high_roe_above_average(self):
         """ROE >= 0.20 is Above Average."""
-        assert self._classify_ratio(0.25, 'roe') == "Above Average"
+        assert self._classify_ratio(0.25, "roe") == "Above Average"
 
     def test_low_roe_below_average(self):
         """ROE < 0.12 is Below Average."""
-        assert self._classify_ratio(0.05, 'roe') == "Below Average"
+        assert self._classify_ratio(0.05, "roe") == "Below Average"
 
     def test_percentage_formatting(self):
         """Percentage ratios are formatted correctly."""
-        bench = FinancialInsightsPage.INDUSTRY_BENCHMARKS['net_margin']
-        assert bench['unit'] == '%'
+        bench = FinancialInsightsPage.INDUSTRY_BENCHMARKS["net_margin"]
+        assert bench["unit"] == "%"
         # 0.08 = 8.0%
         assert f"{bench['benchmark']:.1%}" == "8.0%"
 
     def test_multiple_formatting(self):
         """Multiple ratios are formatted correctly."""
-        bench = FinancialInsightsPage.INDUSTRY_BENCHMARKS['current_ratio']
-        assert bench['unit'] == 'x'
+        bench = FinancialInsightsPage.INDUSTRY_BENCHMARKS["current_ratio"]
+        assert bench["unit"] == "x"
         assert f"{bench['benchmark']:.2f}x" == "1.50x"
 
 
 # ===== Report Generation Tests =====
+
 
 class TestReportGeneration:
     """Test report generation for download (logic used by _render_report_download)."""
@@ -496,10 +516,10 @@ class TestReportGeneration:
         report = analyzer.generate_report(healthy_data)
         assert isinstance(report, FinancialReport)
         assert report.executive_summary != ""
-        assert 'ratio_analysis' in report.sections
-        assert 'scoring_models' in report.sections
-        assert 'risk_assessment' in report.sections
-        assert 'recommendations' in report.sections
+        assert "ratio_analysis" in report.sections
+        assert "scoring_models" in report.sections
+        assert "risk_assessment" in report.sections
+        assert "recommendations" in report.sections
 
     def test_report_text_assembly(self, analyzer, healthy_data):
         """Report text can be assembled into download format."""
@@ -519,18 +539,20 @@ class TestReportGeneration:
         ]
 
         for section_key, section_title in [
-            ('ratio_analysis', 'RATIO ANALYSIS'),
-            ('scoring_models', 'SCORING MODELS'),
-            ('risk_assessment', 'RISK ASSESSMENT'),
-            ('recommendations', 'RECOMMENDATIONS'),
+            ("ratio_analysis", "RATIO ANALYSIS"),
+            ("scoring_models", "SCORING MODELS"),
+            ("risk_assessment", "RISK ASSESSMENT"),
+            ("recommendations", "RECOMMENDATIONS"),
         ]:
             if section_key in report.sections:
-                report_lines.extend([
-                    section_title,
-                    "-" * 40,
-                    report.sections[section_key],
-                    "",
-                ])
+                report_lines.extend(
+                    [
+                        section_title,
+                        "-" * 40,
+                        report.sections[section_key],
+                        "",
+                    ]
+                )
 
         report_lines.append("=" * 60)
         report_text = "\n".join(report_lines)
@@ -545,7 +567,7 @@ class TestReportGeneration:
     def test_report_without_prior_period(self, analyzer, healthy_data):
         """Report without prior period should not have period_comparison."""
         report = analyzer.generate_report(healthy_data)
-        assert 'period_comparison' not in report.sections
+        assert "period_comparison" not in report.sections
 
     def test_report_empty_data(self, analyzer):
         """Report can be generated even with empty FinancialData."""
@@ -556,28 +578,31 @@ class TestReportGeneration:
 
 # ===== Integration Test: Full Analysis Pipeline =====
 
+
 class TestAnalysisPipeline:
     """End-to-end integration tests for the Phase 4 analysis pipeline."""
 
     def test_analyze_returns_composite_health(self, analyzer, healthy_data):
         """analyze() includes composite_health for integration with prompts."""
         results = analyzer.analyze(healthy_data)
-        assert 'composite_health' in results
-        health = results['composite_health']
+        assert "composite_health" in results
+        health = results["composite_health"]
         assert isinstance(health, CompositeHealthScore)
         assert 0 <= health.score <= 100
-        assert health.grade in ('A', 'B', 'C', 'D', 'F')
+        assert health.grade in ("A", "B", "C", "D", "F")
 
     def test_dataframe_analysis_pipeline(self, analyzer):
         """Full pipeline: DataFrame -> FinancialData -> analyze -> report."""
-        df = pd.DataFrame({
-            'Revenue': [10_000_000],
-            'Net Income': [1_000_000],
-            'Total Assets': [20_000_000],
-            'Total Equity': [10_000_000],
-            'Current Assets': [5_000_000],
-            'Current Liabilities': [3_000_000],
-        })
+        df = pd.DataFrame(
+            {
+                "Revenue": [10_000_000],
+                "Net Income": [1_000_000],
+                "Total Assets": [20_000_000],
+                "Total Equity": [10_000_000],
+                "Current Assets": [5_000_000],
+                "Current Liabilities": [3_000_000],
+            }
+        )
 
         # Step 1: Convert to FinancialData
         data = analyzer._dataframe_to_financial_data(df)
@@ -585,8 +610,8 @@ class TestAnalysisPipeline:
 
         # Step 2: Analyze
         results = analyzer.analyze(data)
-        assert 'composite_health' in results
-        assert 'insights' in results
+        assert "composite_health" in results
+        assert "insights" in results
 
         # Step 3: Generate report
         report = analyzer.generate_report(data)
@@ -599,8 +624,7 @@ class TestAnalysisPipeline:
 
         # Collect all ratio keys from analysis
         available_keys = set()
-        for category in ('liquidity_ratios', 'profitability_ratios',
-                         'leverage_ratios', 'efficiency_ratios'):
+        for category in ("liquidity_ratios", "profitability_ratios", "leverage_ratios", "efficiency_ratios"):
             for key, value in results.get(category, {}).items():
                 if value is not None:
                     available_keys.add(key)
@@ -608,6 +632,4 @@ class TestAnalysisPipeline:
         # At least some benchmark keys should match analysis keys
         benchmark_keys = set(FinancialInsightsPage.INDUSTRY_BENCHMARKS.keys())
         overlap = available_keys & benchmark_keys
-        assert len(overlap) >= 3, (
-            f"Expected at least 3 matching benchmarks, got {len(overlap)}: {overlap}"
-        )
+        assert len(overlap) >= 3, f"Expected at least 3 matching benchmarks, got {len(overlap)}: {overlap}"

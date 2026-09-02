@@ -4,6 +4,7 @@ Tests for financial_health_score_analysis() and FinancialHealthScoreResult datac
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestFinancialHealthScoreDataclass:
     def test_defaults(self):
         r = FinancialHealthScoreResult()
@@ -68,6 +70,7 @@ class TestFinancialHealthScoreDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestFinancialHealthScoreAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestFinancialHealthScoreAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestFinancialHealthScoring:
     def test_excellent_health(self, analyzer):
@@ -167,6 +171,7 @@ class TestFinancialHealthScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase90EdgeCases:
     def test_empty_data(self, analyzer):

@@ -5,33 +5,27 @@ ratio tables, health scores, and executive summaries.
 """
 
 import io
-from dataclasses import asdict, fields
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import asdict
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 from fpdf import FPDF
 
-from financial_analyzer import (
-    FinancialData,
-    FinancialReport,
-    CompositeHealthScore,
-    AltmanZScore,
-    AltmanZScoreResult,
-    PiotroskiFScore,
-    PiotroskiFScoreResult,
-    ScenarioResult,
-    safe_divide,
-)
 from export_utils import (
-    _PERCENT_KEYWORDS,
-    _DOLLAR_KEYWORDS,
+    _categorize,
+    _is_dollar_key,
     _is_percent_key,
     _is_ratio_key,
-    _is_dollar_key,
-    _CATEGORY_MAP,
-    _categorize,
 )
-
+from financial_analyzer import (
+    AltmanZScore,
+    AltmanZScoreResult,
+    CompositeHealthScore,
+    FinancialData,
+    FinancialReport,
+    PiotroskiFScore,
+    PiotroskiFScoreResult,
+)
 
 # ---------------------------------------------------------------------------
 # Unicode sanitization (P1-E3)
@@ -42,14 +36,14 @@ from export_utils import (
 # Map the common offenders to ASCII, then backstop with a latin-1 round-trip
 # so any remaining out-of-range char becomes "?" instead of surviving.
 _SANITIZE_MAP = {
-    "—": "-",   # em dash
-    "–": "-",   # en dash
-    "µ": "u",   # micro sign
-    "μ": "u",   # Greek small letter mu
-    "‘": "'",   # left single quote
-    "’": "'",   # right single quote
-    "“": '"',   # left double quote
-    "”": '"',   # right double quote
+    "—": "-",  # em dash
+    "–": "-",  # en dash
+    "µ": "u",  # micro sign
+    "μ": "u",  # Greek small letter mu
+    "‘": "'",  # left single quote
+    "’": "'",  # right single quote
+    "“": '"',  # left double quote
+    "”": '"',  # right double quote
     "≥": ">=",  # greater-than or equal
     "≤": "<=",  # less-than or equal
     "…": "...",  # horizontal ellipsis
@@ -74,17 +68,18 @@ def _sanitize_text(s: Any) -> str:
 # Color scheme
 # ---------------------------------------------------------------------------
 
-_DARK_BLUE: Tuple[int, int, int] = (31, 78, 121)    # #1F4E79
+_DARK_BLUE: Tuple[int, int, int] = (31, 78, 121)  # #1F4E79
 _WHITE: Tuple[int, int, int] = (255, 255, 255)
 _LIGHT_GRAY: Tuple[int, int, int] = (242, 242, 242)  # #F2F2F2
-_GREEN: Tuple[int, int, int] = (198, 239, 206)        # #C6EFCE
-_RED: Tuple[int, int, int] = (255, 199, 206)          # #FFC7CE
+_GREEN: Tuple[int, int, int] = (198, 239, 206)  # #C6EFCE
+_RED: Tuple[int, int, int] = (255, 199, 206)  # #FFC7CE
 _BLACK: Tuple[int, int, int] = (0, 0, 0)
 
 
 # ---------------------------------------------------------------------------
 # Main exporter
 # ---------------------------------------------------------------------------
+
 
 class FinancialPDFExporter:
     """Generates multi-page PDF reports for financial analysis."""
@@ -143,10 +138,7 @@ class FinancialPDFExporter:
         self._add_table(pdf, ["Item", "Value"], rows, col_widths=[90, 60])
 
         # Ratio pages by category
-        numeric = {
-            k: v for k, v in analysis_results.items()
-            if isinstance(v, (int, float)) or v is None
-        }
+        numeric = {k: v for k, v in analysis_results.items() if isinstance(v, (int, float)) or v is None}
         _MAX_RATIO_ENTRIES = 500
         if len(numeric) > _MAX_RATIO_ENTRIES:
             numeric = dict(list(numeric.items())[:_MAX_RATIO_ENTRIES])
@@ -411,7 +403,9 @@ class FinancialPDFExporter:
             generated_str = str(report.generated_at)[:100]
             pdf.ln(2)
             pdf.set_font("Helvetica", "I", 9)
-            pdf.cell(0, 7, _sanitize_text(f"Report generated: {generated_str}"), align="C", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(
+                0, 7, _sanitize_text(f"Report generated: {generated_str}"), align="C", new_x="LMARGIN", new_y="NEXT"
+            )
 
     def _add_scoring_section(
         self,

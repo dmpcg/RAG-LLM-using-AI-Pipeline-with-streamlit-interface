@@ -5,6 +5,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_health_cache():
+    """WS-1 P0-2: ``get_health_status`` caches results for 10s.  Reset
+    the cache between tests so each test sees its own mocked stages."""
+    import healthcheck
+
+    healthcheck._reset_health_cache()
+    yield
+    healthcheck._reset_health_cache()
+
+
 # ---------------------------------------------------------------------------
 # check_ollama_connection
 # ---------------------------------------------------------------------------
@@ -45,9 +56,7 @@ class TestCheckModelAvailable:
     def test_model_found(self):
         from healthcheck import check_model_available
 
-        with patch("ollama.list", return_value={
-            "models": [{"name": "llama3.2:latest"}]
-        }):
+        with patch("ollama.list", return_value={"models": [{"name": "llama3.2:latest"}]}):
             result = check_model_available("llama3.2")
         assert result["status"] == "ok"
         assert "available" in result["detail"]
@@ -55,9 +64,7 @@ class TestCheckModelAvailable:
     def test_model_not_found(self):
         from healthcheck import check_model_available
 
-        with patch("ollama.list", return_value={
-            "models": [{"name": "mistral:latest"}]
-        }):
+        with patch("ollama.list", return_value={"models": [{"name": "mistral:latest"}]}):
             result = check_model_available("llama3.2")
         assert result["status"] == "warning"
         assert "not found" in result["detail"]
@@ -208,9 +215,9 @@ class TestGetHealthStatus:
     def test_healthy(self):
         from healthcheck import get_health_status
 
-        with patch("healthcheck.run_preflight_checks", return_value=[
-            {"status": "ok", "detail": "all good", "check": "test"}
-        ]):
+        with patch(
+            "healthcheck.run_preflight_checks", return_value=[{"status": "ok", "detail": "all good", "check": "test"}]
+        ):
             status = get_health_status()
         assert status["healthy"] is True
         assert status["status"] == "healthy"
@@ -218,10 +225,13 @@ class TestGetHealthStatus:
     def test_degraded(self):
         from healthcheck import get_health_status
 
-        with patch("healthcheck.run_preflight_checks", return_value=[
-            {"status": "ok", "detail": "fine", "check": "a"},
-            {"status": "warning", "detail": "model missing", "check": "b"},
-        ]):
+        with patch(
+            "healthcheck.run_preflight_checks",
+            return_value=[
+                {"status": "ok", "detail": "fine", "check": "a"},
+                {"status": "warning", "detail": "model missing", "check": "b"},
+            ],
+        ):
             status = get_health_status()
         assert status["healthy"] is True
         assert status["status"] == "degraded"
@@ -229,9 +239,12 @@ class TestGetHealthStatus:
     def test_unhealthy(self):
         from healthcheck import get_health_status
 
-        with patch("healthcheck.run_preflight_checks", return_value=[
-            {"status": "error", "detail": "cannot connect", "check": "a"},
-        ]):
+        with patch(
+            "healthcheck.run_preflight_checks",
+            return_value=[
+                {"status": "error", "detail": "cannot connect", "check": "a"},
+            ],
+        ):
             status = get_health_status()
         assert status["healthy"] is False
         assert status["status"] == "unhealthy"

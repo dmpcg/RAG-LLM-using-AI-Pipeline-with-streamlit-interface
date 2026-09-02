@@ -57,6 +57,11 @@ financial-report-insights/.claude/
 *.bak
 README.pdf
 launch_financial_insights.log
+
+# Runtime artifacts (ruflo / vector db)
+**/agentdb.rvf
+**/*.rvf
+**/*.rvf.lock
 ruvector.db
 
 # ---------------------------------------------------------------------------

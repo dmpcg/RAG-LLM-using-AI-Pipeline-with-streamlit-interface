@@ -4,6 +4,7 @@ Tests for profit_conversion_analysis() and ProfitConversionResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestProfitConversionDataclass:
     def test_defaults(self):
         r = ProfitConversionResult()
@@ -68,6 +70,7 @@ class TestProfitConversionDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestProfitConversionAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestProfitConversionAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestProfitConversionScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """GC=0.40 => base 7.0. OC=0.20 >=0.20 => +0.5. CC=0.22 >=0.20 => +0.5. Score=8.0."""
@@ -153,6 +157,7 @@ class TestProfitConversionScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase179EdgeCases:
     def test_empty_data(self, analyzer):

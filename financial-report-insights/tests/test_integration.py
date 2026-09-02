@@ -3,12 +3,12 @@ Integration tests for the RAG-LLM Financial Enhancement system.
 Tests Excel processing, financial analysis, and visualization generation.
 """
 
-import pytest
-import pandas as pd
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
+
+import pandas as pd
+import pytest
 
 
 class TestExcelProcessor:
@@ -25,9 +25,9 @@ class TestExcelProcessor:
     def sample_income_statement(self, temp_docs_folder):
         """Create a sample income statement Excel file."""
         data = {
-            'Line Item': ['Revenue', 'COGS', 'Gross Profit', 'Operating Expenses', 'Net Income'],
-            'Q1 2024': [1000000, 400000, 600000, 200000, 400000],
-            'Q2 2024': [1100000, 440000, 660000, 210000, 450000],
+            "Line Item": ["Revenue", "COGS", "Gross Profit", "Operating Expenses", "Net Income"],
+            "Q1 2024": [1000000, 400000, 600000, 200000, 400000],
+            "Q2 2024": [1100000, 440000, 660000, 210000, 450000],
         }
         df = pd.DataFrame(data)
         file_path = temp_docs_folder / "income_statement.xlsx"
@@ -38,9 +38,9 @@ class TestExcelProcessor:
     def sample_csv(self, temp_docs_folder):
         """Create a sample CSV file."""
         data = {
-            'Category': ['Revenue', 'Expenses', 'Profit'],
-            'Actual': [100000, 60000, 40000],
-            'Budget': [95000, 55000, 40000]
+            "Category": ["Revenue", "Expenses", "Profit"],
+            "Actual": [100000, 60000, 40000],
+            "Budget": [95000, 55000, 40000],
         }
         df = pd.DataFrame(data)
         file_path = temp_docs_folder / "budget.csv"
@@ -57,8 +57,8 @@ class TestExcelProcessor:
         # Deduplicate since scan checks both lower and upper extensions
         unique_files = set(files)
         assert len(unique_files) == 2
-        assert any(f.suffix == '.xlsx' for f in unique_files)
-        assert any(f.suffix == '.csv' for f in unique_files)
+        assert any(f.suffix == ".xlsx" for f in unique_files)
+        assert any(f.suffix == ".csv" for f in unique_files)
 
     def test_load_xlsx_workbook(self, temp_docs_folder, sample_income_statement):
         """Test loading an xlsx workbook."""
@@ -74,7 +74,7 @@ class TestExcelProcessor:
         # Check first sheet
         sheet = workbook.sheets[0]
         assert not sheet.df.empty
-        assert 'Line Item' in sheet.df.columns or sheet.df.columns[0] is not None
+        assert "Line Item" in sheet.df.columns or sheet.df.columns[0] is not None
 
     def test_load_csv(self, temp_docs_folder, sample_csv):
         """Test loading a CSV file."""
@@ -87,8 +87,8 @@ class TestExcelProcessor:
         assert len(workbook.sheets) == 1
 
         df = workbook.sheets[0].df
-        assert 'Category' in df.columns
-        assert 'Actual' in df.columns
+        assert "Category" in df.columns
+        assert "Actual" in df.columns
         assert len(df) == 3
 
     def test_detect_statement_type(self, temp_docs_folder, sample_income_statement):
@@ -100,7 +100,7 @@ class TestExcelProcessor:
 
         sheet = workbook.sheets[0]
         # Should detect as income statement based on keywords
-        assert sheet.detected_type in ['income_statement', 'custom']
+        assert sheet.detected_type in ["income_statement", "custom"]
 
     def test_to_rag_chunks(self, temp_docs_folder, sample_income_statement):
         """Test converting Excel data to RAG chunks."""
@@ -122,9 +122,9 @@ class TestExcelProcessor:
         docs = process_excel_for_rag(sample_income_statement, str(temp_docs_folder))
 
         assert len(docs) > 0
-        assert all('content' in doc for doc in docs)
-        assert all('metadata' in doc for doc in docs)
-        assert all(doc['metadata']['type'] == 'excel' for doc in docs)
+        assert all("content" in doc for doc in docs)
+        assert all("metadata" in doc for doc in docs)
+        assert all(doc["metadata"]["type"] == "excel" for doc in docs)
 
 
 class TestFinancialAnalyzer:
@@ -134,6 +134,7 @@ class TestFinancialAnalyzer:
     def sample_financial_data(self):
         """Create sample financial data."""
         from financial_analyzer import FinancialData
+
         return FinancialData(
             revenue=1000000,
             cogs=400000,
@@ -151,7 +152,7 @@ class TestFinancialAnalyzer:
             total_debt=600000,
             total_equity=1000000,
             interest_expense=50000,
-            ebit=300000
+            ebit=300000,
         )
 
     def test_calculate_liquidity_ratios(self, sample_financial_data):
@@ -161,14 +162,14 @@ class TestFinancialAnalyzer:
         analyzer = CharlieAnalyzer()
         ratios = analyzer.calculate_liquidity_ratios(sample_financial_data)
 
-        assert 'current_ratio' in ratios
-        assert ratios['current_ratio'] == pytest.approx(2.0, rel=0.01)  # 800k / 400k
+        assert "current_ratio" in ratios
+        assert ratios["current_ratio"] == pytest.approx(2.0, rel=0.01)  # 800k / 400k
 
-        assert 'quick_ratio' in ratios
-        assert ratios['quick_ratio'] == pytest.approx(1.25, rel=0.01)  # (800k - 300k) / 400k
+        assert "quick_ratio" in ratios
+        assert ratios["quick_ratio"] == pytest.approx(1.25, rel=0.01)  # (800k - 300k) / 400k
 
-        assert 'cash_ratio' in ratios
-        assert ratios['cash_ratio'] == pytest.approx(0.5, rel=0.01)  # 200k / 400k
+        assert "cash_ratio" in ratios
+        assert ratios["cash_ratio"] == pytest.approx(0.5, rel=0.01)  # 200k / 400k
 
     def test_calculate_profitability_ratios(self, sample_financial_data):
         """Test profitability ratio calculations."""
@@ -177,17 +178,17 @@ class TestFinancialAnalyzer:
         analyzer = CharlieAnalyzer()
         ratios = analyzer.calculate_profitability_ratios(sample_financial_data)
 
-        assert 'gross_margin' in ratios
-        assert ratios['gross_margin'] == pytest.approx(0.6, rel=0.01)  # 600k / 1M
+        assert "gross_margin" in ratios
+        assert ratios["gross_margin"] == pytest.approx(0.6, rel=0.01)  # 600k / 1M
 
-        assert 'operating_margin' in ratios
-        assert ratios['operating_margin'] == pytest.approx(0.3, rel=0.01)  # 300k / 1M
+        assert "operating_margin" in ratios
+        assert ratios["operating_margin"] == pytest.approx(0.3, rel=0.01)  # 300k / 1M
 
-        assert 'net_margin' in ratios
-        assert ratios['net_margin'] == pytest.approx(0.2, rel=0.01)  # 200k / 1M
+        assert "net_margin" in ratios
+        assert ratios["net_margin"] == pytest.approx(0.2, rel=0.01)  # 200k / 1M
 
-        assert 'roe' in ratios
-        assert ratios['roe'] == pytest.approx(0.2, rel=0.01)  # 200k / 1M
+        assert "roe" in ratios
+        assert ratios["roe"] == pytest.approx(0.2, rel=0.01)  # 200k / 1M
 
     def test_calculate_leverage_ratios(self, sample_financial_data):
         """Test leverage ratio calculations."""
@@ -196,11 +197,11 @@ class TestFinancialAnalyzer:
         analyzer = CharlieAnalyzer()
         ratios = analyzer.calculate_leverage_ratios(sample_financial_data)
 
-        assert 'debt_to_equity' in ratios
-        assert ratios['debt_to_equity'] == pytest.approx(0.6, rel=0.01)  # 600k / 1M
+        assert "debt_to_equity" in ratios
+        assert ratios["debt_to_equity"] == pytest.approx(0.6, rel=0.01)  # 600k / 1M
 
-        assert 'interest_coverage' in ratios
-        assert ratios['interest_coverage'] == pytest.approx(6.0, rel=0.01)  # 300k / 50k
+        assert "interest_coverage" in ratios
+        assert ratios["interest_coverage"] == pytest.approx(6.0, rel=0.01)  # 300k / 50k
 
     def test_calculate_variance(self):
         """Test variance calculation."""
@@ -241,13 +242,13 @@ class TestFinancialAnalyzer:
 
         analyzer = CharlieAnalyzer()
         results = analyzer.analyze(sample_financial_data)
-        insights = results.get('insights', [])
+        insights = results.get("insights", [])
 
         # Insights list may be empty for balanced financial data
         assert isinstance(insights, list)
         if insights:
-            assert all(hasattr(insight, 'category') for insight in insights)
-            assert all(hasattr(insight, 'message') for insight in insights)
+            assert all(hasattr(insight, "category") for insight in insights)
+            assert all(hasattr(insight, "message") for insight in insights)
 
     def test_forecast_simple(self):
         """Test simple forecasting."""
@@ -256,26 +257,25 @@ class TestFinancialAnalyzer:
         analyzer = CharlieAnalyzer()
 
         historical = [100, 110, 120, 130, 140]
-        forecast = analyzer.forecast_simple(historical, periods=3, method='linear')
+        forecast = analyzer.forecast_simple(historical, periods=3, method="linear")
 
         assert len(forecast.forecasted_values) == 3
         assert all(v > 140 for v in forecast.forecasted_values)  # Should be increasing
 
     def test_analyze_trends(self):
         """Test trend analysis."""
-        from financial_analyzer import CharlieAnalyzer
         import pandas as pd
+
+        from financial_analyzer import CharlieAnalyzer
 
         analyzer = CharlieAnalyzer()
 
-        df = pd.DataFrame({
-            'revenue': [100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 220]
-        })
+        df = pd.DataFrame({"revenue": [100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 220]})
 
-        trend = analyzer.analyze_trends(df, 'revenue')
+        trend = analyzer.analyze_trends(df, "revenue")
 
-        assert trend.metric_name == 'revenue'
-        assert trend.trend_direction == 'up'
+        assert trend.metric_name == "revenue"
+        assert trend.trend_direction == "up"
         assert trend.cagr is not None
         assert trend.cagr > 0
 
@@ -307,12 +307,7 @@ class TestVisualization:
         """Test gauge chart creation."""
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_gauge_chart(
-            value=1.5,
-            title="Current Ratio",
-            min_val=0,
-            max_val=3
-        )
+        fig = FinancialVizUtils.create_gauge_chart(value=1.5, title="Current Ratio", min_val=0, max_val=3)
 
         assert fig is not None
         assert len(fig.data) > 0
@@ -322,9 +317,7 @@ class TestVisualization:
         from viz_utils import FinancialVizUtils
 
         fig = FinancialVizUtils.create_waterfall(
-            categories=['Revenue', 'Expenses', 'Taxes'],
-            values=[100000, -60000, -10000],
-            title="Profit Breakdown"
+            categories=["Revenue", "Expenses", "Taxes"], values=[100000, -60000, -10000], title="Profit Breakdown"
         )
 
         assert fig is not None
@@ -334,28 +327,22 @@ class TestVisualization:
         """Test sparkline creation."""
         from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_sparkline(
-            values=[10, 12, 11, 15, 18, 16, 20]
-        )
+        fig = FinancialVizUtils.create_sparkline(values=[10, 12, 11, 15, 18, 16, 20])
 
         assert fig is not None
         assert len(fig.data) > 0
 
     def test_create_time_series(self):
         """Test time series chart creation."""
-        from viz_utils import FinancialVizUtils
         import pandas as pd
 
-        df = pd.DataFrame({
-            'Period': ['Q1', 'Q2', 'Q3', 'Q4'],
-            'Revenue': [100, 110, 120, 130],
-            'Expenses': [60, 65, 70, 75]
-        })
+        from viz_utils import FinancialVizUtils
 
-        fig = FinancialVizUtils.create_time_series(
-            df, 'Period', ['Revenue', 'Expenses'],
-            title="Financial Trend"
+        df = pd.DataFrame(
+            {"Period": ["Q1", "Q2", "Q3", "Q4"], "Revenue": [100, 110, 120, 130], "Expenses": [60, 65, 70, 75]}
         )
+
+        fig = FinancialVizUtils.create_time_series(df, "Period", ["Revenue", "Expenses"], title="Financial Trend")
 
         assert fig is not None
         assert len(fig.data) == 2
@@ -374,10 +361,7 @@ class TestRAGIntegration:
     @pytest.fixture
     def sample_excel_in_docs(self, temp_docs_folder):
         """Create sample Excel file in documents folder."""
-        data = {
-            'Item': ['Revenue', 'Expenses', 'Net Income'],
-            'Amount': [100000, 60000, 40000]
-        }
+        data = {"Item": ["Revenue", "Expenses", "Net Income"], "Amount": [100000, 60000, 40000]}
         df = pd.DataFrame(data)
         file_path = temp_docs_folder / "financial_data.xlsx"
         df.to_excel(file_path, index=False)
@@ -387,8 +371,18 @@ class TestRAGIntegration:
         """Test financial query detection."""
         # We can't import SimpleRAG without Ollama, so test the logic directly
         financial_keywords = [
-            'ratio', 'margin', 'profit', 'revenue', 'income', 'expense',
-            'cash flow', 'budget', 'variance', 'roe', 'roa', 'roi'
+            "ratio",
+            "margin",
+            "profit",
+            "revenue",
+            "income",
+            "expense",
+            "cash flow",
+            "budget",
+            "variance",
+            "roe",
+            "roa",
+            "roi",
         ]
 
         def is_financial(query):
@@ -412,7 +406,7 @@ class TestErrorHandling:
         empty_data = FinancialData()
 
         ratios = analyzer.calculate_liquidity_ratios(empty_data)
-        assert ratios['current_ratio'] is None
+        assert ratios["current_ratio"] is None
 
     def test_division_by_zero(self):
         """Test handling of division by zero."""
@@ -421,21 +415,22 @@ class TestErrorHandling:
         analyzer = CharlieAnalyzer()
         data = FinancialData(
             current_assets=100000,
-            current_liabilities=0  # This would cause division by zero
+            current_liabilities=0,  # This would cause division by zero
         )
 
         ratios = analyzer.calculate_liquidity_ratios(data)
-        assert ratios['current_ratio'] is None
+        assert ratios["current_ratio"] is None
 
     def test_corrupted_excel_graceful_handling(self):
         """Test graceful handling of corrupted files."""
-        from excel_processor import ExcelProcessor
         import tempfile
+
+        from excel_processor import ExcelProcessor
 
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create a corrupted file
             corrupted_path = Path(temp_dir) / "corrupted.xlsx"
-            with open(corrupted_path, 'w') as f:
+            with open(corrupted_path, "w") as f:
                 f.write("This is not a valid Excel file")
 
             processor = ExcelProcessor(temp_dir)

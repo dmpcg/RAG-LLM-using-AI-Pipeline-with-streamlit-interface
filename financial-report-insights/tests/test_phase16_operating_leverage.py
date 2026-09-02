@@ -4,6 +4,7 @@ Tests for operating_leverage_analysis() and OperatingLeverageResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -46,6 +47,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestOperatingLeverageDataclass:
     def test_defaults(self):
         r = OperatingLeverageResult()
@@ -66,6 +68,7 @@ class TestOperatingLeverageDataclass:
 
 
 # ===== OPERATING LEVERAGE ANALYSIS =====
+
 
 class TestOperatingLeverageAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -143,6 +146,7 @@ class TestOperatingLeverageAnalysis:
 
 # ===== HIGH FIXED COST COMPANY =====
 
+
 class TestHighFixedCostCompany:
     def test_high_depreciation_means_high_fixed(self, analyzer):
         """Company with large depreciation has high fixed costs."""
@@ -171,6 +175,7 @@ class TestHighFixedCostCompany:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase16EdgeCases:
     def test_empty_data(self, analyzer):

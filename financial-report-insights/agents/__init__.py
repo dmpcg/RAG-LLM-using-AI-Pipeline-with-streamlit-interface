@@ -14,8 +14,8 @@ from agents.workflows import (
     WorkflowResult,
     WorkflowStep,
     create_comprehensive_analysis_workflow,
-    create_quick_scan_workflow,
     create_query_router_workflow,
+    create_quick_scan_workflow,
 )
 
 __all__ = [

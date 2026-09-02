@@ -4,10 +4,11 @@ Tests for expense_ratio_discipline_analysis() and ExpenseRatioDisciplineResult d
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     ExpenseRatioDisciplineResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestExpenseRatioDisciplineDataclass:
     def test_defaults(self):
         r = ExpenseRatioDisciplineResult()
@@ -68,6 +70,7 @@ class TestExpenseRatioDisciplineDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestExpenseRatioDisciplineAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -105,6 +108,7 @@ class TestExpenseRatioDisciplineAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestExpenseRatioDisciplineScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """OpEx/Rev=0.20<=0.30=>base 10. COGS/Rev=0.60<=0.60(+0.5). OI=200k>0(+0.5). Score=10 (capped)."""
@@ -139,6 +143,7 @@ class TestExpenseRatioDisciplineScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase292EdgeCases:
     def test_empty_data(self, analyzer):

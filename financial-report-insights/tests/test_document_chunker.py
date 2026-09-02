@@ -1,16 +1,14 @@
 """Tests for document_chunker module."""
 
-import pytest
-
 from document_chunker import (
     RAGChunk,
-    chunk_text_content,
-    chunk_table,
-    chunk_excel_sheet,
-    _generate_chunk_id,
     _count_tokens_approx,
-    _is_mostly_numeric,
+    _generate_chunk_id,
     _generate_nl_description,
+    _is_mostly_numeric,
+    chunk_excel_sheet,
+    chunk_table,
+    chunk_text_content,
 )
 
 
@@ -63,7 +61,9 @@ class TestGenerateNLDescription:
     def test_with_source_and_section(self):
         desc = _generate_nl_description(
             "| Revenue | 1000 |\n| COGS | 500 |",
-            "income_statement", "P&L", "company.xlsx",
+            "income_statement",
+            "P&L",
+            "company.xlsx",
         )
         assert "company.xlsx" in desc
         assert "P&L" in desc
@@ -90,8 +90,10 @@ class TestChunkTextContent:
         sentences = [f"Sentence number {i} with enough words to count." for i in range(50)]
         text = " ".join(sentences)
         chunks = chunk_text_content(
-            text, source="test.pdf",
-            child_token_target=50, parent_token_target=200,
+            text,
+            source="test.pdf",
+            child_token_target=50,
+            parent_token_target=200,
         )
         parents = [c for c in chunks if c.metadata.get("chunk_level") == "parent"]
         children = [c for c in chunks if c.metadata.get("chunk_level") == "child"]
@@ -152,7 +154,8 @@ class TestChunkTable:
 
     def test_metadata(self):
         chunk = chunk_table(
-            "| A | B |", source="file.xlsx",
+            "| A | B |",
+            source="file.xlsx",
             section_title="Income Statement",
             metadata={"sheet_name": "P&L"},
         )
@@ -182,7 +185,9 @@ class TestChunkExcelSheet:
     def test_sheet_metadata(self):
         md = "| A | B |\n|---|---|\n| 1 | 2 |"
         chunks = chunk_excel_sheet(
-            md, source="test.xlsx", sheet_name="Balance Sheet",
+            md,
+            source="test.xlsx",
+            sheet_name="Balance Sheet",
             section_type="balance_sheet",
         )
         assert len(chunks) >= 1

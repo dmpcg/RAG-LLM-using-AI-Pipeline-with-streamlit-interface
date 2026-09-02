@@ -36,6 +36,7 @@ class RAGChunk:
         metadata: Additional metadata dict.
         nl_description: Natural language description of numeric content.
     """
+
     chunk_id: str
     text: str
     parent_id: Optional[str] = None
@@ -215,7 +216,10 @@ def chunk_text_content(
         # Add NL description for numeric-heavy parent chunks
         if _is_mostly_numeric(parent_text):
             parent_chunk.nl_description = _generate_nl_description(
-                parent_text, section_type, section_title, source,
+                parent_text,
+                section_type,
+                section_title,
+                source,
             )
 
         chunks.append(parent_chunk)
@@ -245,7 +249,10 @@ def chunk_text_content(
 
                 if _is_mostly_numeric(child_text):
                     child_chunk.nl_description = _generate_nl_description(
-                        child_text, section_type, section_title, source,
+                        child_text,
+                        section_type,
+                        section_title,
+                        source,
                     )
 
                 chunks.append(child_chunk)
@@ -274,7 +281,10 @@ def chunk_text_content(
             )
             if _is_mostly_numeric(child_text):
                 child_chunk.nl_description = _generate_nl_description(
-                    child_text, section_type, section_title, source,
+                    child_text,
+                    section_type,
+                    section_title,
+                    source,
                 )
             chunks.append(child_chunk)
             chunk_idx += 1
@@ -376,6 +386,10 @@ def chunk_excel_sheet(
         return []
 
     # 1) Group rows into PARENT context blocks (row boundaries preserved).
+    #    NOTE: main's "small sheets -> atomic table chunk" shortcut is
+    #    deliberately not reinstated here. That path is what produced single
+    #    ~1200-token blocks which overflowed the 512-token embed window and were
+    #    truncated to ~18% coverage -- the defect this parent/child split fixes.
     parent_blocks: List[List[str]] = []
     cur_rows: List[str] = []
     cur_tokens = 0

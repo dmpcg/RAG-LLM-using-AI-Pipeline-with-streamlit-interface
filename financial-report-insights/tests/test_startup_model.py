@@ -4,14 +4,10 @@ import pytest
 
 from financial_analyzer import FinancialData
 from startup_model import (
-    BurnRunway,
-    FundingScenario,
     SaaSMetrics,
     StartupAnalyzer,
     StartupReport,
-    UnitEconomics,
 )
-
 
 # ---------------------------------------------------------------------------
 # SaaS metrics

@@ -4,11 +4,12 @@ Tests for earnings_quality(), capital_efficiency() and related dataclasses.
 """
 
 import pytest
+
 from financial_analyzer import (
-    CharlieAnalyzer,
-    FinancialData,
-    EarningsQualityResult,
     CapitalEfficiencyResult,
+    CharlieAnalyzer,
+    EarningsQualityResult,
+    FinancialData,
 )
 
 
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestEarningsQualityDataclass:
     def test_defaults(self):
         r = EarningsQualityResult()
@@ -74,6 +76,7 @@ class TestCapitalEfficiencyDataclass:
 
 
 # ===== EARNINGS QUALITY TESTS =====
+
 
 class TestEarningsQuality:
     def test_returns_result(self, analyzer, sample_data):
@@ -196,6 +199,7 @@ class TestEarningsQuality:
 
 
 # ===== CAPITAL EFFICIENCY TESTS =====
+
 
 class TestCapitalEfficiency:
     def test_returns_result(self, analyzer, sample_data):
@@ -329,6 +333,7 @@ class TestCapitalEfficiency:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase13EdgeCases:
     def test_earnings_quality_very_negative_ocf(self, analyzer):

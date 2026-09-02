@@ -19,7 +19,7 @@ A privacy-first, local RAG (Retrieval-Augmented Generation) platform for CFO-gra
 
 | Layer | Technology |
 |-------|------------|
-| Language | Python 3.11+ |
+| Language | Python 3.12 or 3.13 (numpy 2.x wheels require 3.12+) |
 | UI | Streamlit |
 | LLM | Ollama (llama3.2 default) |
 | Embeddings | Ollama (mxbai-embed-large, 1024-dim) |
@@ -33,7 +33,7 @@ A privacy-first, local RAG (Retrieval-Augmented Generation) platform for CFO-gra
 
 ## Prerequisites
 
-- **Python 3.11+** (3.12 recommended; the Docker image uses 3.12)
+- **Python 3.12 or 3.13 (numpy 2.x wheels require 3.12+)**
 - **Ollama** — [Install Ollama](https://ollama.com/download) and pull a model:
   ```bash
   ollama pull llama3.2
@@ -53,12 +53,11 @@ This starts Ollama and the app together. No local Python or Ollama install requi
 git clone https://github.com/Dono1901/RAG-LLM-using-AI-Pipeline-with-streamlit-interface.git
 cd RAG-LLM-using-AI-Pipeline-with-streamlit-interface/financial-report-insights
 
-# First time only — pull the LLM model into the Ollama container:
-docker compose --profile setup up -d
-docker compose --profile setup run --rm ollama-setup
-
-# Start the application:
+# Start the application (Streamlit + FastAPI + optional Neo4j):
 docker compose up -d
+
+# To enable the optional graph database (Neo4j):
+docker compose --profile graph up -d
 ```
 
 Open [http://localhost:8501](http://localhost:8501) in your browser.
@@ -116,7 +115,7 @@ financial-report-insights/
 ├── Dockerfile               # Multi-stage build, non-root user, tini init
 ├── docker-compose.yml       # Ollama + rag-app + setup profile
 ├── .env.example
-└── tests/                   # 124 test files, ~2,600 tests
+└── tests/                   # 150+ test files, ~5,300 tests
     ├── conftest.py
     └── test_*.py
 ```
@@ -182,7 +181,7 @@ cp .env.example .env
 |----------|---------|-------------|
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL |
 | `RAG_LLM_MODEL` | `llama3.2` | Ollama model for text generation |
-| `RAG_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence Transformer model for embeddings |
+| `RAG_EMBEDDING_MODEL` | `mxbai-embed-large` | Docker Model Runner embedding model (1024-dim) |
 | `RAG_CHUNK_SIZE` | `500` | Characters per document chunk |
 | `RAG_CHUNK_OVERLAP` | `50` | Overlap between adjacent chunks |
 | `RAG_TOP_K` | `3` | Number of search results to retrieve |
@@ -227,7 +226,7 @@ RAG_TOP_K=5
 
 ## Testing
 
-The project has 124 test files with approximately 2,600 tests covering all analysis methods, edge cases, security, and integration scenarios.
+The project has 150+ test files with approximately 5,300 tests covering all analysis methods, edge cases, security, and integration scenarios.
 
 ```bash
 cd financial-report-insights
@@ -260,31 +259,31 @@ Test categories:
 
 ### Docker Compose Services
 
-The `docker-compose.yml` defines three services:
+The `docker-compose.yml` defines two core services plus an optional graph database:
 
 | Service | Image | Purpose | Port |
 |---------|-------|---------|------|
-| `ollama` | `ollama/ollama:latest` | LLM inference server | 11434 |
-| `rag-app` | Built from `Dockerfile` | Streamlit application | 8501 |
-| `ollama-setup` | `curlimages/curl:latest` | One-time model pull (setup profile) | — |
+| `rag-app` | Built from `Dockerfile` | Streamlit (8501) + FastAPI (8504) | 8501, 8504 |
+| `neo4j` (optional, `--profile graph`) | `neo4j:5-community` | Graph knowledge base with APOC | 7474, 7687 |
 
 **Resource limits:**
-- Ollama: 4 GB memory reservation
-- rag-app: 3 GB reservation, 6 GB limit
+- rag-app: 3 GB reservation, 4 GB limit
+- neo4j: 1.5 GB limit
 
 **Volumes:**
-- `ollama-data` — persists downloaded models across restarts
 - `app-cache` — embedding and LLM response cache
-- `huggingface-cache` — Sentence Transformer model files
+- `neo4j-data` — graph database persistence (graph profile only)
 - `./documents` — bind mount for uploaded files
+
+**Embedding service:** Ollama-compatible API served by Docker Model Runner (DMR) at `http://model-runner.docker.internal:80` (requires Docker Desktop with model service enabled). The application uses `ollama` Python client but queries DMR, not Ollama.
 
 ### Dockerfile Highlights
 
 - **Multi-stage build** — build dependencies are not in the final image
 - **Non-root user** (`appuser`) — runs as unprivileged user
 - **tini init** — proper PID 1 signal handling for graceful shutdown
-- **Pre-cached model** — `all-MiniLM-L6-v2` is downloaded at build time (no first-run delay)
-- **Health check** — built-in Streamlit health endpoint monitoring
+- **Read-only filesystem** — immutable root FS with tmpfs and named volumes for writes
+- **Health check** — probes both Streamlit (8501) and FastAPI (8504) endpoints
 
 ### Changing the LLM Model
 
@@ -356,9 +355,13 @@ Default maximum file size is 200 MB.
 RAG_MAX_FILE_SIZE_MB=500
 ```
 
-### Slow first query
+### Slow first query or embedding errors
 
-The first query after startup downloads the Sentence Transformer model (~80 MB). Subsequent queries use the cached model. In Docker, the model is pre-cached at build time.
+Embeddings are served by Docker Model Runner (DMR). Ensure:
+1. Docker Desktop is running
+2. Model service is enabled in Docker Desktop (Settings > AI ML > Enable Docker AI)
+3. Model is pulled: `docker model pull ai/mxbai-embed-large` (not via Ollama)
+4. DMR is accessible at `http://model-runner.docker.internal:80` (or set OLLAMA_HOST)
 
 ### Circuit breaker open
 

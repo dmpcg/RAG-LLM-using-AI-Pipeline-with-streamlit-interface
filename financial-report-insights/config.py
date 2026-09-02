@@ -18,8 +18,7 @@ logger = logging.getLogger(__name__)
 _ENV_FILE = Path(__file__).parent / ".env"
 if not _ENV_FILE.exists():
     logger.warning(
-        ".env file not found at %s — using defaults. "
-        "Copy .env.example to .env for custom configuration.",
+        ".env file not found at %s — using defaults. Copy .env.example to .env for custom configuration.",
         _ENV_FILE,
     )
 load_dotenv(_ENV_FILE)
@@ -68,6 +67,7 @@ class Settings(BaseSettings):
     llm_cache_dir: str = ".cache/llm_responses"
     llm_cache_size_limit_mb: int = 1000
     llm_cache_maxsize: int = 128  # In-memory LRU cache entries
+    reranker_cache_maxsize: int = 1024  # Doc-embedding LRU cache entries on EmbeddingReranker
 
     # Embedding
     embedding_dimension: int = 1024  # mxbai-embed-large; 0 = auto-probe
@@ -84,7 +84,9 @@ class Settings(BaseSettings):
 
     # API
     api_port: int = 8504
+    api_key: str = ""  # When set, X-API-Key required on all routes except /health and /metrics (env RAG_API_KEY)
     cors_origins: str = "http://localhost:8501"  # Comma-separated allowed origins
+    cors_allow_credentials: bool = False  # If True, "*" in cors_origins is forbidden (browsers reject the combination)
     max_request_body_bytes: int = 1_048_576  # 1 MB max request body
     max_financial_fields: int = 200  # Max fields in a financial_data dict
 
@@ -132,6 +134,7 @@ class Settings(BaseSettings):
     # Observability
     enable_tracing: bool = True  # Enable request tracing
     metrics_window_size: int = 10000  # Max metrics entries per rolling window
+    enable_metrics_endpoint: bool = False  # Expose GET /metrics (Prometheus); off by default
 
     # Vector index
     vector_backend: str = "auto"  # "auto" | "faiss" | "hnswlib" | "numpy"
@@ -157,11 +160,23 @@ def validate_settings(s: Settings | None = None) -> Tuple[list[str], list[str]]:
     ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
     parsed = urlparse(ollama_host)
     if parsed.scheme not in ("http", "https"):
+        errors.append(f"OLLAMA_HOST scheme must be http or https, got: {parsed.scheme!r}")
+
+    # --- CORS sanity (WS-1 P0-16, 2026-05-07) ---
+    # The CORS spec forbids the wildcard origin when credentials are sent;
+    # browsers reject the combination, but a misconfigured server still
+    # echoes "Access-Control-Allow-Origin: *" which can mask real bugs.  Treat
+    # the combo as a hard error so it cannot ship.
+    cors_origin_list = [o.strip() for o in s.cors_origins.split(",") if o.strip()]
+    if s.cors_allow_credentials and "*" in cors_origin_list:
         errors.append(
-            f"OLLAMA_HOST scheme must be http or https, got: {parsed.scheme!r}"
+            "cors_origins='*' is incompatible with cors_allow_credentials=True; list explicit origins instead."
         )
 
     # --- Neo4j consistency ---
+    # Distinguish UNSET (env var absent) from set-but-blank.  Only require a
+    # password when NEO4J_URI is actually configured (non-empty after strip);
+    # an unset OR blank NEO4J_URI must never trigger the password requirement.
     neo4j_uri = os.environ.get("NEO4J_URI", "").strip()
     neo4j_pass = os.environ.get("NEO4J_PASSWORD", "").strip()
     if neo4j_uri and not neo4j_pass:
@@ -171,23 +186,16 @@ def validate_settings(s: Settings | None = None) -> Tuple[list[str], list[str]]:
     if not (100 <= s.chunk_size <= 5000):
         errors.append(f"chunk_size must be 100-5000, got {s.chunk_size}")
     if s.chunk_overlap >= s.chunk_size:
-        errors.append(
-            f"chunk_overlap ({s.chunk_overlap}) must be < chunk_size ({s.chunk_size})"
-        )
+        errors.append(f"chunk_overlap ({s.chunk_overlap}) must be < chunk_size ({s.chunk_size})")
     if not (1 <= s.top_k <= s.max_top_k):
         errors.append(f"top_k must be 1-{s.max_top_k}, got {s.top_k}")
     if s.llm_timeout_seconds < 10:
-        errors.append(
-            f"llm_timeout_seconds too low: {s.llm_timeout_seconds} (min 10)"
-        )
+        errors.append(f"llm_timeout_seconds too low: {s.llm_timeout_seconds} (min 10)")
     if s.embedding_dimension not in (0, 384, 768, 1024):
         warnings.append(f"Unusual embedding_dimension: {s.embedding_dimension}")
     if s.max_file_size_mb > 500:
         warnings.append(f"max_file_size_mb is very large: {s.max_file_size_mb}")
-    if s.bm25_weight + s.semantic_weight != 1.0:
-        warnings.append(
-            f"bm25_weight + semantic_weight = {s.bm25_weight + s.semantic_weight} "
-            f"(expected 1.0)"
-        )
+    if abs((s.bm25_weight + s.semantic_weight) - 1.0) > 1e-9:
+        warnings.append(f"bm25_weight + semantic_weight = {s.bm25_weight + s.semantic_weight} (expected 1.0)")
 
     return errors, warnings

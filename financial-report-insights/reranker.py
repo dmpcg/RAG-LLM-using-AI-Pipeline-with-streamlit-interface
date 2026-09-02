@@ -5,20 +5,37 @@ When a real cross-encoder model is available (e.g., via DMR),
 it can be swapped in by implementing the RerankerProtocol.
 """
 
+import hashlib
 import logging
+from collections import OrderedDict
 from typing import Any, Dict, List, Protocol
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_CACHE_MAXSIZE = 1024
+
+
+def _content_key(doc: dict[str, Any]) -> str:
+    """Return a cache key for a document.
+
+    Key = sha256(content) when no chunk_id is present.
+    Key = (chunk_id, sha256(content)) when chunk_id is present so that a
+    content change under the same id is always a cache miss.
+    """
+    content = doc.get("content", "")
+    content_hash = hashlib.sha256(content.encode("utf-8", errors="replace")).hexdigest()
+    chunk_id = doc.get("chunk_id")
+    if chunk_id is not None:
+        return f"{chunk_id}:{content_hash}"
+    return content_hash
+
 
 class RerankerProtocol(Protocol):
     """Protocol for document rerankers."""
 
-    def rerank(
-        self, query: str, documents: List[Dict[str, Any]], top_k: int
-    ) -> List[Dict[str, Any]]:
+    def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int) -> List[Dict[str, Any]]:
         """Rerank documents by relevance to query."""
         ...
 
@@ -31,23 +48,66 @@ class EmbeddingReranker:
     a reranking signal when combined with the initial retrieval scores.
 
     Can be replaced with a cross-encoder model for better quality.
+
+    P1-A3: Doc embeddings are cached on the instance keyed by content-hash
+    (plus chunk_id when present) using a bounded LRU OrderedDict.  Only
+    cache-miss documents are embedded on each rerank() call.  The cache is
+    never poisoned by a partial or full embed failure.
     """
 
-    def __init__(self, embedder):
+    def __init__(self, embedder, cache_maxsize: int | None = None):
         """Initialize with an embedding provider.
 
         Args:
             embedder: An EmbeddingProvider instance (e.g., LocalEmbedder)
+            cache_maxsize: Max number of doc-embedding entries in the LRU
+                cache.  Defaults to settings.reranker_cache_maxsize (1024).
         """
         self._embedder = embedder
+
+        if cache_maxsize is None:
+            try:
+                from config import settings as _settings
+
+                cache_maxsize = _settings.reranker_cache_maxsize
+            except Exception:
+                cache_maxsize = _DEFAULT_CACHE_MAXSIZE
+
+        self._cache_maxsize: int = max(1, cache_maxsize)
+        # OrderedDict used as an LRU: most-recently-used entry is moved to the
+        # end on access; oldest entry (front) is evicted when full.
+        self._doc_embed_cache: OrderedDict = OrderedDict()
+
+    def _cache_get(self, key: str) -> list[float] | None:
+        """Return the cached embedding for key, updating LRU order."""
+        if key not in self._doc_embed_cache:
+            return None
+        # Move to end (most recently used)
+        self._doc_embed_cache.move_to_end(key)
+        return self._doc_embed_cache[key]
+
+    def _cache_put(self, key: str, embedding: list[float]) -> None:
+        """Insert an embedding into the cache, evicting the LRU entry if full."""
+        if key in self._doc_embed_cache:
+            self._doc_embed_cache.move_to_end(key)
+        else:
+            if len(self._doc_embed_cache) >= self._cache_maxsize:
+                # Evict least-recently-used (front of OrderedDict)
+                self._doc_embed_cache.popitem(last=False)
+            self._doc_embed_cache[key] = embedding
 
     def rerank(
         self,
         query: str,
-        documents: List[Dict[str, Any]],
+        documents: list[dict[str, Any]],
         top_k: int,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Rerank documents by embedding similarity to query.
+
+        Only embeds cache-miss documents.  Cache is keyed on content-hash
+        (plus chunk_id when present) so a content change under the same id
+        is always a miss.  On any embed failure the cache is not updated and
+        the original document order is returned.
 
         Args:
             query: The user's query
@@ -63,12 +123,32 @@ class EmbeddingReranker:
         top_k = min(top_k, len(documents))
 
         try:
-            # Embed query and all documents
+            # Embed query
             query_vec = np.asarray(self._embedder.embed(query), dtype=np.float32)
-            doc_texts = [d.get("content", "") for d in documents]
-            doc_vecs = np.asarray(
-                self._embedder.embed_batch(doc_texts), dtype=np.float32
-            )
+
+            # Resolve cache hits and collect miss indices
+            keys = [_content_key(d) for d in documents]
+            hit_vecs: dict[str, list[float]] = {}
+            miss_indices: list[int] = []
+
+            for i, key in enumerate(keys):
+                cached = self._cache_get(key)
+                if cached is not None:
+                    hit_vecs[key] = cached
+                else:
+                    miss_indices.append(i)
+
+            # Embed only cache misses
+            if miss_indices:
+                miss_texts = [documents[i].get("content", "") for i in miss_indices]
+                miss_vecs = self._embedder.embed_batch(miss_texts)
+                # Only populate cache on success (no partial insert on raise)
+                for idx, vec in zip(miss_indices, miss_vecs):
+                    self._cache_put(keys[idx], vec)
+                    hit_vecs[keys[idx]] = vec
+
+            # Assemble full doc_vecs in original document order
+            doc_vecs = np.asarray([hit_vecs[k] for k in keys], dtype=np.float32)
 
             # Compute cosine similarities
             query_norm = np.linalg.norm(query_vec)
@@ -203,15 +283,13 @@ def add_citations(documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             if "chunk_index" in metadata:
                 parts.append(f"Section: {metadata['chunk_index'] + 1}")
             if metadata.get("period_columns"):
-                parts.append(
-                    f"Periods: {', '.join(metadata['period_columns'][:3])}"
-                )
+                parts.append(f"Periods: {', '.join(metadata['period_columns'][:3])}")
 
         # Table structure info
         table_struct = doc.get("table_structure", {})
         if isinstance(table_struct, dict) and "row_range" in table_struct:
             row_range = table_struct["row_range"]
-            parts.append(f"Rows: {row_range[0]+1}-{row_range[1]}")
+            parts.append(f"Rows: {row_range[0] + 1}-{row_range[1]}")
 
         # Cell references
         cell_ref = doc.get("cell_references")

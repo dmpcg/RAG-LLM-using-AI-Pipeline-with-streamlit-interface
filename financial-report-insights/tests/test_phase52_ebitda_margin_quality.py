@@ -4,10 +4,11 @@ Tests for ebitda_margin_quality_analysis() and EbitdaMarginQualityResult datacla
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     EbitdaMarginQualityResult,
+    FinancialData,
 )
 
 
@@ -47,6 +48,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestEbitdaMarginQualityDataclass:
     def test_defaults(self):
         r = EbitdaMarginQualityResult()
@@ -69,6 +71,7 @@ class TestEbitdaMarginQualityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestEbitdaMarginQualityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -110,6 +113,7 @@ class TestEbitdaMarginQualityAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestEbitdaMarginQualityScoring:
     def test_high_margin(self, analyzer):
@@ -168,6 +172,7 @@ class TestEbitdaMarginQualityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase52EdgeCases:
     def test_empty_data(self, analyzer):

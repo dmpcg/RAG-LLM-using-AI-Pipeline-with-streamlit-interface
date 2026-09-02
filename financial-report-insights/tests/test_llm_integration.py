@@ -3,15 +3,16 @@ LLM integration tests with mocked Ollama responses.
 Tests: financial query detection, connection failures, empty responses, caching.
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
-from local_llm import LocalLLM, LLMConnectionError, LocalEmbedder
-
+from local_llm import LLMConnectionError, LocalLLM
 
 # ============================================================
 # LocalLLM tests
 # ============================================================
+
 
 class TestLocalLLM:
     def test_generate_returns_response(self):
@@ -70,6 +71,7 @@ class TestLocalLLM:
 # LLM response caching
 # ============================================================
 
+
 class TestLLMCaching:
     def test_cache_hit_skips_ollama(self):
         llm = LocalLLM(model="test-model", enable_cache=True)
@@ -103,15 +105,39 @@ class TestLLMCaching:
 # Financial query detection (logic test, no Ollama needed)
 # ============================================================
 
+
 class TestFinancialQueryDetection:
     """Test the _is_financial_query logic from app_local.py."""
 
     FINANCIAL_KEYWORDS = [
-        'ratio', 'margin', 'profit', 'revenue', 'income', 'expense',
-        'cash flow', 'budget', 'variance', 'roe', 'roa', 'roi',
-        'liquidity', 'leverage', 'debt', 'equity', 'asset', 'liability',
-        'growth', 'trend', 'forecast', 'analysis', 'financial',
-        'balance sheet', 'income statement', 'p&l', 'cfo', 'ebitda'
+        "ratio",
+        "margin",
+        "profit",
+        "revenue",
+        "income",
+        "expense",
+        "cash flow",
+        "budget",
+        "variance",
+        "roe",
+        "roa",
+        "roi",
+        "liquidity",
+        "leverage",
+        "debt",
+        "equity",
+        "asset",
+        "liability",
+        "growth",
+        "trend",
+        "forecast",
+        "analysis",
+        "financial",
+        "balance sheet",
+        "income statement",
+        "p&l",
+        "cfo",
+        "ebitda",
     ]
 
     def _is_financial(self, query: str) -> bool:

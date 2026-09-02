@@ -6,10 +6,12 @@ Replaces Claude Sonnet with a free, local model.
 import atexit
 import hashlib
 import logging
+import random
 import threading
 import time
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from enum import Enum
 
 import ollama
@@ -19,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class CircuitState(Enum):
     """Circuit breaker states."""
+
     CLOSED = "CLOSED"  # Normal operation
     OPEN = "OPEN"  # Failing, reject immediately
     HALF_OPEN = "HALF_OPEN"  # Testing recovery
@@ -85,14 +88,11 @@ class CircuitBreaker:
                     else:
                         remaining = self._recovery_seconds - time_since_failure
                         raise LLMConnectionError(
-                            f"Circuit breaker open: LLM service unavailable. "
-                            f"Retry in {remaining:.0f}s."
+                            f"Circuit breaker open: LLM service unavailable. Retry in {remaining:.0f}s."
                         )
                 # Still OPEN after check (no last_failure_time)
                 if self._state == CircuitState.OPEN:
-                    raise LLMConnectionError(
-                        "Circuit breaker open: LLM service unavailable."
-                    )
+                    raise LLMConnectionError("Circuit breaker open: LLM service unavailable.")
 
     def call(self, func, *args, **kwargs):
         """
@@ -120,8 +120,7 @@ class CircuitBreaker:
                     else:
                         remaining = self._recovery_seconds - time_since_failure
                         raise LLMConnectionError(
-                            f"Circuit breaker open: LLM service unavailable. "
-                            f"Retry in {remaining:.0f}s."
+                            f"Circuit breaker open: LLM service unavailable. Retry in {remaining:.0f}s."
                         )
 
             # If OPEN and not ready for recovery, reject
@@ -129,22 +128,25 @@ class CircuitBreaker:
                 remaining = self._recovery_seconds
                 if self._last_failure_time is not None:
                     remaining = self._recovery_seconds - (time.monotonic() - self._last_failure_time)
-                raise LLMConnectionError(
-                    f"Circuit breaker open: LLM service unavailable. "
-                    f"Retry in {remaining:.0f}s."
-                )
+                raise LLMConnectionError(f"Circuit breaker open: LLM service unavailable. Retry in {remaining:.0f}s.")
 
         # Execute the function
         try:
             result = func(*args, **kwargs)
             self._on_success()
             return result
-        except (LLMConnectionError, LLMTimeoutError) as e:
+        except (LLMConnectionError, LLMTimeoutError):
             self._on_failure()
             raise
 
-    def _on_success(self):
-        """Handle successful execution."""
+    def record_success(self):
+        """Public: record a successful call and update circuit state.
+
+        Note: self._lock is a plain non-reentrant threading.Lock; this method
+        acquires it internally.  Do NOT call it while already holding self._lock
+        (e.g. from within call()'s with-block) — that would deadlock.
+        call() releases the lock before reaching this call site.
+        """
         with self._lock:
             if self._state == CircuitState.HALF_OPEN:
                 logger.info("Circuit breaker transitioning to CLOSED (recovery successful)")
@@ -152,8 +154,12 @@ class CircuitBreaker:
             self._failure_count = 0
             self._last_failure_time = None
 
-    def _on_failure(self):
-        """Handle failed execution."""
+    def record_failure(self):
+        """Public: record a failed call and update circuit state.
+
+        Same lock-ownership note as record_success: acquires self._lock
+        internally; must not be called while the caller holds self._lock.
+        """
         with self._lock:
             self._failure_count += 1
             self._last_failure_time = time.monotonic()
@@ -164,10 +170,19 @@ class CircuitBreaker:
             elif self._state == CircuitState.CLOSED:
                 if self._failure_count >= self._failure_threshold:
                     logger.error(
-                        "Circuit breaker transitioning to OPEN "
-                        f"(failure threshold {self._failure_threshold} reached)"
+                        f"Circuit breaker transitioning to OPEN (failure threshold {self._failure_threshold} reached)"
                     )
                     self._state = CircuitState.OPEN
+
+    # Thin aliases kept for internal callers that pre-date the public API.
+    # External code should prefer record_success / record_failure.
+    def _on_success(self):
+        """Alias for record_success (internal callers)."""
+        self.record_success()
+
+    def _on_failure(self):
+        """Alias for record_failure (internal callers)."""
+        self.record_failure()
 
 
 class LLMConnectionError(Exception):
@@ -206,6 +221,7 @@ class LocalLLM:
         self._cache_lock = threading.Lock()
         try:
             from config import settings as _cfg
+
             self._cache_maxsize = _cfg.llm_cache_maxsize
         except (ImportError, AttributeError):
             self._cache_maxsize = 128
@@ -284,16 +300,50 @@ class LocalLLM:
 
         try:
             yield from self._raw_generate_stream(prompt)
-            self._circuit_breaker._on_success()
+            self._circuit_breaker.record_success()
         except (LLMConnectionError, LLMTimeoutError):
-            self._circuit_breaker._on_failure()
+            self._circuit_breaker.record_failure()
             raise
 
+    def _get_stream_client(self):
+        """Return an ollama.Client configured with a finite read timeout.
+
+        The installed ollama client's ``generate()`` accepts no ``timeout``
+        kwarg, so the read timeout must be configured on the Client instead
+        (it is forwarded to the underlying httpx client). When OLLAMA_HOST is
+        set we build a host-bound Client carrying ``timeout=self._timeout``;
+        otherwise we fall back to the module-level ``ollama`` functions which
+        use the default host. The client is cached on the instance.
+        """
+        import os
+
+        client = getattr(self, "_stream_client", None)
+        if client is not None:
+            return client
+        host = os.environ.get("OLLAMA_HOST")
+        if host:
+            client = ollama.Client(host=host, timeout=self._timeout)
+        else:
+            # No explicit host: use module-level functions (default host).
+            client = ollama
+        self._stream_client = client
+        return client
+
     def _raw_generate_stream(self, prompt: str):
-        """Raw streaming Ollama call without circuit breaker wrappers."""
+        """Raw streaming Ollama call without circuit breaker wrappers.
+
+        A finite read timeout is configured on the ollama.Client so the
+        underlying httpx read timeout is bounded.  This is required for
+        thread/connection reclamation: without it, the blocked C-level socket
+        read in the streaming path keeps the to_thread worker alive
+        indefinitely even after the caller abandons the generator (see
+        P1-C1-stream-timeout). The installed ollama.generate() has no timeout
+        kwarg, so the timeout lives on the Client, not the generate() call.
+        """
         try:
             last_chunk = {}
-            for chunk in ollama.generate(
+            client = self._get_stream_client()
+            for chunk in client.generate(
                 model=self.model,
                 prompt=prompt,
                 stream=True,
@@ -314,9 +364,7 @@ class LocalLLM:
             except ImportError:
                 pass
         except ConnectionError as e:
-            raise LLMConnectionError(
-                "Cannot connect to Ollama. Is it running? (`ollama serve`)"
-            ) from e
+            raise LLMConnectionError("Cannot connect to Ollama. Is it running? (`ollama serve`)") from e
         except Exception as e:
             raise LLMConnectionError(f"Ollama error: {e}") from e
 
@@ -346,7 +394,17 @@ class LocalLLM:
             except LLMConnectionError as e:
                 last_error = e
                 if attempt < self._max_retries:
-                    logger.warning("LLM attempt %d/%d failed: %s", attempt, self._max_retries, e)
+                    wait = 2**attempt
+                    jitter = random.uniform(0, wait * 0.25)
+                    sleep_secs = wait + jitter
+                    logger.warning(
+                        "LLM attempt %d/%d failed: %s (retry in %.2fs)",
+                        attempt,
+                        self._max_retries,
+                        e,
+                        sleep_secs,
+                    )
+                    time.sleep(sleep_secs)
                     continue
                 raise
         # This should be unreachable but satisfies type checker
@@ -388,9 +446,7 @@ class LocalLLM:
                 pass
             return response.get("response", "")
         except ConnectionError as e:
-            raise LLMConnectionError(
-                "Cannot connect to Ollama. Is it running? (`ollama serve`)"
-            ) from e
+            raise LLMConnectionError("Cannot connect to Ollama. Is it running? (`ollama serve`)") from e
         except Exception as e:
             raise LLMConnectionError(f"Ollama error: {e}") from e
 
@@ -416,42 +472,74 @@ class LocalEmbedder:
             model_name: Model name for embeddings
         """
         import os
+
         import httpx
 
         self.model_name = model_name
         host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
         # Validate URL scheme and hostname to prevent SSRF
         from urllib.parse import urlparse
+
         parsed = urlparse(host)
         if parsed.scheme not in ("http", "https"):
-            raise ValueError(
-                f"OLLAMA_HOST must use http or https scheme, got: {parsed.scheme!r}"
-            )
+            raise ValueError(f"OLLAMA_HOST must use http or https scheme, got: {parsed.scheme!r}")
         _ALLOWED_HOSTS = {
-            "localhost", "127.0.0.1", "::1",
+            "localhost",
+            "127.0.0.1",
+            "::1",
             "model-runner.docker.internal",
             "host.docker.internal",
             "ollama",  # Docker service name
         }
         hostname = (parsed.hostname or "").lower()
         if hostname not in _ALLOWED_HOSTS:
-            raise ValueError(
-                f"OLLAMA_HOST hostname {hostname!r} not in allow-list. "
-                f"Allowed: {sorted(_ALLOWED_HOSTS)}"
-            )
+            raise ValueError(f"OLLAMA_HOST hostname {hostname!r} not in allow-list. Allowed: {sorted(_ALLOWED_HOSTS)}")
         self._url = f"{host.rstrip('/')}/v1/embeddings"
         self._client = httpx.Client(timeout=60.0)
+        self._closed = False
+        # Register atexit to close the httpx.Client on interpreter shutdown.
+        # Guard against already-closed state is inside close() itself.
+        atexit.register(self.close)
         # Use configured dimension to avoid probe HTTP request
         try:
             from config import settings as _cfg
+
             cfg_dim = _cfg.embedding_dimension
         except (ImportError, AttributeError):
             cfg_dim = 0
         if cfg_dim > 0:
             self.dimension = cfg_dim
         else:
+            # Sentinel dimension lets the probe pass the self.dimension>0 guard
+            # in _request_embeddings; the real dimension is set from the result.
+            self.dimension = 1
             probe = self._request_embeddings(["dimension probe"])
             self.dimension = len(probe[0])
+
+    def close(self) -> None:
+        """Close the underlying httpx.Client and release its connection pool.
+
+        Idempotent: calling close() more than once is safe and does nothing
+        after the first call.  This method is registered as an atexit handler
+        so that the OS-level socket is released even when the interpreter
+        shuts down without an explicit close.
+        """
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
+        try:
+            self._client.close()
+        except Exception:  # noqa: BLE001 – best-effort; do not let atexit raise
+            logger.debug("LocalEmbedder.close(): ignoring error during client close", exc_info=True)
+
+    def __enter__(self):
+        """Support use as a context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Close the client when exiting the context manager."""
+        self.close()
+        return False
 
     def _request_embeddings(self, texts: list) -> list:
         """Call the OpenAI-compatible embeddings endpoint."""
@@ -471,6 +559,7 @@ class LocalEmbedder:
         # Item-count cap from config (default 32) prevents unbounded batch sizes
         try:
             from config import settings as _cfg
+
             max_batch_items = _cfg.embedding_batch_size
         except (ImportError, AttributeError):
             max_batch_items = 32
@@ -485,10 +574,7 @@ class LocalEmbedder:
             )
         safe_texts = [t[:max_chars] if len(t) > max_chars else t for t in texts]
         # Sanitize text: replace NUL bytes and non-UTF8 that crash DMR tokenizer
-        safe_texts = [
-            t.replace('\x00', '').encode('utf-8', errors='replace').decode('utf-8')
-            for t in safe_texts
-        ]
+        safe_texts = [t.replace("\x00", "").encode("utf-8", errors="replace").decode("utf-8") for t in safe_texts]
         # Skip empty/whitespace-only texts; return zero vectors for them later
         original_indices = list(range(len(safe_texts)))
         non_empty = [(i, t) for i, t in enumerate(safe_texts) if t.strip()]
@@ -504,17 +590,14 @@ class LocalEmbedder:
         batch_chars = 0
         for t in filtered_texts:
             t_len = len(t)
-            if batch and (batch_chars + t_len > max_batch_chars
-                          or len(batch) >= max_batch_items):
-                filtered_embeddings.extend(
-                    self._send_embedding_batch(batch, large_batch=large_batch))
+            if batch and (batch_chars + t_len > max_batch_chars or len(batch) >= max_batch_items):
+                filtered_embeddings.extend(self._send_embedding_batch(batch, large_batch=large_batch))
                 batch = []
                 batch_chars = 0
             batch.append(t)
             batch_chars += t_len
         if batch:
-            filtered_embeddings.extend(
-                self._send_embedding_batch(batch, large_batch=large_batch))
+            filtered_embeddings.extend(self._send_embedding_batch(batch, large_batch=large_batch))
         # Map filtered results back, inserting zero vectors for empty texts
         zero_vec = [0.0] * self.dimension
         all_embeddings = [zero_vec] * len(safe_texts)
@@ -523,7 +606,10 @@ class LocalEmbedder:
         return all_embeddings
 
     def _send_embedding_batch(
-        self, texts: list, max_retries: int = 3, large_batch: bool = False,
+        self,
+        texts: list,
+        max_retries: int = 3,
+        large_batch: bool = False,
     ) -> list:
         """Send a batch of texts to the embedding endpoint with retry on 5xx.
 
@@ -531,48 +617,79 @@ class LocalEmbedder:
         8s, 16s) to tolerate DMR GPU warm-up latency during cold start.
         """
         import time
+
         import httpx
 
         if large_batch:
             max_retries = 5
         for attempt in range(1, max_retries + 1):
             try:
-                resp = self._client.post(self._url, json={
-                    "model": self.model_name,
-                    "input": texts,
-                })
+                resp = self._client.post(
+                    self._url,
+                    json={
+                        "model": self.model_name,
+                        "input": texts,
+                    },
+                )
                 resp.raise_for_status()
                 data = resp.json()
                 try:
-                    return [item["embedding"] for item in data["data"]]
+                    embeddings = [item["embedding"] for item in data["data"]]
                 except (KeyError, TypeError, IndexError) as exc:
-                    raise ValueError(
-                        "Malformed embedding response: missing 'data' key "
-                        "or invalid structure"
-                    ) from exc
+                    raise ValueError("Malformed embedding response: missing 'data' key or invalid structure") from exc
+                if not embeddings:
+                    logger.warning(
+                        "Embedding response returned empty data list for batch of "
+                        "%d texts; embeddings are missing for this batch.",
+                        len(texts),
+                    )
+                return embeddings
             except httpx.RequestError as e:
                 if attempt < max_retries:
-                    wait = min(2 ** attempt, 8)  # cap backoff so a transient blip
-                    # can't stack into a multi-minute apparent hang
+                    # Cap the backoff so a transient blip can't stack into a
+                    # multi-minute apparent hang; jitter avoids retry convoys.
+                    wait = min(2**attempt, 8)
+                    jitter = random.uniform(0, wait * 0.25)
+                    sleep_secs = wait + jitter
                     logger.warning(
-                        "Embedding network error (attempt %d/%d, batch=%d texts), "
-                        "retrying in %ds: %s",
-                        attempt, max_retries, len(texts), wait, e,
+                        "Embedding network error (attempt %d/%d, batch=%d texts), retrying in %.2fs: %s",
+                        attempt,
+                        max_retries,
+                        len(texts),
+                        sleep_secs,
+                        e,
                     )
-                    time.sleep(wait)
+                    time.sleep(sleep_secs)
                     continue
                 raise
             except httpx.HTTPStatusError as e:
                 if e.response.status_code >= 500 and attempt < max_retries:
-                    wait = min(2 ** attempt, 8)  # capped backoff (see above)
+                    # Cap the backoff so a transient blip can't stack into a
+                    # multi-minute apparent hang; jitter avoids retry convoys.
+                    wait = min(2**attempt, 8)
+                    jitter = random.uniform(0, wait * 0.25)
+                    sleep_secs = wait + jitter
                     logger.warning(
-                        "Embedding 5xx error (attempt %d/%d, batch=%d texts), "
-                        "retrying in %ds: %s",
-                        attempt, max_retries, len(texts), wait, e,
+                        "Embedding 5xx error (attempt %d/%d, batch=%d texts), retrying in %.2fs: %s",
+                        attempt,
+                        max_retries,
+                        len(texts),
+                        sleep_secs,
+                        e,
                     )
-                    time.sleep(wait)
+                    time.sleep(sleep_secs)
                     continue
                 raise
+        # Guard: this line is unreachable with any positive max_retries value
+        # because every last-attempt branch either returns or raises.  It exists
+        # as a future-edit safeguard: if a future change to the loop logic were
+        # to drop a branch, the function would fall through to here rather than
+        # silently returning None (which would cause callers to misinterpret
+        # missing embeddings as success).
+        raise RuntimeError(  # pragma: no branch
+            f"unreachable: _send_embedding_batch retry loop exhausted without "
+            f"returning or raising (max_retries={max_retries})"
+        )
 
     def wait_for_embedding_service(self, timeout: int = 120) -> bool:
         """Wait for embedding service with graduated warm-up.
@@ -586,8 +703,8 @@ class LocalEmbedder:
         import time
 
         warmup_stages = [
-            (1,  "stage 1/3: single text"),
-            (5,  "stage 2/3: 5 texts"),
+            (1, "stage 1/3: single text"),
+            (5, "stage 2/3: 5 texts"),
             (20, "stage 3/3: 20 texts"),
         ]
 
@@ -607,7 +724,8 @@ class LocalEmbedder:
             if not stage_ok:
                 logger.error(
                     "Embedding service not ready after %ds (failed at %s)",
-                    timeout, label,
+                    timeout,
+                    label,
                 )
                 return False
 

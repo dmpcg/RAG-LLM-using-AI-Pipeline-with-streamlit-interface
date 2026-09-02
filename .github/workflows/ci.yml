@@ -20,6 +20,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# WS-1 P1-F2 (2026-05-07): default least-privilege token for the workflow.
+# Individual jobs that need write access (none currently in this file) must
+# elevate explicitly via their own ``permissions:`` block.
+permissions:
+  contents: read
+
 env:
   PYTHON_VERSION: "3.12"
   PIP_CACHE_DIR: ~/.cache/pip
@@ -33,9 +39,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4 (WS-1 P1-F1)
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -44,7 +50,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install ruff mypy
+          pip install ruff==0.14.14 mypy   # pinned so `format --check` is deterministic vs the version we format with
 
       - name: Ruff lint
         run: ruff check . --output-format=github
@@ -63,9 +69,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4 (WS-1 P1-F1)
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -79,11 +85,23 @@ jobs:
       - name: Bandit security scan
         run: bandit -r . -x ./tests -f json -o bandit-report.json --severity-level medium
 
-      - name: pip-audit dependency scan
-        run: pip-audit --requirement requirements.txt --output json --desc > pip-audit-report.json
+      - name: pip-audit dependency scan (requirements, strict, hard gate)
+        # WS-1 P1-F4: pip-audit failures are a hard CI gate.
+        # Audits requirements.txt (resolvable ranges carrying the CVE floors) — the
+        # same file the Docker image installs from. NOTE: the hand-maintained
+        # requirements.lock has drifted (stale/fabricated pins) and should be
+        # regenerated with `pip-compile --generate-hashes` before it is re-adopted.
+        #
+        # Accepted/ignored advisory (documented risk-acceptance, revisit when FastAPI
+        # officially supports Starlette 1.0):
+        #   PYSEC-2026-161 (starlette <1.0.1): Host-header path-injection. The only fix
+        #   is starlette 1.0.1 (a major bump outside the current FastAPI-compatible
+        #   range). Low applicability here — routing is path-based (per the advisory),
+        #   and CORS is enforced via a config allow-list, not Host reflection.
+        run: pip-audit --requirement requirements.txt --strict --desc --ignore-vuln PYSEC-2026-161 --format json --output pip-audit-report.json
 
       - name: Upload security reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         if: always()
         with:
           name: security-reports
@@ -104,9 +122,9 @@ jobs:
         python-version: ["3.12", "3.13"]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4 (WS-1 P1-F1)
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -126,7 +144,7 @@ jobs:
             --junitxml=test-results.xml
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         if: always()
         with:
           name: test-results-py${{ matrix.python-version }}
@@ -150,13 +168,13 @@ jobs:
     needs: [lint, test]
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4 (WS-1 P1-F1)
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
 
       - name: Build Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
           context: financial-report-insights
           push: false
@@ -171,13 +189,14 @@ jobs:
           echo "Image built successfully"
 
       - name: Trivy container scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0 (v0.28.0 referenced a deleted setup-trivy@v0.2.1 tag)
         with:
           image-ref: rag-financial-insights:${{ github.sha }}
           format: table
           exit-code: "1"
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore   # documented base-image OS-CVE acceptances (see .trivyignore)
 
   # ──────────────────────────────────────────────────────────────
   # Stage 5: Quality Gate
@@ -189,6 +208,9 @@ jobs:
     if: always()
     steps:
       - name: Check all stages
+        # This job does not checkout, so override the workflow-level
+        # working-directory (financial-report-insights) which would not exist here.
+        working-directory: ${{ github.workspace }}
         run: |
           echo "Lint: ${{ needs.lint.result }}"
           echo "Security: ${{ needs.security.result }}"

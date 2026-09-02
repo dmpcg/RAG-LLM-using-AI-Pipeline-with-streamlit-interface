@@ -4,6 +4,7 @@ Tests for profit_retention_analysis() and ProfitRetentionResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestProfitRetentionDataclass:
     def test_defaults(self):
         r = ProfitRetentionResult()
@@ -68,6 +70,7 @@ class TestProfitRetentionDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestProfitRetentionAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -114,6 +117,7 @@ class TestProfitRetentionAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestProfitRetentionScoring:
     def test_very_high_retention(self, analyzer):
@@ -195,6 +199,7 @@ class TestProfitRetentionScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase78EdgeCases:
     def test_empty_data(self, analyzer):

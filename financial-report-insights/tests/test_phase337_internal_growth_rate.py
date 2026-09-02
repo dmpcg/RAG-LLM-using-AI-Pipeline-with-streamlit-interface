@@ -4,6 +4,7 @@ Tests for internal_growth_rate_analysis() and InternalGrowthRateResult dataclass
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestInternalGrowthRateDataclass:
     def test_defaults(self):
         r = InternalGrowthRateResult()
@@ -68,6 +70,7 @@ class TestInternalGrowthRateDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestInternalGrowthRateAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestInternalGrowthRateAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestInternalGrowthRateScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -138,6 +142,7 @@ class TestInternalGrowthRateScoring:
 
 # ===== EDGE CASES =====
 
+
 class TestPhase337EdgeCases:
     def test_empty_data(self, analyzer):
         result = analyzer.internal_growth_rate_analysis(FinancialData())
@@ -158,6 +163,7 @@ class TestPhase337EdgeCases:
 
 
 # ===== WP-B / P0-13: safe_divide threshold band tests =====
+
 
 class TestIGRSafeDivideThreshold:
     """Pin the INTENTIONAL threshold change from the hand-rolled 1e-9 guard

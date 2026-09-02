@@ -4,10 +4,11 @@ Tests for asset_quality_analysis() and AssetQualityResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    AssetQualityResult,
     CharlieAnalyzer,
     FinancialData,
-    AssetQualityResult,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestAssetQualityDataclass:
     def test_defaults(self):
         r = AssetQualityResult()
@@ -68,6 +70,7 @@ class TestAssetQualityDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestAssetQualityAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -109,6 +112,7 @@ class TestAssetQualityAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestAssetQualityScoring:
     def test_very_liquid_assets(self, analyzer):
@@ -159,6 +163,7 @@ class TestAssetQualityScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase86EdgeCases:
     def test_empty_data(self, analyzer):

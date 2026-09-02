@@ -1,10 +1,9 @@
 """Tests for the multi-document comparison endpoint and temporal features."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -34,9 +33,11 @@ def mock_rag():
 @pytest.fixture()
 def client(mock_rag):
     import api as api_module
+
     api_module._rag_instance = mock_rag
     api_module._rate_log.clear()
     from api import app
+
     with TestClient(app) as c:
         yield c
     api_module._rag_instance = None
@@ -70,6 +71,7 @@ class TestCompareEndpoint:
     def test_compare_in_memory_fallback(self, client, mock_rag):
         """When no graph, compare uses in-memory cached data."""
         from financial_analyzer import FinancialData
+
         mock_rag._graph_store = None
         mock_rag._period_financial_data = {
             "FY2023": FinancialData(revenue=100, net_income=10, total_assets=200),
@@ -120,6 +122,7 @@ class TestCompareEndpoint:
 class TestTemporalQueryDetection:
     def test_detects_temporal_patterns(self):
         from app_local import SimpleRAG
+
         assert SimpleRAG._is_temporal_comparison_query("What changed from FY2023 to FY2024?")
         assert SimpleRAG._is_temporal_comparison_query("Year over year revenue growth")
         assert SimpleRAG._is_temporal_comparison_query("How has the trend been?")
@@ -128,6 +131,7 @@ class TestTemporalQueryDetection:
 
     def test_rejects_non_temporal(self):
         from app_local import SimpleRAG
+
         assert not SimpleRAG._is_temporal_comparison_query("What is the current ratio?")
         assert not SimpleRAG._is_temporal_comparison_query("Show me the balance sheet")
         assert not SimpleRAG._is_temporal_comparison_query("Calculate ROE")
@@ -141,6 +145,7 @@ class TestTemporalQueryDetection:
 class TestTemporalEdgeCreation:
     def test_link_fiscal_periods(self):
         from graph_store import Neo4jStore
+
         driver = MagicMock()
         session = MagicMock()
         driver.session.return_value.__enter__ = MagicMock(return_value=session)
@@ -158,6 +163,7 @@ class TestTemporalEdgeCreation:
 
     def test_link_fiscal_periods_needs_two(self):
         from graph_store import Neo4jStore
+
         driver = MagicMock()
         store = Neo4jStore(driver)
         assert store.link_fiscal_periods([{"label": "FY2024", "period_id": "p1"}]) == 0

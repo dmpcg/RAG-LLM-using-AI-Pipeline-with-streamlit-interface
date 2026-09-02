@@ -4,6 +4,7 @@ Tests for income_resilience_analysis() and IncomeResilienceResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestIncomeResilienceDataclass:
     def test_defaults(self):
         r = IncomeResilienceResult()
@@ -68,6 +70,7 @@ class TestIncomeResilienceDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestIncomeResilienceAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestIncomeResilienceAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestIncomeResilienceScoring:
     def test_sample_data_score(self, analyzer, sample_data):
         """OIS=0.20 => base 8.5. EC=6.67 >=5.0 => +0.5. NMR=0.75 >=0.70 => +0.5. Score=9.5."""
@@ -155,6 +159,7 @@ class TestIncomeResilienceScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase184EdgeCases:
     def test_empty_data(self, analyzer):

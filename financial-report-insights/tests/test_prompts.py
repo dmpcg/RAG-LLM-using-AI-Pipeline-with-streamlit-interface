@@ -20,32 +20,30 @@ import pytest
 # Ensure project root is on the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from prompts import (  # noqa: F401 – smoke-test __init__ exports
+    PROMPT_VERSION as _PVER,
+)
+from prompts.formatters import (
+    build_prompt,
+    format_context_with_citations,
+    format_few_shot_examples,
+    format_json_instruction,
+)
 from prompts.templates import (
-    PROMPT_VERSION,
-    PromptTemplate,
-    RATIO_LOOKUP_PROMPT,
-    TREND_ANALYSIS_PROMPT,
     COMPARISON_PROMPT,
     EXPLANATION_PROMPT,
     GENERAL_PROMPT,
+    PROMPT_VERSION,
+    RATIO_LOOKUP_PROMPT,
+    TREND_ANALYSIS_PROMPT,
+    PromptTemplate,
     get_prompt_for_query_type,
 )
-from prompts.formatters import (
-    format_context_with_citations,
-    format_few_shot_examples,
-    build_prompt,
-    format_json_instruction,
-)
-from prompts import (  # noqa: F401 – smoke-test __init__ exports
-    PROMPT_VERSION as _PVER,
-    get_prompt_for_query_type as _gp,
-    build_prompt as _bp,
-)
-
 
 # ---------------------------------------------------------------------------
 # PROMPT_VERSION constant
 # ---------------------------------------------------------------------------
+
 
 class TestPromptVersion:
     def test_version_is_string(self):
@@ -61,8 +59,7 @@ class TestPromptVersion:
         ]
         for t in templates:
             assert t.version == PROMPT_VERSION, (
-                f"Template '{t.name}' version '{t.version}' does not match "
-                f"PROMPT_VERSION '{PROMPT_VERSION}'"
+                f"Template '{t.name}' version '{t.version}' does not match PROMPT_VERSION '{PROMPT_VERSION}'"
             )
 
     def test_version_non_empty(self):
@@ -72,6 +69,7 @@ class TestPromptVersion:
 # ---------------------------------------------------------------------------
 # PromptTemplate dataclass
 # ---------------------------------------------------------------------------
+
 
 class TestPromptTemplate:
     def test_instantiate_minimal(self):
@@ -95,47 +93,53 @@ class TestPromptTemplate:
         )
         assert len(t.few_shot_examples) == 1
 
-    @pytest.mark.parametrize("template", [
-        RATIO_LOOKUP_PROMPT,
-        TREND_ANALYSIS_PROMPT,
-        COMPARISON_PROMPT,
-        EXPLANATION_PROMPT,
-        GENERAL_PROMPT,
-    ])
+    @pytest.mark.parametrize(
+        "template",
+        [
+            RATIO_LOOKUP_PROMPT,
+            TREND_ANALYSIS_PROMPT,
+            COMPARISON_PROMPT,
+            EXPLANATION_PROMPT,
+            GENERAL_PROMPT,
+        ],
+    )
     def test_required_fields_present(self, template):
         assert template.name
         assert template.version
         assert template.system_prompt
         assert template.user_template
 
-    @pytest.mark.parametrize("template", [
-        RATIO_LOOKUP_PROMPT,
-        TREND_ANALYSIS_PROMPT,
-        COMPARISON_PROMPT,
-        EXPLANATION_PROMPT,
-        GENERAL_PROMPT,
-    ])
+    @pytest.mark.parametrize(
+        "template",
+        [
+            RATIO_LOOKUP_PROMPT,
+            TREND_ANALYSIS_PROMPT,
+            COMPARISON_PROMPT,
+            EXPLANATION_PROMPT,
+            GENERAL_PROMPT,
+        ],
+    )
     def test_user_template_has_context_placeholder(self, template):
-        assert "{context}" in template.user_template, (
-            f"Template '{template.name}' is missing {{context}} placeholder"
-        )
+        assert "{context}" in template.user_template, f"Template '{template.name}' is missing {{context}} placeholder"
 
-    @pytest.mark.parametrize("template", [
-        RATIO_LOOKUP_PROMPT,
-        TREND_ANALYSIS_PROMPT,
-        COMPARISON_PROMPT,
-        EXPLANATION_PROMPT,
-        GENERAL_PROMPT,
-    ])
+    @pytest.mark.parametrize(
+        "template",
+        [
+            RATIO_LOOKUP_PROMPT,
+            TREND_ANALYSIS_PROMPT,
+            COMPARISON_PROMPT,
+            EXPLANATION_PROMPT,
+            GENERAL_PROMPT,
+        ],
+    )
     def test_user_template_has_query_placeholder(self, template):
-        assert "{query}" in template.user_template, (
-            f"Template '{template.name}' is missing {{query}} placeholder"
-        )
+        assert "{query}" in template.user_template, f"Template '{template.name}' is missing {{query}} placeholder"
 
 
 # ---------------------------------------------------------------------------
 # get_prompt_for_query_type
 # ---------------------------------------------------------------------------
+
 
 class TestGetPromptForQueryType:
     def test_ratio_lookup_returns_correct_template(self):
@@ -174,6 +178,7 @@ class TestGetPromptForQueryType:
 # ---------------------------------------------------------------------------
 # format_context_with_citations
 # ---------------------------------------------------------------------------
+
 
 class TestFormatContextWithCitations:
     def _make_doc(self, source, content, citation=None, doc_type=None, financial_type=None):
@@ -215,8 +220,7 @@ class TestFormatContextWithCitations:
 
     def test_financial_type_metadata_included(self):
         doc = self._make_doc(
-            "balance_sheet.xlsx", "Total assets $2B.",
-            doc_type="excel", financial_type="balance_sheet"
+            "balance_sheet.xlsx", "Total assets $2B.", doc_type="excel", financial_type="balance_sheet"
         )
         result = format_context_with_citations([doc])
         assert "balance_sheet" in result
@@ -239,6 +243,7 @@ class TestFormatContextWithCitations:
 # ---------------------------------------------------------------------------
 # format_few_shot_examples
 # ---------------------------------------------------------------------------
+
 
 class TestFormatFewShotExamples:
     def test_empty_list_returns_empty_string(self):
@@ -285,6 +290,7 @@ class TestFormatFewShotExamples:
 # ---------------------------------------------------------------------------
 # build_prompt
 # ---------------------------------------------------------------------------
+
 
 class TestBuildPrompt:
     def _simple_template(self):
@@ -348,6 +354,7 @@ class TestBuildPrompt:
 # format_json_instruction
 # ---------------------------------------------------------------------------
 
+
 class TestFormatJsonInstruction:
     def test_ratio_lookup_returns_non_empty(self):
         result = format_json_instruction("ratio_lookup")
@@ -391,44 +398,48 @@ class TestFormatJsonInstruction:
 # Few-shot example quality checks
 # ---------------------------------------------------------------------------
 
-class TestFewShotExampleQuality:
-    @pytest.mark.parametrize("template", [
-        RATIO_LOOKUP_PROMPT,
-        TREND_ANALYSIS_PROMPT,
-        COMPARISON_PROMPT,
-        EXPLANATION_PROMPT,
-        GENERAL_PROMPT,
-    ])
-    def test_at_least_one_example(self, template):
-        assert len(template.few_shot_examples) >= 1, (
-            f"Template '{template.name}' has no few-shot examples"
-        )
 
-    @pytest.mark.parametrize("template", [
-        RATIO_LOOKUP_PROMPT,
-        TREND_ANALYSIS_PROMPT,
-        COMPARISON_PROMPT,
-        EXPLANATION_PROMPT,
-        GENERAL_PROMPT,
-    ])
+class TestFewShotExampleQuality:
+    @pytest.mark.parametrize(
+        "template",
+        [
+            RATIO_LOOKUP_PROMPT,
+            TREND_ANALYSIS_PROMPT,
+            COMPARISON_PROMPT,
+            EXPLANATION_PROMPT,
+            GENERAL_PROMPT,
+        ],
+    )
+    def test_at_least_one_example(self, template):
+        assert len(template.few_shot_examples) >= 1, f"Template '{template.name}' has no few-shot examples"
+
+    @pytest.mark.parametrize(
+        "template",
+        [
+            RATIO_LOOKUP_PROMPT,
+            TREND_ANALYSIS_PROMPT,
+            COMPARISON_PROMPT,
+            EXPLANATION_PROMPT,
+            GENERAL_PROMPT,
+        ],
+    )
     def test_all_examples_have_non_empty_question(self, template):
         for i, ex in enumerate(template.few_shot_examples):
-            assert ex.get("question", "").strip(), (
-                f"Template '{template.name}' example {i} has empty 'question'"
-            )
+            assert ex.get("question", "").strip(), f"Template '{template.name}' example {i} has empty 'question'"
 
-    @pytest.mark.parametrize("template", [
-        RATIO_LOOKUP_PROMPT,
-        TREND_ANALYSIS_PROMPT,
-        COMPARISON_PROMPT,
-        EXPLANATION_PROMPT,
-        GENERAL_PROMPT,
-    ])
+    @pytest.mark.parametrize(
+        "template",
+        [
+            RATIO_LOOKUP_PROMPT,
+            TREND_ANALYSIS_PROMPT,
+            COMPARISON_PROMPT,
+            EXPLANATION_PROMPT,
+            GENERAL_PROMPT,
+        ],
+    )
     def test_all_examples_have_non_empty_answer(self, template):
         for i, ex in enumerate(template.few_shot_examples):
-            assert ex.get("answer", "").strip(), (
-                f"Template '{template.name}' example {i} has empty 'answer'"
-            )
+            assert ex.get("answer", "").strip(), f"Template '{template.name}' example {i} has empty 'answer'"
 
     def test_ratio_examples_contain_formula(self):
         for ex in RATIO_LOOKUP_PROMPT.few_shot_examples:
@@ -440,23 +451,19 @@ class TestFewShotExampleQuality:
         for ex in TREND_ANALYSIS_PROMPT.few_shot_examples:
             answer_lower = ex["answer"].lower()
             has_direction = any(
-                word in answer_lower
-                for word in ["improving", "deteriorating", "stable", "positive", "trend"]
+                word in answer_lower for word in ["improving", "deteriorating", "stable", "positive", "trend"]
             )
             assert has_direction, "Trend example should describe a direction"
 
     def test_comparison_examples_contain_table(self):
         for ex in COMPARISON_PROMPT.few_shot_examples:
-            assert "|" in ex["answer"], (
-                "Comparison example should contain a markdown table (pipe character)"
-            )
+            assert "|" in ex["answer"], "Comparison example should contain a markdown table (pipe character)"
 
     def test_explanation_examples_contain_causal_language(self):
         for ex in EXPLANATION_PROMPT.few_shot_examples:
             answer_lower = ex["answer"].lower()
             has_causal = any(
-                word in answer_lower
-                for word in ["because", "caused", "drove", "driven", "mechanism", "root cause"]
+                word in answer_lower for word in ["because", "caused", "drove", "driven", "mechanism", "root cause"]
             )
             assert has_causal, "Explanation example should contain causal language"
 
@@ -465,29 +472,36 @@ class TestFewShotExampleQuality:
 # __init__.py export smoke tests
 # ---------------------------------------------------------------------------
 
+
 class TestInitExports:
     def test_prompt_version_exported(self):
         from prompts import PROMPT_VERSION as pv
+
         assert isinstance(pv, str)
 
     def test_get_prompt_for_query_type_exported(self):
         from prompts import get_prompt_for_query_type as fn
+
         assert callable(fn)
 
     def test_build_prompt_exported(self):
         from prompts import build_prompt as fn
+
         assert callable(fn)
 
     def test_format_context_with_citations_exported(self):
         from prompts import format_context_with_citations as fn
+
         assert callable(fn)
 
     def test_format_json_instruction_exported(self):
         from prompts import format_json_instruction as fn
+
         assert callable(fn)
 
     def test_all_template_constants_exported(self):
         import prompts
+
         for name in [
             "RATIO_LOOKUP_PROMPT",
             "TREND_ANALYSIS_PROMPT",

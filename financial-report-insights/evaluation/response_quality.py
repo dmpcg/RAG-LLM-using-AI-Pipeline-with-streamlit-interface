@@ -10,26 +10,122 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
 # Shared tokenisation helpers (mirrors answer_metrics.py conventions)
 # ---------------------------------------------------------------------------
 
 _STOP_WORDS = frozenset(
     {
-        "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-        "have", "has", "had", "do", "does", "did", "will", "would", "could",
-        "should", "may", "might", "shall", "can", "need", "to", "of", "in",
-        "for", "on", "with", "at", "by", "from", "as", "into", "through",
-        "during", "before", "after", "above", "below", "between", "out",
-        "off", "over", "under", "again", "further", "then", "once", "here",
-        "there", "when", "where", "why", "how", "all", "each", "every",
-        "both", "few", "more", "most", "other", "some", "such", "no", "nor",
-        "not", "only", "own", "same", "so", "than", "too", "very", "just",
-        "because", "but", "and", "or", "if", "while", "about", "this",
-        "that", "these", "those", "i", "me", "my", "we", "our", "you",
-        "your", "he", "him", "his", "she", "her", "it", "its", "they",
-        "them", "their", "what", "which", "who", "whom",
+        "a",
+        "an",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "need",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "out",
+        "off",
+        "over",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "here",
+        "there",
+        "when",
+        "where",
+        "why",
+        "how",
+        "all",
+        "each",
+        "every",
+        "both",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "no",
+        "nor",
+        "not",
+        "only",
+        "own",
+        "same",
+        "so",
+        "than",
+        "too",
+        "very",
+        "just",
+        "because",
+        "but",
+        "and",
+        "or",
+        "if",
+        "while",
+        "about",
+        "this",
+        "that",
+        "these",
+        "those",
+        "i",
+        "me",
+        "my",
+        "we",
+        "our",
+        "you",
+        "your",
+        "he",
+        "him",
+        "his",
+        "she",
+        "her",
+        "it",
+        "its",
+        "they",
+        "them",
+        "their",
+        "what",
+        "which",
+        "who",
+        "whom",
     }
 )
 
@@ -242,9 +338,7 @@ class ConfidenceScorer:
         total_chunks = len(retrieval_scores)
 
         # Average retrieval similarity
-        avg_retrieval = (
-            sum(retrieval_scores) / total_chunks if total_chunks > 0 else 0.0
-        )
+        avg_retrieval = sum(retrieval_scores) / total_chunks if total_chunks > 0 else 0.0
         avg_retrieval = max(0.0, min(1.0, avg_retrieval))
 
         # Source diversity: unique sources / total chunks
@@ -258,11 +352,7 @@ class ConfidenceScorer:
         coverage = max(0.0, min(1.0, source_coverage))
 
         # Weighted combination
-        overall = (
-            self._W_RETRIEVAL * avg_retrieval
-            + self._W_COVERAGE * coverage
-            + self._W_DIVERSITY * diversity
-        )
+        overall = self._W_RETRIEVAL * avg_retrieval + self._W_COVERAGE * coverage + self._W_DIVERSITY * diversity
         overall = max(0.0, min(1.0, overall))
 
         # Confidence level thresholds

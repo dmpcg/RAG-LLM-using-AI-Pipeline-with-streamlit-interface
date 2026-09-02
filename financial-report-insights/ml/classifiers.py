@@ -16,10 +16,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, cross_validate
 from sklearn.preprocessing import StandardScaler
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _safe_ratio(numerator: float, denominator: float, default: float = 0.0) -> float:
     """Divide two numbers, returning *default* when the denominator is zero or
@@ -56,9 +56,7 @@ class FinancialDistressClassifier:
 
     def __init__(self, model_type: str = "random_forest") -> None:
         if model_type not in _SUPPORTED_MODELS:
-            raise ValueError(
-                f"model_type must be one of {_SUPPORTED_MODELS}, got {model_type!r}"
-            )
+            raise ValueError(f"model_type must be one of {_SUPPORTED_MODELS}, got {model_type!r}")
         self.model_type = model_type
         self._estimator = self._create_model(model_type)
         self._scaler = StandardScaler()
@@ -75,9 +73,7 @@ class FinancialDistressClassifier:
         if model_type == "logistic_regression":
             return LogisticRegression(max_iter=1000, random_state=42)
         if model_type == "random_forest":
-            return RandomForestClassifier(
-                n_estimators=100, random_state=42, max_depth=10
-            )
+            return RandomForestClassifier(n_estimators=100, random_state=42, max_depth=10)
         if model_type == "gradient_boosting":
             return GradientBoostingClassifier(
                 n_estimators=100,
@@ -144,9 +140,7 @@ class FinancialDistressClassifier:
     # Training
     # ------------------------------------------------------------------
 
-    def train(
-        self, features: list[list[float]], labels: list[int]
-    ) -> dict[str, float]:
+    def train(self, features: list[list[float]], labels: list[int]) -> dict[str, float]:
         """Fit the model using 5-fold stratified cross-validation.
 
         Parameters
@@ -240,9 +234,7 @@ class FinancialDistressClassifier:
     # Feature importance
     # ------------------------------------------------------------------
 
-    def get_feature_importance(
-        self, feature_names: list[str]
-    ) -> list[tuple[str, float]]:
+    def get_feature_importance(self, feature_names: list[str]) -> list[tuple[str, float]]:
         """Return feature importances sorted descending.
 
         For tree ensembles uses ``.feature_importances_``.
@@ -352,9 +344,7 @@ class DistressExplainer:
     # Public API
     # ------------------------------------------------------------------
 
-    def explain_prediction(
-        self, features: list[float]
-    ) -> list[tuple[str, float, str]]:
+    def explain_prediction(self, features: list[float]) -> list[tuple[str, float, str]]:
         """Explain a single prediction via weighted feature contributions.
 
         Parameters
@@ -369,8 +359,7 @@ class DistressExplainer:
         """
         if len(features) != len(self.feature_names):
             raise ValueError(
-                f"features length ({len(features)}) does not match "
-                f"feature_names length ({len(self.feature_names)})"
+                f"features length ({len(features)}) does not match feature_names length ({len(self.feature_names)})"
             )
 
         x = np.array(features, dtype=float)
@@ -384,9 +373,7 @@ class DistressExplainer:
 
         return result
 
-    def get_top_risk_factors(
-        self, features: list[float], k: int = 5
-    ) -> list[dict]:
+    def get_top_risk_factors(self, features: list[float], k: int = 5) -> list[dict]:
         """Return the top-k risk factors for a single prediction.
 
         Parameters

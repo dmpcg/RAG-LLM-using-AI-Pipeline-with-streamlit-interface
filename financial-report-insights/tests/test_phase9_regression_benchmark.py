@@ -4,13 +4,13 @@ Tests for regression_forecast() and industry_benchmark() methods.
 """
 
 import pytest
-import numpy as np
+
 from financial_analyzer import (
+    BenchmarkComparison,
     CharlieAnalyzer,
     FinancialData,
-    RegressionForecast,
-    BenchmarkComparison,
     IndustryBenchmarkResult,
+    RegressionForecast,
 )
 
 
@@ -52,6 +52,7 @@ def sample_data():
 
 # ===== REGRESSION FORECAST DATACLASS =====
 
+
 class TestRegressionForecastDataclass:
     def test_defaults(self):
         r = RegressionForecast()
@@ -69,6 +70,7 @@ class TestRegressionForecastDataclass:
 
 # ===== BENCHMARK COMPARISON DATACLASS =====
 
+
 class TestBenchmarkComparisonDataclass:
     def test_defaults(self):
         b = BenchmarkComparison()
@@ -84,6 +86,7 @@ class TestBenchmarkComparisonDataclass:
 
 # ===== INDUSTRY BENCHMARK RESULT DATACLASS =====
 
+
 class TestIndustryBenchmarkResultDataclass:
     def test_defaults(self):
         r = IndustryBenchmarkResult()
@@ -93,6 +96,7 @@ class TestIndustryBenchmarkResultDataclass:
 
 
 # ===== REGRESSION FORECAST =====
+
 
 class TestRegressionForecast:
     def test_returns_regression_forecast(self, analyzer):
@@ -208,6 +212,7 @@ class TestRegressionForecast:
 
 # ===== INDUSTRY BENCHMARK =====
 
+
 class TestIndustryBenchmark:
     def test_returns_benchmark_result(self, analyzer, sample_data):
         result = analyzer.industry_benchmark(sample_data)
@@ -297,16 +302,24 @@ class TestIndustryBenchmark:
     def test_debt_to_equity_inverted(self, analyzer):
         """Lower D/E should rank higher (inverted metric)."""
         low_de = FinancialData(
-            revenue=100_000, net_income=10_000,
-            total_assets=200_000, total_liabilities=40_000,
-            total_equity=160_000, total_debt=30_000,
-            current_assets=80_000, current_liabilities=30_000,
+            revenue=100_000,
+            net_income=10_000,
+            total_assets=200_000,
+            total_liabilities=40_000,
+            total_equity=160_000,
+            total_debt=30_000,
+            current_assets=80_000,
+            current_liabilities=30_000,
         )
         high_de = FinancialData(
-            revenue=100_000, net_income=10_000,
-            total_assets=200_000, total_liabilities=160_000,
-            total_equity=40_000, total_debt=150_000,
-            current_assets=80_000, current_liabilities=30_000,
+            revenue=100_000,
+            net_income=10_000,
+            total_assets=200_000,
+            total_liabilities=160_000,
+            total_equity=40_000,
+            total_debt=150_000,
+            current_assets=80_000,
+            current_liabilities=30_000,
         )
         r_low = analyzer.industry_benchmark(low_de)
         r_high = analyzer.industry_benchmark(high_de)
@@ -317,6 +330,7 @@ class TestIndustryBenchmark:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase9EdgeCases:
     def test_single_value_no_forecast(self, analyzer):
@@ -348,10 +362,15 @@ class TestPhase9EdgeCases:
     def test_all_industries_have_benchmarks(self, analyzer):
         """Every configured industry should produce results."""
         data = FinancialData(
-            revenue=100_000, net_income=10_000, ebit=15_000,
-            total_assets=200_000, total_liabilities=80_000,
-            total_equity=120_000, current_assets=50_000,
-            current_liabilities=30_000, cogs=60_000,
+            revenue=100_000,
+            net_income=10_000,
+            ebit=15_000,
+            total_assets=200_000,
+            total_liabilities=80_000,
+            total_equity=120_000,
+            current_assets=50_000,
+            current_liabilities=30_000,
+            cogs=60_000,
             gross_profit=40_000,
         )
         for ind in ["general", "technology", "manufacturing", "retail", "healthcare"]:

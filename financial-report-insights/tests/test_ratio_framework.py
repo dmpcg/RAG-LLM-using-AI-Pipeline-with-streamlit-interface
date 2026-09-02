@@ -1,9 +1,6 @@
 """Tests for ratio_framework.py generic parameterized ratio analysis engine."""
 
-from dataclasses import dataclass
-
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -372,8 +369,8 @@ class TestComputeRatio:
         assert result.grade == "Insufficient Data"
 
     def test_zero_denominator(self, sample_financial_data):
-        from ratio_framework import RatioDefinition, compute_ratio
         from financial_analyzer import FinancialData
+        from ratio_framework import RatioDefinition, compute_ratio
 
         data = FinancialData(net_income=100_000, total_equity=0)
         defn = RatioDefinition(
@@ -408,7 +405,10 @@ class TestComputeRatio:
 
     def test_computed_ratios_passed(self, sample_financial_data):
         from ratio_framework import (
-            Adjustment, Operator, RatioDefinition, compute_ratio,
+            Adjustment,
+            Operator,
+            RatioDefinition,
+            compute_ratio,
         )
 
         defn = RatioDefinition(
@@ -437,11 +437,23 @@ class TestRatioCatalog:
         from ratio_framework import RATIO_CATALOG
 
         expected = {
-            "roa", "roe", "ebit_to_total_assets", "gross_margin", "operating_margin", "net_margin",
-            "current_ratio", "cash_ratio",
-            "debt_to_equity", "debt_to_ebitda", "interest_coverage",
-            "asset_turnover", "inventory_turnover", "receivables_turnover",
-            "fcf_yield", "ocf_to_ni", "cash_conversion_cycle",
+            "roa",
+            "roe",
+            "ebit_to_total_assets",
+            "gross_margin",
+            "operating_margin",
+            "net_margin",
+            "current_ratio",
+            "cash_ratio",
+            "debt_to_equity",
+            "debt_to_ebitda",
+            "interest_coverage",
+            "asset_turnover",
+            "inventory_turnover",
+            "receivables_turnover",
+            "fcf_yield",
+            "ocf_to_ni",
+            "cash_conversion_cycle",
         }
         assert set(RATIO_CATALOG.keys()) == expected
 
@@ -503,9 +515,7 @@ class TestRunAllRatios:
 
         results = run_all_ratios(sparse_financial_data)
         # Most ratios should be "Insufficient Data" with sparse data
-        insufficient_count = sum(
-            1 for r in results.values() if r.grade == "Insufficient Data"
-        )
+        insufficient_count = sum(1 for r in results.values() if r.grade == "Insufficient Data")
         assert insufficient_count >= 10  # Most fields are None
 
     def test_cash_ratio_uses_cash_field(self, sample_financial_data):
@@ -529,9 +539,7 @@ class TestGetRatioByCategory:
         from ratio_framework import get_ratio_by_category
 
         categories = get_ratio_by_category()
-        assert set(categories.keys()) == {
-            "Profitability", "Liquidity", "Leverage", "Efficiency", "Cash Flow"
-        }
+        assert set(categories.keys()) == {"Profitability", "Liquidity", "Leverage", "Efficiency", "Cash Flow"}
 
     def test_profitability_ratios(self):
         from ratio_framework import get_ratio_by_category
@@ -618,9 +626,7 @@ class TestThresholdProvenance:
         for key, definition in RATIO_CATALOG.items():
             if definition.scoring_thresholds:
                 assert isinstance(definition.threshold_source, str)
-                assert definition.threshold_source.strip(), (
-                    f"{key} has scoring_thresholds but empty threshold_source"
-                )
+                assert definition.threshold_source.strip(), f"{key} has scoring_thresholds but empty threshold_source"
                 documented += 1
         assert documented == len(RATIO_CATALOG)
 
@@ -648,10 +654,7 @@ class TestThresholdProvenance:
             "ocf_to_ni": [(1.2, 10.0), (1.0, 8.0), (0.8, 6.0), (0.6, 4.0)],
             "cash_conversion_cycle": [(0.05, 10.0), (0.10, 8.0), (0.15, 6.0), (0.20, 4.0)],
         }
-        actual = {
-            key: list(definition.scoring_thresholds)
-            for key, definition in RATIO_CATALOG.items()
-        }
+        actual = {key: list(definition.scoring_thresholds) for key, definition in RATIO_CATALOG.items()}
         assert actual == expected
 
     def test_computed_scores_unchanged_snapshot(self, sample_financial_data):

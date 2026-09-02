@@ -2,7 +2,6 @@
 
 import pytest
 
-from financial_analyzer import FinancialData
 from compliance_scorer import (
     AuditRiskAssessment,
     ComplianceReport,
@@ -13,7 +12,7 @@ from compliance_scorer import (
     SOXComplianceResult,
     _score_to_grade,
 )
-
+from financial_analyzer import FinancialData
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -308,10 +307,14 @@ class TestSOXBoundaryValues:
     def test_interest_coverage_exactly_one_is_material_weakness(self, scorer):
         """ic < 1.0 is material weakness; ic == 1.0 should be significant deficiency."""
         data = FinancialData(
-            revenue=10_000_000, net_income=500_000,
-            ebit=200_000, interest_expense=200_000,  # ic = 1.0
-            operating_income=500_000, operating_cash_flow=500_000,
-            total_equity=5_000_000, total_assets=10_000_000,
+            revenue=10_000_000,
+            net_income=500_000,
+            ebit=200_000,
+            interest_expense=200_000,  # ic = 1.0
+            operating_income=500_000,
+            operating_cash_flow=500_000,
+            total_equity=5_000_000,
+            total_assets=10_000_000,
         )
         result = scorer.sox_compliance(data)
         # ic=1.0: not < 1.0 so not material weakness, but < 2.0 so significant deficiency
@@ -319,19 +322,26 @@ class TestSOXBoundaryValues:
 
     def test_interest_coverage_below_one_is_material_weakness(self, scorer):
         data = FinancialData(
-            revenue=10_000_000, net_income=500_000,
-            ebit=100_000, interest_expense=200_000,  # ic = 0.5
-            operating_income=500_000, operating_cash_flow=500_000,
-            total_equity=5_000_000, total_assets=10_000_000,
+            revenue=10_000_000,
+            net_income=500_000,
+            ebit=100_000,
+            interest_expense=200_000,  # ic = 0.5
+            operating_income=500_000,
+            operating_cash_flow=500_000,
+            total_equity=5_000_000,
+            total_assets=10_000_000,
         )
         result = scorer.sox_compliance(data)
         assert len(result.material_weakness_indicators) >= 1
 
     def test_negative_equity_material_weakness(self, scorer):
         data = FinancialData(
-            revenue=10_000_000, net_income=500_000,
-            operating_income=500_000, operating_cash_flow=500_000,
-            total_equity=-1_000_000, total_assets=10_000_000,
+            revenue=10_000_000,
+            net_income=500_000,
+            operating_income=500_000,
+            operating_cash_flow=500_000,
+            total_equity=-1_000_000,
+            total_assets=10_000_000,
         )
         result = scorer.sox_compliance(data)
         assert len(result.material_weakness_indicators) >= 1
@@ -375,8 +385,11 @@ class TestRegulatoryThresholdBoundary:
     def test_equity_ratio_exactly_at_threshold_passes(self, scorer):
         """Equity ratio >= 6% should pass."""
         data = FinancialData(
-            total_equity=6_000, total_assets=100_000,  # 6%
-            revenue=50_000, current_assets=20_000, current_liabilities=10_000,
+            total_equity=6_000,
+            total_assets=100_000,  # 6%
+            revenue=50_000,
+            current_assets=20_000,
+            current_liabilities=10_000,
         )
         result = scorer.regulatory_ratios(data)
         equity_check = [r for r in result.thresholds_checked if "Equity" in r.rule_name]
@@ -385,8 +398,11 @@ class TestRegulatoryThresholdBoundary:
 
     def test_equity_ratio_below_threshold_fails(self, scorer):
         data = FinancialData(
-            total_equity=5_000, total_assets=100_000,  # 5%
-            revenue=50_000, current_assets=20_000, current_liabilities=10_000,
+            total_equity=5_000,
+            total_assets=100_000,  # 5%
+            revenue=50_000,
+            current_assets=20_000,
+            current_liabilities=10_000,
         )
         result = scorer.regulatory_ratios(data)
         equity_check = [r for r in result.thresholds_checked if "Equity" in r.rule_name]
@@ -395,9 +411,12 @@ class TestRegulatoryThresholdBoundary:
 
     def test_high_leverage_fails(self, scorer):
         data = FinancialData(
-            total_debt=90_000, total_assets=100_000,  # 90% leverage
-            total_equity=10_000, revenue=50_000,
-            current_assets=20_000, current_liabilities=10_000,
+            total_debt=90_000,
+            total_assets=100_000,  # 90% leverage
+            total_equity=10_000,
+            revenue=50_000,
+            current_assets=20_000,
+            current_liabilities=10_000,
         )
         result = scorer.regulatory_ratios(data)
         lev_check = [r for r in result.thresholds_checked if "Leverage" in r.rule_name]
@@ -416,10 +435,14 @@ class TestScoreClamping:
     def test_sox_score_never_negative(self, scorer):
         """SOX score should be >= 0 even with many material weaknesses."""
         data = FinancialData(
-            revenue=10_000_000, net_income=-5_000_000,
-            operating_income=-5_000_000, operating_cash_flow=-1_000_000,
-            total_equity=-10_000_000, total_assets=10_000_000,
-            ebit=-1_000_000, interest_expense=500_000,
+            revenue=10_000_000,
+            net_income=-5_000_000,
+            operating_income=-5_000_000,
+            operating_cash_flow=-1_000_000,
+            total_equity=-10_000_000,
+            total_assets=10_000_000,
+            ebit=-1_000_000,
+            interest_expense=500_000,
             accounts_receivable=6_000_000,
         )
         result = scorer.sox_compliance(data)
@@ -439,10 +462,14 @@ class TestScoreClamping:
     def test_audit_risk_score_clamped(self, scorer):
         """Audit risk total should stay within [0, 100]."""
         data = FinancialData(
-            revenue=10_000_000, net_income=-5_000_000,
-            operating_income=-5_000_000, operating_cash_flow=-1_000_000,
-            total_equity=-10_000_000, total_assets=10_000_000,
-            ebit=-1_000_000, interest_expense=500_000,
+            revenue=10_000_000,
+            net_income=-5_000_000,
+            operating_income=-5_000_000,
+            operating_cash_flow=-1_000_000,
+            total_equity=-10_000_000,
+            total_assets=10_000_000,
+            ebit=-1_000_000,
+            interest_expense=500_000,
         )
         result = scorer.audit_risk_assessment(data)
         assert 0 <= result.score <= 100
@@ -487,9 +514,7 @@ class TestSOXBalanceSheetImbalance:
 
         assert _BS_IMBALANCE_TOLERANCE == 0.01
 
-    def test_imbalanced_lowers_sox_risk_score_with_local_penalty(
-        self, scorer, bs_balanced, bs_imbalanced
-    ):
+    def test_imbalanced_lowers_sox_risk_score_with_local_penalty(self, scorer, bs_balanced, bs_imbalanced):
         """Imbalanced BS -> SOX risk_score drops + SOX-local penalty present."""
         balanced = scorer.sox_compliance(bs_balanced)
         imbalanced = scorer.sox_compliance(bs_imbalanced)
@@ -507,9 +532,7 @@ class TestSOXBalanceSheetImbalance:
         result = scorer.sox_compliance(bs_balanced)
         assert result.bs_imbalance_penalty == 0
 
-    def test_bs_imbalance_not_in_material_weakness(
-        self, scorer, bs_imbalanced
-    ):
+    def test_bs_imbalance_not_in_material_weakness(self, scorer, bs_imbalanced):
         """The imbalance signal must NOT be appended to material_weakness."""
         result = scorer.sox_compliance(bs_imbalanced)
         joined = " ".join(result.material_weakness_indicators).lower()
@@ -518,9 +541,7 @@ class TestSOXBalanceSheetImbalance:
         joined_sd = " ".join(result.significant_deficiency_indicators).lower()
         assert "balance sheet" not in joined_sd
 
-    def test_overall_audit_risk_indicator_count_unchanged(
-        self, scorer, bs_balanced, bs_imbalanced
-    ):
+    def test_overall_audit_risk_indicator_count_unchanged(self, scorer, bs_balanced, bs_imbalanced):
         """No double-count: overall_audit_risk restatement-indicator COUNT is
         identical with vs. without the SOX-local imbalance change.
 
@@ -533,9 +554,7 @@ class TestSOXBalanceSheetImbalance:
         # Count the imbalance-attributable restatement indicators (from sec.red_flags).
         def imbalance_indicators(assessment):
             return [
-                ind
-                for ind in assessment.restatement_risk_indicators
-                if "balance sheet does not balance" in ind.lower()
+                ind for ind in assessment.restatement_risk_indicators if "balance sheet does not balance" in ind.lower()
             ]
 
         # Exactly one representation of the imbalance in the imbalanced overall
@@ -560,19 +579,12 @@ class TestBaselIIIInspiredLabeling:
 
     def test_basel_iii_thresholds_are_relabeled_inspired(self, scorer):
         """Every Basel III threshold framework label contains '(inspired)'."""
-        basel = [
-            t
-            for t in ComplianceScorer._REGULATORY_THRESHOLDS
-            if "basel iii" in t[1].lower()
-        ]
+        basel = [t for t in ComplianceScorer._REGULATORY_THRESHOLDS if "basel iii" in t[1].lower()]
         # The Basel-inspired rules must actually be present.
         assert basel, "expected at least one Basel III threshold"
         for rule in basel:
             framework = rule[1]
-            assert "(inspired)" in framework, (
-                f"Basel III framework label must be relabeled '(inspired)': "
-                f"{framework!r}"
-            )
+            assert "(inspired)" in framework, f"Basel III framework label must be relabeled '(inspired)': {framework!r}"
             # No bare 'Basel III' citation may remain.
             assert framework != "Basel III"
 

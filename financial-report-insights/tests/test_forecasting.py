@@ -17,7 +17,6 @@ from ml.forecasting import (
     walk_forward_validate,
 )
 
-
 # ---------------------------------------------------------------------------
 # SimpleARModel
 # ---------------------------------------------------------------------------
@@ -236,9 +235,7 @@ class TestEnsembleForecaster:
         values = [50 + i * 3 for i in range(15)]
         model = EnsembleForecaster().fit(values)
         result = model.predict(steps=5)
-        for fc, lo, hi in zip(
-            result.point_forecast, result.lower_bound, result.upper_bound
-        ):
+        for fc, lo, hi in zip(result.point_forecast, result.lower_bound, result.upper_bound):
             assert lo <= fc <= hi
 
     def test_predict_before_fit_raises(self):

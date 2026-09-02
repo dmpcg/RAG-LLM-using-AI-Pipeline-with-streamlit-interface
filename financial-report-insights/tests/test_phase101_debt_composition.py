@@ -4,10 +4,11 @@ Tests for debt_composition_analysis() and DebtCompositionResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     DebtCompositionResult,
+    FinancialData,
 )
 
 
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestDebtCompositionDataclass:
     def test_defaults(self):
         r = DebtCompositionResult()
@@ -68,6 +70,7 @@ class TestDebtCompositionDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestDebtCompositionAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestDebtCompositionAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestDebtCompositionScoring:
     def test_low_debt(self, analyzer, sample_data):
         """D/E=0.333 <= 0.50 => base 8.5. DCM=0.475 >= 0.30 => +0.5. Score=9.0."""
@@ -155,6 +159,7 @@ class TestDebtCompositionScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase101EdgeCases:
     def test_empty_data(self, analyzer):

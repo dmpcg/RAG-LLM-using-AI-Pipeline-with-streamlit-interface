@@ -4,10 +4,11 @@ Tests for concentration_risk_analysis() and ConcentrationRiskResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
-    FinancialData,
     ConcentrationRiskResult,
+    FinancialData,
 )
 
 
@@ -46,6 +47,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestConcentrationRiskDataclass:
     def test_defaults(self):
         r = ConcentrationRiskResult()
@@ -67,6 +69,7 @@ class TestConcentrationRiskDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestConcentrationRisk:
     def test_returns_result(self, analyzer, sample_data):
@@ -143,6 +146,7 @@ class TestConcentrationRisk:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestConcentrationScoring:
     def test_well_diversified(self, analyzer):
@@ -233,6 +237,7 @@ class TestConcentrationScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase26EdgeCases:
     def test_empty_data(self, analyzer):

@@ -61,17 +61,14 @@ class SimpleARModel:
         """
         arr = np.asarray(values, dtype=np.float64)
         if len(arr) < self.order + 1:
-            raise ValueError(
-                f"Need at least {self.order + 1} data points for AR({self.order}), "
-                f"got {len(arr)}"
-            )
+            raise ValueError(f"Need at least {self.order + 1} data points for AR({self.order}), got {len(arr)}")
 
         self._values = arr
 
         # Build design matrix: each row is [1, y_{t-1}, y_{t-2}, ..., y_{t-p}]
         n = len(arr)
         X = np.ones((n - self.order, self.order + 1))
-        y = arr[self.order:]
+        y = arr[self.order :]
 
         for lag in range(1, self.order + 1):
             X[:, lag] = arr[self.order - lag : n - lag]
@@ -111,9 +108,7 @@ class SimpleARModel:
         for step in range(steps):
             # y_hat = intercept + sum(coeff_i * y_{t-i})
             recent = history[-self.order :]
-            y_hat = self._intercept + float(
-                np.dot(self._coefficients, recent[::-1])
-            )
+            y_hat = self._intercept + float(np.dot(self._coefficients, recent[::-1]))
             if not math.isfinite(y_hat):
                 logger.warning("AR model prediction diverged at step %d", step)
                 break
@@ -148,9 +143,7 @@ class ExponentialSmoother:
 
     def __init__(self, method: str = "double") -> None:
         if method not in self.VALID_METHODS:
-            raise ValueError(
-                f"method must be one of {self.VALID_METHODS}, got '{method}'"
-            )
+            raise ValueError(f"method must be one of {self.VALID_METHODS}, got '{method}'")
         self.method = method
         self._alpha: float = 0.3
         self._beta: float = 0.1
@@ -168,9 +161,7 @@ class ExponentialSmoother:
         """Public accessor for the seasonal period."""
         return self._seasonal_period
 
-    def fit(
-        self, values: list[float], seasonal_period: int = 4
-    ) -> ExponentialSmoother:
+    def fit(self, values: list[float], seasonal_period: int = 4) -> ExponentialSmoother:
         """Fit the smoother, auto-optimizing parameters via scipy.
 
         Parameters
@@ -243,9 +234,7 @@ class ExponentialSmoother:
     # Double (Holt) exponential smoothing
     # ------------------------------------------------------------------
 
-    def _double_smooth(
-        self, arr: np.ndarray, alpha: float, beta: float
-    ) -> np.ndarray:
+    def _double_smooth(self, arr: np.ndarray, alpha: float, beta: float) -> np.ndarray:
         n = len(arr)
         level = np.empty(n)
         trend = np.empty(n)
@@ -313,9 +302,7 @@ class ExponentialSmoother:
         fitted[0] = level[0] + seasonal[0]
 
         for t in range(1, n):
-            level[t] = alpha * (arr[t] - seasonal[t % m]) + (1 - alpha) * (
-                level[t - 1] + trend[t - 1]
-            )
+            level[t] = alpha * (arr[t] - seasonal[t % m]) + (1 - alpha) * (level[t - 1] + trend[t - 1])
             trend[t] = beta * (level[t] - level[t - 1]) + (1 - beta) * trend[t - 1]
             seasonal[t + m] = gamma * (arr[t] - level[t]) + (1 - gamma) * seasonal[t % m]
             fitted[t] = level[t - 1] + trend[t - 1] + seasonal[t % m]
@@ -533,9 +520,7 @@ class EnsembleForecaster:
         self._residuals: Optional[np.ndarray] = None
         self._fitted: bool = False
 
-    def fit(
-        self, values: list[float], seasonal_period: int = 4
-    ) -> EnsembleForecaster:
+    def fit(self, values: list[float], seasonal_period: int = 4) -> EnsembleForecaster:
         """Fit all component models and compute accuracy weights.
 
         Parameters
@@ -590,13 +575,8 @@ class EnsembleForecaster:
 
         # Compute weights: inverse MAE, normalized
         # Replace nan/inf with a large penalty
-        max_score = max(
-            (s for s in model_scores.values() if np.isfinite(s)), default=1.0
-        )
-        safe_scores = {
-            k: (v if np.isfinite(v) else max_score * 10)
-            for k, v in model_scores.items()
-        }
+        max_score = max((s for s in model_scores.values() if np.isfinite(s)), default=1.0)
+        safe_scores = {k: (v if np.isfinite(v) else max_score * 10) for k, v in model_scores.items()}
 
         inv_scores = {k: 1.0 / max(v, 1e-10) for k, v in safe_scores.items()}
         total = sum(inv_scores.values())
@@ -611,10 +591,7 @@ class EnsembleForecaster:
                 if np.isfinite(met.get(k, float("nan"))):
                     all_metrics[k].append(met[k])
 
-        self._metrics = {
-            k: float(np.mean(v)) if v else float("nan")
-            for k, v in all_metrics.items()
-        }
+        self._metrics = {k: float(np.mean(v)) if v else float("nan") for k, v in all_metrics.items()}
 
         # Combine residuals (weighted)
         residual_arrays = []
@@ -655,9 +632,7 @@ class EnsembleForecaster:
         point_forecast = combined.tolist()
 
         residuals = self._residuals if self._residuals is not None else np.array([0.0])
-        lower, upper = compute_prediction_intervals(
-            point_forecast, residuals, confidence=0.95
-        )
+        lower, upper = compute_prediction_intervals(point_forecast, residuals, confidence=0.95)
 
         return ForecastResult(
             point_forecast=point_forecast,

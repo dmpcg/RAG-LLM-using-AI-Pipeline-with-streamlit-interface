@@ -14,7 +14,7 @@ import re
 from collections import Counter
 from itertools import islice
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -176,6 +176,8 @@ def _df_to_markdown(df: pd.DataFrame, max_rows: int = 200) -> str:
     if df.empty:
         return ""
 
+    # Drop all-blank rows and columns before truncating, so data past the limit
+    # isn't lost to the blank padding pandas reads from sparse sheets.
     df = df.dropna(axis=1, how="all").dropna(axis=0, how="all")
     if df.empty:
         return ""
@@ -348,10 +350,7 @@ def ingest_excel(
             sep = "\t" if suffix == ".tsv" else ","
             df = _read_csv_robust(file_path, sep)
             # Fix unnamed columns from headerless Excel exports
-            df.columns = [
-                c if not str(c).startswith("Unnamed") else f"Col_{i}"
-                for i, c in enumerate(df.columns)
-            ]
+            df.columns = [c if not str(c).startswith("Unnamed") else f"Col_{i}" for i, c in enumerate(df.columns)]
             sheets = [("Sheet1", df)]
         else:
             xls = pd.ExcelFile(file_path)
@@ -373,8 +372,7 @@ def ingest_excel(
                     # for blank/unnamed cells.
                     df.columns = [
                         str(c).strip()
-                        if (pd.notna(c) and str(c).strip()
-                            and not str(c).startswith("Unnamed"))
+                        if (pd.notna(c) and str(c).strip() and not str(c).startswith("Unnamed"))
                         else f"Col_{i}"
                         for i, c in enumerate(cols)
                     ]
@@ -386,6 +384,12 @@ def ingest_excel(
                         )
                     # Skip empty sheets
                     if df.empty or (df.shape[0] < 2 and df.shape[1] < 2):
+                        logger.warning(
+                            "Skipping empty/near-empty sheet '%s' (shape=%s) in %s",
+                            sheet_name,
+                            df.shape,
+                            source,
+                        )
                         continue
                     sheets.append((sheet_name, df))
                 except Exception as e:
@@ -396,6 +400,12 @@ def ingest_excel(
             md = _df_to_markdown(df)
 
             if not md.strip():
+                logger.warning(
+                    "Skipping sheet '%s' (shape=%s) in %s: produced blank markdown",
+                    sheet_name,
+                    df.shape,
+                    source,
+                )
                 continue
 
             meta = {
@@ -416,10 +426,19 @@ def ingest_excel(
             )
             all_chunks.extend(sheet_chunks)
 
-        logger.info(
-            "Ingested Excel '%s': %d sheets -> %d chunks",
-            source, len(sheets), len(all_chunks),
-        )
+        if sheets and not all_chunks:
+            logger.warning(
+                "Ingested Excel '%s': %d sheets present but produced 0 chunks",
+                source,
+                len(sheets),
+            )
+        else:
+            logger.info(
+                "Ingested Excel '%s': %d sheets -> %d chunks",
+                source,
+                len(sheets),
+                len(all_chunks),
+            )
 
     except Exception as e:
         logger.error("Failed to ingest Excel file %s: %s", source, e)
@@ -500,11 +519,13 @@ def ingest_pdf(
 
         logger.info(
             "Ingested PDF '%s': %d sections -> %d chunks",
-            source, len(parsed.sections), len(all_chunks),
+            source,
+            len(parsed.sections),
+            len(all_chunks),
         )
 
     except Exception as e:
-        logger.error("Failed to ingest PDF file %s: %s", source, e)
+        logger.error("Failed to ingest PDF file %s: %s", source, e, exc_info=True)
 
     return all_chunks
 
@@ -537,13 +558,16 @@ def ingest_text(
     if file_size > _MAX_TEXT_BYTES:
         logger.warning(
             "Text file %s is %d bytes (limit %d). Skipping.",
-            source, file_size, _MAX_TEXT_BYTES,
+            source,
+            file_size,
+            _MAX_TEXT_BYTES,
         )
         return []
 
     try:
         if suffix == ".docx":
             from docx import Document as DocxDocument
+
             doc = DocxDocument(file_path)
             text = "\n".join(p.text for p in doc.paragraphs)
         else:

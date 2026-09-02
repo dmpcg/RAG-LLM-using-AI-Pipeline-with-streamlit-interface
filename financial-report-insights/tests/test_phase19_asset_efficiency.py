@@ -4,10 +4,11 @@ Tests for asset_efficiency_analysis() and AssetEfficiencyResult dataclass.
 """
 
 import pytest
+
 from financial_analyzer import (
+    AssetEfficiencyResult,
     CharlieAnalyzer,
     FinancialData,
-    AssetEfficiencyResult,
 )
 
 
@@ -46,6 +47,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestAssetEfficiencyDataclass:
     def test_defaults(self):
         r = AssetEfficiencyResult()
@@ -64,6 +66,7 @@ class TestAssetEfficiencyDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestAssetEfficiency:
     def test_returns_result(self, analyzer, sample_data):
@@ -122,8 +125,8 @@ class TestAssetEfficiency:
             inventory=100_000,
             accounts_receivable=150_000,
             avg_total_assets=1_800_000,  # Average
-            avg_inventory=90_000,        # Average
-            avg_receivables=140_000,     # Average
+            avg_inventory=90_000,  # Average
+            avg_receivables=140_000,  # Average
         )
         result = analyzer.asset_efficiency_analysis(data)
         # Should use avg_total_assets
@@ -135,6 +138,7 @@ class TestAssetEfficiency:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestEfficiencyScoring:
     def test_high_efficiency_company(self, analyzer):
@@ -194,6 +198,7 @@ class TestEfficiencyScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase19EdgeCases:
     def test_empty_data(self, analyzer):

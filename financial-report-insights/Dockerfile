@@ -1,5 +1,7 @@
 # ---- Stage 1: Build dependencies ----
-FROM python:3.12-slim AS builder
+# WS-1 P1-F3 (2026-05-07): base image pinned to digest for reproducibility.
+# Refresh via Renovate or `docker buildx imagetools inspect python:3.12-slim`.
+FROM python:3.12-slim@sha256:46cb7cc2877e60fbd5e21a9ae6115c30ace7a077b9f8772da879e4590c18c2e3 AS builder
 
 WORKDIR /build
 
@@ -12,7 +14,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---- Stage 2: Runtime ----
-FROM python:3.12-slim
+# Same digest pin (WS-1 P1-F3).
+FROM python:3.12-slim@sha256:46cb7cc2877e60fbd5e21a9ae6115c30ace7a077b9f8772da879e4590c18c2e3
 
 # Prevent .pyc files and enable real-time log output
 ENV PYTHONDONTWRITEBYTECODE=1

@@ -3,12 +3,25 @@
 Provides thread-safe in-memory collection of retrieval and LLM metrics for
 observability dashboards. Metrics are stored in rolling windows and never
 raise exceptions that would interrupt the main RAG pipeline.
+
+Also exposes Prometheus HTTP instrumentation:
+- ``_HTTP_REQUESTS``: Counter labeled by method/route/status
+- ``_REQUEST_LATENCY``: Histogram labeled by method/route
+- ``MetricsMiddleware``: Starlette BaseHTTPMiddleware that records both
+- ``render_latest()``: Returns (bytes, content_type) for the /metrics endpoint
 """
+
 import logging
 import threading
 import time
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, List, Optional, Tuple
+
+import prometheus_client
+from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 
@@ -179,8 +192,7 @@ class MetricsCollector:
             }
         except Exception as exc:  # pragma: no cover
             logger.warning("MetricsCollector.get_query_stats failed: %s", exc)
-            return {"total_queries": 0, "avg_latency_ms": 0.0,
-                    "avg_prompt_tokens": 0.0, "avg_completion_tokens": 0.0}
+            return {"total_queries": 0, "avg_latency_ms": 0.0, "avg_prompt_tokens": 0.0, "avg_completion_tokens": 0.0}
 
     def get_retrieval_stats(self) -> Dict[str, Any]:
         """Return aggregated retrieval statistics.
@@ -392,8 +404,71 @@ def get_metrics_collector() -> MetricsCollector:
                 window_size = _DEFAULT_WINDOW_SIZE
                 try:
                     from config import settings
+
                     window_size = int(getattr(settings, "metrics_window_size", _DEFAULT_WINDOW_SIZE))
                 except Exception:
                     pass
                 _collector_instance = MetricsCollector(window_size=window_size)
     return _collector_instance
+
+
+# ---------------------------------------------------------------------------
+# Prometheus HTTP instrumentation
+# ---------------------------------------------------------------------------
+
+# Use the default process-wide registry so standard Go-runtime metrics are
+# included alongside application metrics. Tests may swap these out via
+# module-attribute replacement to use isolated CollectorRegistry instances.
+
+_REGISTRY: CollectorRegistry = prometheus_client.REGISTRY
+
+_HTTP_REQUESTS: Counter = Counter(
+    "http_requests_total",
+    "Total HTTP requests handled by this service",
+    ["method", "route", "status"],
+)
+
+_REQUEST_LATENCY: Histogram = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request latency in seconds",
+    ["method", "route"],
+)
+
+
+class MetricsMiddleware(BaseHTTPMiddleware):
+    """Starlette/FastAPI middleware that records per-route request count and latency.
+
+    Labels are derived from the matched route path template (e.g. '/graph/context/{period_label}')
+    rather than the raw URL path to avoid high-cardinality label explosions.
+    """
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        start = time.perf_counter()
+        response = await call_next(request)
+        duration = time.perf_counter() - start
+
+        method = request.method
+        status = str(response.status_code)
+
+        # Prefer the route template if FastAPI resolved one
+        route = request.url.path
+        scope_route = request.scope.get("route")
+        if scope_route is not None:
+            path_attr = getattr(scope_route, "path", None)
+            if path_attr:
+                route = path_attr
+
+        _HTTP_REQUESTS.labels(method=method, route=route, status=status).inc()
+        _REQUEST_LATENCY.labels(method=method, route=route).observe(duration)
+
+        return response
+
+
+def render_latest() -> Tuple[bytes, str]:
+    """Return the current Prometheus exposition in text format.
+
+    Returns:
+        A tuple of (exposition_bytes, content_type_string) suitable for
+        building a plain-text HTTP response.
+    """
+    return generate_latest(_REGISTRY), CONTENT_TYPE_LATEST

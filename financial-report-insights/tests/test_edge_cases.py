@@ -8,12 +8,11 @@ import math
 
 import pytest
 
-from financial_analyzer import FinancialData, safe_divide
-from startup_model import StartupAnalyzer
 from compliance_scorer import ComplianceScorer
+from financial_analyzer import FinancialData, safe_divide
 from portfolio_analyzer import PortfolioAnalyzer, _hhi
+from startup_model import StartupAnalyzer
 from underwriting import UnderwritingAnalyzer
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

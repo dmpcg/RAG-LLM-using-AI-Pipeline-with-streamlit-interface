@@ -81,9 +81,7 @@ class ModelRegistry:
     def _validate_model_id(model_id: str) -> None:
         """Reject model IDs that could escape the registry directory."""
         if not model_id or not _SAFE_MODEL_ID.match(model_id):
-            raise ValueError(
-                f"Invalid model_id {model_id!r}. Must match [a-zA-Z0-9][a-zA-Z0-9._-]*"
-            )
+            raise ValueError(f"Invalid model_id {model_id!r}. Must match [a-zA-Z0-9][a-zA-Z0-9._-]*")
         if ".." in model_id:
             raise ValueError(f"Path traversal detected in model_id: {model_id!r}")
 
@@ -107,9 +105,7 @@ class ModelRegistry:
     def _read_metadata(self, model_id: str) -> ModelMetadata:
         path = self._metadata_path(model_id)
         if not path.exists():
-            raise FileNotFoundError(
-                f"No model registered with id '{model_id}'"
-            )
+            raise FileNotFoundError(f"No model registered with id '{model_id}'")
         data = json.loads(path.read_text(encoding="utf-8"))
         return ModelMetadata.from_dict(data)
 
@@ -171,9 +167,7 @@ class ModelRegistry:
         """
         artifact = self._artifact_path(model_id)
         if not artifact.exists():
-            raise FileNotFoundError(
-                f"No model artefact found for id '{model_id}'"
-            )
+            raise FileNotFoundError(f"No model artefact found for id '{model_id}'")
 
         # Verify artifact integrity before deserializing
         metadata = self._read_metadata(model_id)
@@ -248,9 +242,7 @@ class ModelRegistry:
         """
         candidates = self.list_models(model_type=model_type, status="active")
         if not candidates:
-            raise LookupError(
-                f"No active model of type '{model_type}' found in registry"
-            )
+            raise LookupError(f"No active model of type '{model_type}' found in registry")
         # list_models already sorted newest-first
         return self.load(candidates[0].model_id)
 
@@ -288,9 +280,7 @@ class ModelRegistry:
         """
         model_dir = self._model_dir(model_id)
         if not model_dir.exists():
-            raise FileNotFoundError(
-                f"No model registered with id '{model_id}'"
-            )
+            raise FileNotFoundError(f"No model registered with id '{model_id}'")
         shutil.rmtree(model_dir)
 
     def compare(self, model_id_a: str, model_id_b: str) -> dict[str, dict]:
@@ -506,9 +496,7 @@ class TrainingPipeline:
                 test_size=min(3, len(values) - 2),
             )
         else:
-            raise ValueError(
-                f"Unknown method '{method}'. Use 'ensemble', 'ar', or 'exponential'."
-            )
+            raise ValueError(f"Unknown method '{method}'. Use 'ensemble', 'ar', or 'exponential'.")
 
         # Sanitise metrics: replace nan/inf with None for JSON-safe storage
         clean_metrics: dict[str, Any] = {}

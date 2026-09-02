@@ -3,11 +3,11 @@ Tests for circuit breaker pattern in LocalLLM.
 """
 
 import time
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
-from local_llm import CircuitBreaker, CircuitState, LLMConnectionError, LLMTimeoutError, LocalLLM
+from local_llm import CircuitBreaker, LLMConnectionError, LLMTimeoutError, LocalLLM
 
 
 class TestCircuitBreaker:

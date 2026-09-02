@@ -20,10 +20,10 @@ from structured_types import (
     categorize_ratio,
 )
 
-
 # ---------------------------------------------------------------------------
 # RatioCategory enum
 # ---------------------------------------------------------------------------
+
 
 class TestRatioCategory:
     """Tests for the RatioCategory str-enum."""
@@ -109,8 +109,8 @@ def _make_full(cls, fields, values):
 # LiquidityRatios
 # ---------------------------------------------------------------------------
 
-class TestLiquidityRatios:
 
+class TestLiquidityRatios:
     CLS, FIELDS, VALUES = _RATIO_SPECS["liquidity"]
 
     def test_default_construction_all_none(self):
@@ -162,8 +162,8 @@ class TestLiquidityRatios:
 # ProfitabilityRatios
 # ---------------------------------------------------------------------------
 
-class TestProfitabilityRatios:
 
+class TestProfitabilityRatios:
     CLS, FIELDS, VALUES = _RATIO_SPECS["profitability"]
 
     def test_default_construction_all_none(self):
@@ -208,8 +208,8 @@ class TestProfitabilityRatios:
 # LeverageRatios
 # ---------------------------------------------------------------------------
 
-class TestLeverageRatios:
 
+class TestLeverageRatios:
     CLS, FIELDS, VALUES = _RATIO_SPECS["leverage"]
 
     def test_default_construction_all_none(self):
@@ -252,8 +252,8 @@ class TestLeverageRatios:
 # EfficiencyRatios
 # ---------------------------------------------------------------------------
 
-class TestEfficiencyRatios:
 
+class TestEfficiencyRatios:
     CLS, FIELDS, VALUES = _RATIO_SPECS["efficiency"]
 
     def test_default_construction_all_none(self):
@@ -296,8 +296,8 @@ class TestEfficiencyRatios:
 # AnalysisResults
 # ---------------------------------------------------------------------------
 
-class TestAnalysisResults:
 
+class TestAnalysisResults:
     def test_default_construction(self):
         ar = AnalysisResults()
         assert ar.liquidity_ratios is not None or ar.liquidity_ratios is None  # exists
@@ -467,8 +467,8 @@ class TestAnalysisResults:
 # GraphChunk
 # ---------------------------------------------------------------------------
 
-class TestGraphChunk:
 
+class TestGraphChunk:
     def test_construction(self):
         gc = GraphChunk(source="report.pdf", content="Revenue grew 15%", score=0.92)
         assert gc.source == "report.pdf"
@@ -491,12 +491,10 @@ class TestGraphChunk:
 # GraphFinancialContext
 # ---------------------------------------------------------------------------
 
-class TestGraphFinancialContext:
 
+class TestGraphFinancialContext:
     def test_construction_empty_lists(self):
-        ctx = GraphFinancialContext(
-            document="Q3 Report", period="2025-Q3", ratios=[], scores=[]
-        )
+        ctx = GraphFinancialContext(document="Q3 Report", period="2025-Q3", ratios=[], scores=[])
         assert ctx.document == "Q3 Report"
         assert ctx.period == "2025-Q3"
         assert ctx.ratios == []
@@ -513,9 +511,7 @@ class TestGraphFinancialContext:
         assert len(ctx.scores) == 1
 
     def test_to_dict(self):
-        ctx = GraphFinancialContext(
-            document="doc", period="2025-Q1", ratios=[1, 2], scores=[3]
-        )
+        ctx = GraphFinancialContext(document="doc", period="2025-Q1", ratios=[1, 2], scores=[3])
         d = ctx.to_dict()
         assert d["document"] == "doc"
         assert d["period"] == "2025-Q1"
@@ -527,8 +523,8 @@ class TestGraphFinancialContext:
 # GraphRetrievalResult
 # ---------------------------------------------------------------------------
 
-class TestGraphRetrievalResult:
 
+class TestGraphRetrievalResult:
     def test_construction_empty(self):
         grr = GraphRetrievalResult(chunks=[], financial_context=[])
         assert grr.chunks == []
@@ -536,9 +532,7 @@ class TestGraphRetrievalResult:
 
     def test_construction_with_data(self):
         chunk = GraphChunk(source="a.pdf", content="text", score=0.9)
-        ctx = GraphFinancialContext(
-            document="a.pdf", period="2025", ratios=[], scores=[]
-        )
+        ctx = GraphFinancialContext(document="a.pdf", period="2025", ratios=[], scores=[])
         grr = GraphRetrievalResult(chunks=[chunk], financial_context=[ctx])
         assert len(grr.chunks) == 1
         assert len(grr.financial_context) == 1
@@ -553,9 +547,7 @@ class TestGraphRetrievalResult:
 
     def test_to_dict_nested_serialization(self):
         chunk = GraphChunk(source="x", content="y", score=0.7)
-        ctx = GraphFinancialContext(
-            document="z", period="2025-Q2", ratios=[], scores=[]
-        )
+        ctx = GraphFinancialContext(document="z", period="2025-Q2", ratios=[], scores=[])
         grr = GraphRetrievalResult(chunks=[chunk], financial_context=[ctx])
         d = grr.to_dict()
         assert d["chunks"][0]["source"] == "x"
@@ -563,9 +555,7 @@ class TestGraphRetrievalResult:
 
     def test_round_trip(self):
         chunk = GraphChunk(source="src", content="cnt", score=0.85)
-        ctx = GraphFinancialContext(
-            document="doc", period="P1", ratios=[{"r": 1}], scores=[{"s": 2}]
-        )
+        ctx = GraphFinancialContext(document="doc", period="P1", ratios=[{"r": 1}], scores=[{"s": 2}])
         original = GraphRetrievalResult(chunks=[chunk], financial_context=[ctx])
         d = original.to_dict()
         restored = GraphRetrievalResult.from_dict(d)
@@ -586,8 +576,8 @@ class TestGraphRetrievalResult:
 # categorize_ratio function
 # ---------------------------------------------------------------------------
 
-class TestCategorizeRatio:
 
+class TestCategorizeRatio:
     @pytest.mark.parametrize(
         "key, expected",
         [
@@ -638,6 +628,7 @@ class TestCategorizeRatio:
 # ---------------------------------------------------------------------------
 # Cross-cutting: parametrized round-trip for all ratio dataclasses
 # ---------------------------------------------------------------------------
+
 
 class TestAllRatioDataclassesRoundTrip:
     """Parametrized round-trip across all four ratio dataclasses."""

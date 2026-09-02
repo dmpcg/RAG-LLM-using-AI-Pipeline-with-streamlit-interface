@@ -4,6 +4,7 @@ Tests for noncurrent_asset_ratio_analysis() and NoncurrentAssetRatioResult datac
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestNoncurrentAssetRatioDataclass:
     def test_defaults(self):
         r = NoncurrentAssetRatioResult()
@@ -68,6 +70,7 @@ class TestNoncurrentAssetRatioDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestNoncurrentAssetRatioAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -99,6 +102,7 @@ class TestNoncurrentAssetRatioAnalysis:
 
 
 # ===== SCORING TESTS =====
+
 
 class TestNoncurrentAssetRatioScoring:
     def test_sample_data_score(self, analyzer, sample_data):
@@ -133,6 +137,7 @@ class TestNoncurrentAssetRatioScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase327EdgeCases:
     def test_empty_data(self, analyzer):

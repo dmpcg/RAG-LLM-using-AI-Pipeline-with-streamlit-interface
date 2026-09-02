@@ -21,11 +21,11 @@ jobs:
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'failure'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4 (WS-1 P1-F1)
 
       - name: Analyze CI failure
         id: analyze
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
           script: |
             const runId = context.payload.workflow_run.id;
@@ -67,7 +67,7 @@ jobs:
 
       - name: Create issue for unfixable failures
         if: steps.analyze.outputs.auto_fixable == 'false'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
           script: |
             const failureType = '${{ steps.analyze.outputs.failure_type }}';
@@ -112,7 +112,7 @@ jobs:
     steps:
       - name: Check if flaky (failed < 3 of last 5 runs)
         id: flaky
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
           script: |
             const { data: runs } = await github.rest.actions.listWorkflowRuns({
@@ -129,7 +129,7 @@ jobs:
 
       - name: Retry CI if flaky
         if: steps.flaky.outputs.is_flaky == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
           script: |
             // Re-run the failed workflow (max 1 retry per failure)
@@ -148,10 +148,10 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4 (WS-1 P1-F1)
 
       - name: Track failure patterns
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
         with:
           script: |
             // Get recent workflow runs

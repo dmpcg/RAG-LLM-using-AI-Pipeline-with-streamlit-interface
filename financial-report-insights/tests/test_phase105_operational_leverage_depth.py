@@ -4,6 +4,7 @@ Tests for operational_leverage_depth_analysis() and OperationalLeverageDepthResu
 """
 
 import pytest
+
 from financial_analyzer import (
     CharlieAnalyzer,
     FinancialData,
@@ -48,6 +49,7 @@ def sample_data():
 
 # ===== DATACLASS TESTS =====
 
+
 class TestOperationalLeverageDepthDataclass:
     def test_defaults(self):
         r = OperationalLeverageDepthResult()
@@ -68,6 +70,7 @@ class TestOperationalLeverageDepthDataclass:
 
 
 # ===== CORE COMPUTATION TESTS =====
+
 
 class TestOperationalLeverageDepthAnalysis:
     def test_returns_result(self, analyzer, sample_data):
@@ -115,6 +118,7 @@ class TestOperationalLeverageDepthAnalysis:
 
 # ===== SCORING TESTS =====
 
+
 class TestOperationalLeverageDepthScoring:
     def test_good_margins(self, analyzer, sample_data):
         """CM=0.40 => base 7.0. BC=1.25 (not >=1.5). CF=0.75 >=0.60 => +0.5. Score=7.5."""
@@ -153,6 +157,7 @@ class TestOperationalLeverageDepthScoring:
 
 
 # ===== EDGE CASES =====
+
 
 class TestPhase105EdgeCases:
     def test_empty_data(self, analyzer):

@@ -7,7 +7,7 @@ to maximize accuracy, citation adherence, and structured output for financial an
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import Dict, List
 
 PROMPT_VERSION = "2.0"
 

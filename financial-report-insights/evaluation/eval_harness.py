@@ -12,17 +12,17 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from config import settings
+from evaluation.answer_metrics import (
+    completeness_score,
+    faithfulness_score,
+    relevance_score,
+)
 from evaluation.golden_qa import GOLDEN_QA_PAIRS, GoldenQA
 from evaluation.retrieval_metrics import (
     mrr,
     ndcg_at_k,
     precision_at_k,
     recall_at_k,
-)
-from evaluation.answer_metrics import (
-    completeness_score,
-    faithfulness_score,
-    relevance_score,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,9 +43,7 @@ class EvalReport:
     retrieval_metrics: Dict[str, float] = field(default_factory=dict)
     answer_metrics: Dict[str, float] = field(default_factory=dict)
     per_query_results: List[Dict[str, Any]] = field(default_factory=list)
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     summary: str = ""
 
 
@@ -89,10 +87,7 @@ class RAGEvalHarness:
 
         for qa in qa_pairs:
             retrieved_docs = self.rag.retrieve(qa.question, top_k=k)
-            retrieved_sources = [
-                doc.get("source", "") if isinstance(doc, dict) else ""
-                for doc in retrieved_docs
-            ]
+            retrieved_sources = [doc.get("source", "") if isinstance(doc, dict) else "" for doc in retrieved_docs]
 
             p = precision_at_k(retrieved_sources, qa.expected_sources, k)
             r = recall_at_k(retrieved_sources, qa.expected_sources, k)
@@ -159,13 +154,8 @@ class RAGEvalHarness:
 
         for qa in qa_pairs:
             retrieved_docs = self.rag.retrieve(qa.question, top_k=k)
-            answer_text = self.rag.answer(
-                qa.question, retrieved_docs=retrieved_docs
-            )
-            chunks = [
-                doc.get("content", "") if isinstance(doc, dict) else str(doc)
-                for doc in retrieved_docs
-            ]
+            answer_text = self.rag.answer(qa.question, retrieved_docs=retrieved_docs)
+            chunks = [doc.get("content", "") if isinstance(doc, dict) else str(doc) for doc in retrieved_docs]
 
             faith = faithfulness_score(answer_text, chunks)
             rel = relevance_score(answer_text, qa.question)
@@ -220,12 +210,8 @@ class RAGEvalHarness:
             ``EvalReport`` with all metrics.
         """
         if not getattr(settings, "enable_evaluation", False):
-            logger.warning(
-                "Evaluation is disabled. Set RAG_ENABLE_EVALUATION=true to enable."
-            )
-            return EvalReport(
-                summary="Evaluation disabled (enable_evaluation=False)."
-            )
+            logger.warning("Evaluation is disabled. Set RAG_ENABLE_EVALUATION=true to enable.")
+            return EvalReport(summary="Evaluation disabled (enable_evaluation=False).")
 
         if qa_pairs is None:
             qa_pairs = GOLDEN_QA_PAIRS
@@ -235,9 +221,7 @@ class RAGEvalHarness:
 
         # Merge per-query details
         per_query_merged: List[Dict[str, Any]] = []
-        for ret_q, ans_q in zip(
-            retrieval_result["per_query"], answer_result["per_query"]
-        ):
+        for ret_q, ans_q in zip(retrieval_result["per_query"], answer_result["per_query"]):
             merged = {**ret_q, **ans_q}
             per_query_merged.append(merged)
 

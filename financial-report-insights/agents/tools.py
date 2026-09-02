@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _safe_div(num: Optional[float], den: Optional[float], default: float = 0.0) -> float:
     """Divide two numbers, returning *default* on zero/None denominator."""
     try:
@@ -158,6 +159,7 @@ _RATIO_DEFINITIONS: dict[str, dict[str, Any]] = {
 # tool_calculate_ratio
 # ---------------------------------------------------------------------------
 
+
 def tool_calculate_ratio(ratio_name: str, **financial_fields: Any) -> str:
     """Compute a named financial ratio from provided field values.
 
@@ -175,10 +177,7 @@ def tool_calculate_ratio(ratio_name: str, **financial_fields: Any) -> str:
     if defn is None:
         # Generic fallback: try num/denom from kwargs if provided
         available = ", ".join(sorted(_RATIO_DEFINITIONS.keys()))
-        return (
-            f"Unknown ratio: '{ratio_name}'. "
-            f"Supported ratios: {available}."
-        )
+        return f"Unknown ratio: '{ratio_name}'. Supported ratios: {available}."
 
     # Special case: quick ratio uses derived numerator
     if ratio_name_lower == "quick_ratio":
@@ -187,8 +186,7 @@ def tool_calculate_ratio(ratio_name: str, **financial_fields: Any) -> str:
         cl = financial_fields.get("current_liabilities")
         if ca is None or cl is None:
             return (
-                "Cannot compute quick_ratio: need 'current_assets' and "
-                "'current_liabilities' (optionally 'inventory')."
+                "Cannot compute quick_ratio: need 'current_assets' and 'current_liabilities' (optionally 'inventory')."
             )
         try:
             numerator_val = float(ca) - float(inv if inv is not None else 0.0)
@@ -208,10 +206,7 @@ def tool_calculate_ratio(ratio_name: str, **financial_fields: Any) -> str:
                 missing.append(f"'{num_key}'")
             if raw_den is None:
                 missing.append(f"'{den_key}'")
-            return (
-                f"Cannot compute '{ratio_name}': missing field(s) {', '.join(missing)}. "
-                f"Formula: {defn['formula']}."
-            )
+            return f"Cannot compute '{ratio_name}': missing field(s) {', '.join(missing)}. Formula: {defn['formula']}."
 
         try:
             value = _safe_div(float(raw_num), float(raw_den))
@@ -262,6 +257,7 @@ def _interpret_ratio(name: str, value: float, defn: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 # tool_compare_ratios
 # ---------------------------------------------------------------------------
+
 
 def tool_compare_ratios(
     ratio_name: str,
@@ -318,7 +314,9 @@ def tool_compare_ratios(
     if direction == "unchanged":
         lines.append("  Assessment: No meaningful change between periods.")
     elif change_pct > 20:
-        lines.append(f"  Assessment: Significant {direction} of {_fmt(abs(change_pct), 1)}% warrants further investigation.")
+        lines.append(
+            f"  Assessment: Significant {direction} of {_fmt(abs(change_pct), 1)}% warrants further investigation."
+        )
     elif change_pct > 5:
         lines.append(f"  Assessment: Moderate {direction} of {_fmt(abs(change_pct), 1)}%.")
     else:
@@ -330,6 +328,7 @@ def tool_compare_ratios(
 # ---------------------------------------------------------------------------
 # tool_explain_ratio
 # ---------------------------------------------------------------------------
+
 
 def tool_explain_ratio(ratio_name: str) -> str:
     """Return a comprehensive explanation of a financial ratio.
@@ -346,10 +345,7 @@ def tool_explain_ratio(ratio_name: str) -> str:
 
     if defn is None:
         available = ", ".join(sorted(_RATIO_DEFINITIONS.keys()))
-        return (
-            f"No explanation available for '{ratio_name}'. "
-            f"Known ratios: {available}."
-        )
+        return f"No explanation available for '{ratio_name}'. Known ratios: {available}."
 
     return (
         f"Ratio: {ratio_name}\n"
@@ -364,6 +360,7 @@ def tool_explain_ratio(ratio_name: str) -> str:
 # ---------------------------------------------------------------------------
 # tool_assess_distress  (Altman Z-Score based)
 # ---------------------------------------------------------------------------
+
 
 def tool_assess_distress(**financial_fields: Any) -> str:
     """Assess financial distress using the Altman Z-Score model.
@@ -384,6 +381,7 @@ def tool_assess_distress(**financial_fields: Any) -> str:
     Returns:
         Formatted string with Z-Score, zone classification, and risk assessment.
     """
+
     def _get(key: str, *aliases: str) -> Optional[float]:
         for k in (key, *aliases):
             v = financial_fields.get(k)
@@ -396,9 +394,7 @@ def tool_assess_distress(**financial_fields: Any) -> str:
 
     total_assets = _get("total_assets")
     if total_assets is None or total_assets <= 0:
-        return (
-            "Cannot compute distress score: 'total_assets' is required and must be positive."
-        )
+        return "Cannot compute distress score: 'total_assets' is required and must be positive."
 
     current_assets = _get("current_assets") or 0.0
     current_liabilities = _get("current_liabilities") or 0.0
@@ -449,6 +445,7 @@ def tool_assess_distress(**financial_fields: Any) -> str:
 # tool_check_anomalies
 # ---------------------------------------------------------------------------
 
+
 def tool_check_anomalies(metric_values: list[float], metric_name: str = "metric") -> str:
     """Identify statistical outliers in a list of metric values.
 
@@ -483,10 +480,7 @@ def tool_check_anomalies(metric_values: list[float], metric_name: str = "metric"
         stdev_val = 0.0
 
     if stdev_val < 1e-12:
-        return (
-            f"Anomaly check for '{metric_name}': all values identical ({_fmt(mean_val, 4)}). "
-            "No anomalies detected."
-        )
+        return f"Anomaly check for '{metric_name}': all values identical ({_fmt(mean_val, 4)}). No anomalies detected."
 
     anomalies: list[tuple[int, float, float]] = []
     for i, v in enumerate(cleaned):
@@ -498,7 +492,7 @@ def tool_check_anomalies(metric_values: list[float], metric_name: str = "metric"
         f"Anomaly Check: {metric_name}",
         f"  Values analyzed: {len(cleaned)}",
         f"  Mean: {_fmt(mean_val, 4)}  |  StdDev: {_fmt(stdev_val, 4)}",
-        f"  Detection threshold: |z| > 2.0",
+        "  Detection threshold: |z| > 2.0",
     ]
 
     if not anomalies:
@@ -507,9 +501,7 @@ def tool_check_anomalies(metric_values: list[float], metric_name: str = "metric"
         lines.append(f"  Anomalies found: {len(anomalies)}")
         for idx, val, z_val in anomalies:
             direction = "high" if z_val > 0 else "low"
-            lines.append(
-                f"    Index {idx}: value={_fmt(val, 4)}, z={_fmt(z_val, 2)} ({direction} outlier)"
-            )
+            lines.append(f"    Index {idx}: value={_fmt(val, 4)}, z={_fmt(z_val, 2)} ({direction} outlier)")
 
     return "\n".join(lines)
 
@@ -517,6 +509,7 @@ def tool_check_anomalies(metric_values: list[float], metric_name: str = "metric"
 # ---------------------------------------------------------------------------
 # tool_evaluate_leverage
 # ---------------------------------------------------------------------------
+
 
 def tool_evaluate_leverage(
     total_debt: Optional[float] = None,
@@ -603,6 +596,7 @@ def tool_evaluate_leverage(
 # tool_forecast
 # ---------------------------------------------------------------------------
 
+
 def tool_forecast(values: list[float], steps: int = 4) -> str:
     """Forecast future values using an AR(2) model with prediction intervals.
 
@@ -626,10 +620,7 @@ def tool_forecast(values: list[float], steps: int = 4) -> str:
             continue
 
     if len(cleaned) < 3:
-        return (
-            f"Need at least 3 finite data points for forecasting; "
-            f"got {len(cleaned)}."
-        )
+        return f"Need at least 3 finite data points for forecasting; got {len(cleaned)}."
 
     try:
         steps_int = max(1, int(steps))
@@ -681,6 +672,7 @@ def tool_forecast(values: list[float], steps: int = 4) -> str:
 # ---------------------------------------------------------------------------
 # tool_analyze_trend
 # ---------------------------------------------------------------------------
+
 
 def tool_analyze_trend(values: list[float]) -> str:
     """Analyze trend direction, strength, and inflection points in a series.
@@ -756,7 +748,7 @@ def tool_analyze_trend(values: list[float]) -> str:
     ss_yy = sum((yi - y_mean) ** 2 for yi in cleaned)
 
     if ss_xx > 1e-12 and ss_yy > 1e-12:
-        r_sq = (ss_xy ** 2) / (ss_xx * ss_yy)
+        r_sq = (ss_xy**2) / (ss_xx * ss_yy)
         strength = "strong" if r_sq >= 0.7 else ("moderate" if r_sq >= 0.4 else "weak")
         r_sq_str = f"{r_sq:.3f}"
     else:
@@ -783,6 +775,7 @@ def tool_analyze_trend(values: list[float]) -> str:
 # ---------------------------------------------------------------------------
 # tool_detect_seasonality
 # ---------------------------------------------------------------------------
+
 
 def tool_detect_seasonality(values: list[float], period: int = 4) -> str:
     """Detect seasonal patterns in a time series.
@@ -811,10 +804,7 @@ def tool_detect_seasonality(values: list[float], period: int = 4) -> str:
 
     n = len(cleaned)
     if n < 2 * period:
-        return (
-            f"Need at least {2 * period} values to detect seasonality "
-            f"with period={period}; got {n}."
-        )
+        return f"Need at least {2 * period} values to detect seasonality with period={period}; got {n}."
 
     try:
         p = max(2, int(period))
@@ -871,6 +861,7 @@ def tool_detect_seasonality(values: list[float], period: int = 4) -> str:
 # tool_search_documents
 # ---------------------------------------------------------------------------
 
+
 def tool_search_documents(query: str, rag_instance: Any = None) -> str:
     """Retrieve relevant document chunks matching a query.
 
@@ -922,6 +913,7 @@ def tool_search_documents(query: str, rag_instance: Any = None) -> str:
 # tool_format_section
 # ---------------------------------------------------------------------------
 
+
 def tool_format_section(content: str, section_type: str = "analysis") -> str:
     """Format raw content into a structured report section.
 
@@ -949,10 +941,4 @@ def tool_format_section(content: str, section_type: str = "analysis") -> str:
     header = section_headers.get(section_type.lower(), section_type.upper())
     separator = "=" * (len(header) + 4)
 
-    return (
-        f"{separator}\n"
-        f"  {header}\n"
-        f"{separator}\n\n"
-        f"{content.strip()}\n\n"
-        f"{'-' * len(separator)}"
-    )
+    return f"{separator}\n  {header}\n{separator}\n\n{content.strip()}\n\n{'-' * len(separator)}"

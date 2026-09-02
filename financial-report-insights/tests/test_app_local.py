@@ -1,13 +1,11 @@
 """Tests for app_local.py SimpleRAG core engine."""
 
-import hashlib
 import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Mock providers (satisfy protocols.py LLMProvider / EmbeddingProvider)
@@ -76,10 +74,12 @@ def docs_folder_with_xlsx(tmp_path):
 
     docs = tmp_path / "xlsx_documents"
     docs.mkdir()
-    df = pd.DataFrame({
-        "Line Item": ["Revenue", "COGS", "Net Income"],
-        "Amount": [1000000, 600000, 200000],
-    })
+    df = pd.DataFrame(
+        {
+            "Line Item": ["Revenue", "COGS", "Net Income"],
+            "Amount": [1000000, 600000, 200000],
+        }
+    )
     df.to_excel(docs / "financials.xlsx", index=False)
     return docs
 
@@ -474,6 +474,83 @@ class TestFuseResultsRRF:
     def test_empty_lists(self, rag_with_docs):
         fused = rag_with_docs._fuse_results_rrf([], [], top_k=3)
         assert fused == []
+
+    def test_content_identity_fuses_distinct_dict_objects(self, rag_with_docs):
+        """AUD0522-04: same logical chunk in both rankers must fuse on CONTENT
+        identity even when the two rankers return distinct dict objects (graph
+        mode), so the shared chunk gets the combined (boosted) RRF score."""
+        shared_content = "Revenue was 1 million"
+        # Semantic ranker returns a freshly-built dict (graph mode) that does NOT
+        # share id() with the BM25 self.documents[...] object.
+        semantic = [
+            {"source": "report.txt", "content": shared_content, "type": "text"},
+            {"source": "report.txt", "content": "Net income was 200k", "type": "text"},
+        ]
+        bm25 = [
+            rag_with_docs.documents[2],  # data.xlsx — semantic-only would win
+            rag_with_docs.documents[0],  # SAME logical chunk as semantic[0]
+        ]
+        # Object identity differs for the shared chunk.
+        assert semantic[0] is not bm25[1]
+
+        fused = rag_with_docs._fuse_results_rrf(semantic, bm25, top_k=3)
+        # The shared chunk appears in both rankers -> highest combined RRF score.
+        assert fused[0].get("content") == shared_content
+        # And it is deduplicated (not emitted twice).
+        contents = [d.get("content") for d in fused]
+        assert contents.count(shared_content) == 1
+
+    def test_numpy_mode_object_identity_still_fuses(self, rag_with_docs):
+        """Numpy-mode behavior is unchanged: when both rankers return the SAME
+        self.documents[i] objects, the overlapping doc is still boosted."""
+        docs = rag_with_docs.documents
+        semantic = [docs[0], docs[1]]
+        bm25 = [docs[1], docs[2]]  # docs[1] overlaps
+        fused = rag_with_docs._fuse_results_rrf(semantic, bm25, top_k=3)
+        # docs[1] is rank 1 in semantic + rank 0 in bm25 -> highest combined.
+        # Compared by content key, not `is`: fusion returns scored *copies* so
+        # that attaching "score" never mutates the canonical self.documents
+        # entry (a mutated doc would leak its score into later queries and
+        # corrupt retrieval metrics). Identity of the winner is what matters.
+        assert rag_with_docs._doc_key(fused[0]) == rag_with_docs._doc_key(docs[1])
+        # Three distinct logical chunks survive (no spurious dedup).
+        assert len(fused) == 3
+        assert {d["content"] for d in fused} == {d["content"] for d in docs}
+
+    def test_mocked_graph_path_fuses_with_bm25(self, rag_with_docs):
+        """Mocked graph (Neo4j) semantic path must produce dicts that fuse with
+        BM25 results: real 'type' (not 'unknown') + matching content identity."""
+        # Wire a mocked graph store whose graph_search returns Neo4j-shaped dicts.
+        mock_store = MagicMock()
+        mock_store.graph_search.return_value = [
+            {
+                "source": "report.txt",
+                "content": "Revenue was 1 million",
+                "type": "text",
+                "chunk_id": "graph-cid-1",
+                "document": "",
+                "period": "",
+                "ratios": [],
+                "scores": [],
+            },
+        ]
+        rag_with_docs._graph_store = mock_store
+
+        semantic = rag_with_docs._semantic_search("revenue", top_k=2)
+        # Neo4j path carries a real type and the chunk_id (not 'unknown').
+        assert semantic[0]["type"] == "text"
+        assert semantic[0]["metadata"]["chunk_id"] == "graph-cid-1"
+
+        # BM25 returns the in-memory dict for the same logical chunk.
+        bm25 = [rag_with_docs.documents[0]]  # same content "Revenue was 1 million"
+        assert semantic[0] is not bm25[0]
+
+        fused = rag_with_docs._fuse_results_rrf(semantic, bm25, top_k=3)
+        # The shared chunk (content identity match) is boosted to the top and
+        # only appears once.
+        assert fused[0].get("content") == "Revenue was 1 million"
+        contents = [d.get("content") for d in fused]
+        assert contents.count("Revenue was 1 million") == 1
 
 
 # ---------------------------------------------------------------------------
@@ -926,8 +1003,7 @@ class TestExpandParentChunks:
                     "parent_text": "expanded parent",
                 },
             },
-            {"content": "table chunk", "source": "data.xlsx",
-             "metadata": {"chunk_level": "atomic_table"}},
+            {"content": "table chunk", "source": "data.xlsx", "metadata": {"chunk_level": "atomic_table"}},
         ]
         result = rag_empty._expand_parent_chunks(docs)
         assert len(result) == 3
@@ -938,6 +1014,95 @@ class TestExpandParentChunks:
     def test_empty_list(self, rag_empty):
         result = rag_empty._expand_parent_chunks([])
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# WP-B9 -- _PROMPTS_AVAILABLE removed; real prompts always used
+# ---------------------------------------------------------------------------
+
+
+class TestPromptsAvailableRemoved:
+    def test_flag_does_not_exist_in_module(self):
+        import app_local
+
+        assert not hasattr(app_local, "_PROMPTS_AVAILABLE"), "_PROMPTS_AVAILABLE must be removed from app_local (WP-B9)"
+
+    def test_prompts_functions_importable(self):
+        # The real prompts subtree must be importable (permanent dependency).
+        from prompts import build_prompt, format_context_with_citations, get_prompt_for_query_type  # noqa: F401
+
+    def test_answer_uses_real_prompt_for_non_financial_query(self, rag_with_docs):
+        """Non-financial query (no charlie_analyzer path) must use the real
+        prompts-module path and produce a string prompt that the LLM sees."""
+
+        captured_prompts = []
+
+        original_generate = rag_with_docs.llm.generate
+
+        def spy_generate(prompt: str) -> str:
+            captured_prompts.append(prompt)
+            return original_generate(prompt)
+
+        rag_with_docs.llm.generate = spy_generate
+        # charlie_analyzer=None disables the financial path so we fall through
+        # to the prompts-module branch.
+        rag_with_docs._charlie_analyzer = None
+
+        rag_with_docs.answer("What is the weather like?")
+
+        assert len(captured_prompts) >= 1, "LLM generate should have been called"
+        # The real template from prompts/ includes a system/user structure;
+        # none of the calls must use the old hardcoded fallback sentinel phrase.
+        for p in captured_prompts:
+            assert "Use ONLY the information from the context to answer" not in p, (
+                "Hardcoded fallback prompt must not be used after WP-B9 removal"
+            )
+
+    def test_answer_stream_uses_real_prompt_for_non_financial_query(self, rag_with_docs):
+        """answer_stream non-financial path must likewise use the real prompts module.
+
+        Spy on generate_stream (the path taken by MockLLM) to capture the prompt.
+        """
+        captured_prompts = []
+
+        original_generate_stream = rag_with_docs.llm.generate_stream
+
+        def spy_generate_stream(prompt: str):
+            captured_prompts.append(prompt)
+            yield from original_generate_stream(prompt)
+
+        rag_with_docs.llm.generate_stream = spy_generate_stream
+        rag_with_docs._charlie_analyzer = None
+
+        list(rag_with_docs.answer_stream("What color is the sky?"))
+
+        assert len(captured_prompts) >= 1, "LLM generate_stream should have been called"
+        last_prompt = captured_prompts[-1]
+        assert "Use ONLY the information from the context to answer" not in last_prompt, (
+            "Hardcoded fallback prompt must not be used in answer_stream after WP-B9 removal"
+        )
+
+    def test_answer_prompt_contains_query(self, rag_with_docs):
+        """The real-prompts path must embed the user query in the generated prompt."""
+        captured_prompts = []
+
+        original_generate = rag_with_docs.llm.generate
+
+        def spy_generate(prompt: str) -> str:
+            captured_prompts.append(prompt)
+            return original_generate(prompt)
+
+        rag_with_docs.llm.generate = spy_generate
+        rag_with_docs._charlie_analyzer = None
+
+        query = "Tell me about cash flow projections please"
+        rag_with_docs.answer(query)
+
+        assert len(captured_prompts) >= 1, "LLM generate should have been called"
+        # All prompt calls should embed the query (real-prompts path).
+        assert any(query in p for p in captured_prompts), (
+            "The user query must appear in at least one prompt sent to the LLM"
+        )
 
 
 class TestLoadDocumentsFileSizeLimit:

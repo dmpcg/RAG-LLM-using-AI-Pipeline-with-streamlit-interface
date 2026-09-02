@@ -12,6 +12,21 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+
+class Neo4jTransientError(RuntimeError):
+    """Raised when a Neo4j write fails with a transient error.
+
+    Distinct from permanent errors so callers can choose to retry the write
+    rather than treating a "stored=0" return as "nothing to write" (which was
+    silent data loss prior to 2026-05-07 / WS-1 P0-3).
+    """
+
+    def __init__(self, operation: str, original: BaseException):
+        super().__init__(f"Neo4j transient failure in {operation}: {original}")
+        self.operation = operation
+        self.original = original
+
+
 # Neo4j exception types for error classification
 try:
     from neo4j.exceptions import (
@@ -19,6 +34,7 @@ try:
         SessionExpired,
         TransientError,
     )
+
     _NEO4J_TRANSIENT = (ServiceUnavailable, SessionExpired, TransientError, ConnectionError, OSError)
 except ImportError:
     _NEO4J_TRANSIENT = (ConnectionError, OSError)
@@ -57,16 +73,21 @@ class Neo4jStore:
 
         try:
             import neo4j
+
             uri = os.environ["NEO4J_URI"]
             username = os.environ.get("NEO4J_USERNAME", "neo4j")
             password = os.environ.get("NEO4J_PASSWORD", "")
             if not password:
-                logger.error(
-                    "NEO4J_PASSWORD is not set. Refusing to connect without credentials."
-                )
+                logger.error("NEO4J_PASSWORD is not set. Refusing to connect without credentials.")
                 return None
             driver = neo4j.GraphDatabase.driver(uri, auth=(username, password))
-            driver.verify_connectivity()
+            try:
+                driver.verify_connectivity()
+            except Exception:
+                # Close the driver to avoid leaking its connection pool before
+                # propagating the failure to the outer fallback handler.
+                driver.close()
+                raise
             logger.info("Connected to Neo4j at %s", uri)
             return cls(driver)
         except Exception as exc:
@@ -107,7 +128,7 @@ class Neo4jStore:
         Returns:
             Number of chunks stored.
         """
-        from graph_schema import MERGE_DOCUMENT, MERGE_CHUNKS_BATCH
+        from graph_schema import MERGE_CHUNKS_BATCH, MERGE_DOCUMENT
 
         stored = 0
         try:
@@ -120,17 +141,17 @@ class Neo4jStore:
                 batch = []
                 for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                     content = chunk.get("content") or ""
-                    chunk_id = hashlib.sha256(
-                        f"{doc_id}:{i}:{content[:100]}".encode()
-                    ).hexdigest()
-                    batch.append({
-                        "chunk_id": chunk_id,
-                        "content": chunk.get("content", ""),
-                        "embedding": embedding,
-                        "source": chunk.get("source", doc_id),
-                        "chunk_index": i,
-                        "doc_id": doc_id,
-                    })
+                    chunk_id = hashlib.sha256(f"{doc_id}:{i}:{content[:100]}".encode()).hexdigest()
+                    batch.append(
+                        {
+                            "chunk_id": chunk_id,
+                            "content": chunk.get("content", ""),
+                            "embedding": embedding,
+                            "source": chunk.get("source", doc_id),
+                            "chunk_index": i,
+                            "doc_id": doc_id,
+                        }
+                    )
 
                 if batch:
                     session.run(MERGE_CHUNKS_BATCH, batch=batch)
@@ -139,6 +160,7 @@ class Neo4jStore:
             logger.info("Stored %d chunks for %s in Neo4j", stored, doc_id)
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_chunks failed (transient): %s", exc)
+            raise Neo4jTransientError("store_chunks", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_chunks failed (permanent): %s", exc)
             raise
@@ -173,13 +195,15 @@ class Neo4jStore:
                     ratio_batch = []
                     for name, data in (ratios or {}).items():
                         ratio_id = hashlib.sha256(f"{period_id}:{name}".encode()).hexdigest()
-                        ratio_batch.append({
-                            "ratio_id": ratio_id,
-                            "name": name,
-                            "value": data.get("value"),
-                            "category": data.get("category", ""),
-                            "period_id": period_id,
-                        })
+                        ratio_batch.append(
+                            {
+                                "ratio_id": ratio_id,
+                                "name": name,
+                                "value": data.get("value"),
+                                "category": data.get("category", ""),
+                                "period_id": period_id,
+                            }
+                        )
                     if ratio_batch:
                         tx.run(MERGE_RATIOS_BATCH, batch=ratio_batch)
 
@@ -187,14 +211,16 @@ class Neo4jStore:
                     score_batch = []
                     for model, data in (scores or {}).items():
                         score_id = hashlib.sha256(f"{period_id}:{model}".encode()).hexdigest()
-                        score_batch.append({
-                            "score_id": score_id,
-                            "model": model,
-                            "value": data.get("value"),
-                            "grade": data.get("grade", ""),
-                            "interpretation": data.get("interpretation", ""),
-                            "period_id": period_id,
-                        })
+                        score_batch.append(
+                            {
+                                "score_id": score_id,
+                                "model": model,
+                                "value": data.get("value"),
+                                "grade": data.get("grade", ""),
+                                "interpretation": data.get("interpretation", ""),
+                                "period_id": period_id,
+                            }
+                        )
                     if score_batch:
                         tx.run(MERGE_SCORES_BATCH, batch=score_batch)
                     tx.commit()
@@ -202,6 +228,7 @@ class Neo4jStore:
             logger.info("Stored financial data for %s / %s", doc_id, period_label)
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_financial_data failed (transient): %s", exc)
+            raise Neo4jTransientError("store_financial_data", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_financial_data failed (permanent): %s", exc)
             raise
@@ -260,25 +287,23 @@ class Neo4jStore:
             with self._driver.session() as session:
                 with session.begin_transaction() as tx:
                     for stmt_type, fields in self._STATEMENT_FIELD_MAP.items():
-                        stmt_id = hashlib.sha256(
-                            f"{period_id}:{stmt_type}".encode()
-                        ).hexdigest()
+                        stmt_id = hashlib.sha256(f"{period_id}:{stmt_type}".encode()).hexdigest()
 
                         batch = []
                         for field_name, display_name, unit in fields:
                             value = getattr(financial_data, field_name, None)
                             if value is None:
                                 continue
-                            item_id = hashlib.sha256(
-                                f"{stmt_id}:{field_name}".encode()
-                            ).hexdigest()
-                            batch.append({
-                                "item_id": item_id,
-                                "name": display_name,
-                                "value": float(value),
-                                "unit": unit,
-                                "stmt_id": stmt_id,
-                            })
+                            item_id = hashlib.sha256(f"{stmt_id}:{field_name}".encode()).hexdigest()
+                            batch.append(
+                                {
+                                    "item_id": item_id,
+                                    "name": display_name,
+                                    "value": float(value),
+                                    "unit": unit,
+                                    "stmt_id": stmt_id,
+                                }
+                            )
 
                         if batch:
                             tx.run(
@@ -294,6 +319,7 @@ class Neo4jStore:
             logger.info("Stored %d line items for period %s", total_stored, period_id)
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_line_items failed (transient): %s", exc)
+            raise Neo4jTransientError("store_line_items", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_line_items failed (permanent): %s", exc)
             raise
@@ -337,11 +363,13 @@ class Neo4jStore:
             for role, field_name in [("numerator", defn.numerator_field), ("denominator", defn.denominator_field)]:
                 item_id = field_to_stmt.get(field_name)
                 if item_id:
-                    batch.append({
-                        "ratio_id": ratio_id,
-                        "item_id": item_id,
-                        "role": role,
-                    })
+                    batch.append(
+                        {
+                            "ratio_id": ratio_id,
+                            "item_id": item_id,
+                            "role": role,
+                        }
+                    )
 
         if not batch:
             return 0
@@ -353,7 +381,7 @@ class Neo4jStore:
             return len(batch)
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_derived_from_edges failed (transient): %s", exc)
-            return 0
+            raise Neo4jTransientError("store_derived_from_edges", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_derived_from_edges failed (permanent): %s", exc)
             raise
@@ -379,11 +407,10 @@ class Neo4jStore:
             assessment_id string if successful, None on failure.
         """
         import json
+
         from graph_schema import MERGE_COMPANY, MERGE_CREDIT_ASSESSMENTS_BATCH
 
-        assessment_id = hashlib.sha256(
-            f"{company_name}:{scorecard.grade}:{scorecard.total_score}".encode()
-        ).hexdigest()
+        assessment_id = hashlib.sha256(f"{company_name}:{scorecard.grade}:{scorecard.total_score}".encode()).hexdigest()
 
         # Serialise category_scores dict to a JSON string so Neo4j can store it
         # as a single property (Neo4j does not support nested maps on nodes).
@@ -400,14 +427,10 @@ class Neo4jStore:
                 "strengths": list(scorecard.strengths),
                 "weaknesses": list(scorecard.weaknesses),
                 "max_additional_debt": (
-                    float(debt_capacity.max_additional_debt)
-                    if debt_capacity.max_additional_debt is not None
-                    else None
+                    float(debt_capacity.max_additional_debt) if debt_capacity.max_additional_debt is not None else None
                 ),
                 "current_leverage": (
-                    float(debt_capacity.current_leverage)
-                    if debt_capacity.current_leverage is not None
-                    else None
+                    float(debt_capacity.current_leverage) if debt_capacity.current_leverage is not None else None
                 ),
             }
         ]
@@ -426,7 +449,7 @@ class Neo4jStore:
             return assessment_id
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_credit_assessment failed (transient): %s", exc)
-            return None
+            raise Neo4jTransientError("store_credit_assessment", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_credit_assessment failed (permanent): %s", exc)
             raise
@@ -449,11 +472,10 @@ class Neo4jStore:
             package_id string if successful, None on failure.
         """
         import json
+
         from graph_schema import MERGE_COVENANT_PACKAGES_BATCH
 
-        package_id = hashlib.sha256(
-            f"{assessment_id}:{covenant_package.covenant_tier}".encode()
-        ).hexdigest()
+        package_id = hashlib.sha256(f"{assessment_id}:{covenant_package.covenant_tier}".encode()).hexdigest()
 
         # Serialise the nested financial_covenants dict to JSON string
         financial_covenants_json = json.dumps(covenant_package.financial_covenants)
@@ -481,7 +503,7 @@ class Neo4jStore:
             return package_id
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_covenant_package failed (transient): %s", exc)
-            return None
+            raise Neo4jTransientError("store_covenant_package", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_covenant_package failed (permanent): %s", exc)
             raise
@@ -503,10 +525,12 @@ class Neo4jStore:
 
         pairs = []
         for i in range(len(period_labels_and_ids) - 1):
-            pairs.append({
-                "earlier_id": period_labels_and_ids[i].get("period_id", ""),
-                "later_id": period_labels_and_ids[i + 1].get("period_id", ""),
-            })
+            pairs.append(
+                {
+                    "earlier_id": period_labels_and_ids[i].get("period_id", ""),
+                    "later_id": period_labels_and_ids[i + 1].get("period_id", ""),
+                }
+            )
 
         try:
             with self._driver.session() as session:
@@ -515,7 +539,7 @@ class Neo4jStore:
             return len(pairs)
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j link_fiscal_periods failed (transient): %s", exc)
-            return 0
+            raise Neo4jTransientError("link_fiscal_periods", exc) from exc
         except Exception as exc:
             logger.error("Neo4j link_fiscal_periods failed (permanent): %s", exc)
             raise
@@ -608,6 +632,7 @@ class Neo4jStore:
     def ratios_by_period_label(self, period_label: str) -> List[Dict[str, Any]]:
         """Return all ratios for a fiscal period identified by label."""
         from graph_schema import RATIOS_BY_PERIOD_LABEL
+
         try:
             with self._driver.session() as session:
                 result = session.run(RATIOS_BY_PERIOD_LABEL, period_label=period_label)
@@ -619,6 +644,7 @@ class Neo4jStore:
     def scores_by_period_label(self, period_label: str) -> List[Dict[str, Any]]:
         """Return all scores for a fiscal period identified by label."""
         from graph_schema import SCORES_BY_PERIOD_LABEL
+
         try:
             with self._driver.session() as session:
                 result = session.run(SCORES_BY_PERIOD_LABEL, period_label=period_label)
@@ -630,6 +656,7 @@ class Neo4jStore:
     def cross_period_ratio_trend(self, period_labels: List[str]) -> List[Dict[str, Any]]:
         """Return ratio values across multiple fiscal periods for trend analysis."""
         from graph_schema import CROSS_PERIOD_RATIO_TREND
+
         try:
             with self._driver.session() as session:
                 result = session.run(CROSS_PERIOD_RATIO_TREND, period_labels=period_labels)
@@ -663,20 +690,15 @@ class Neo4jStore:
         Returns:
             portfolio_id string if successful, None on failure.
         """
-        import json
         from graph_schema import (
             MERGE_PORTFOLIO,
             MERGE_PORTFOLIO_MEMBERSHIP_BATCH,
             MERGE_PORTFOLIO_RISK,
         )
 
-        portfolio_id = hashlib.sha256(
-            f"{portfolio_name}:{','.join(sorted(company_names))}".encode()
-        ).hexdigest()
+        portfolio_id = hashlib.sha256(f"{portfolio_name}:{','.join(sorted(company_names))}".encode()).hexdigest()
 
-        risk_id = hashlib.sha256(
-            f"{portfolio_id}:risk:{risk_summary.overall_risk_level}".encode()
-        ).hexdigest()
+        risk_id = hashlib.sha256(f"{portfolio_id}:risk:{risk_summary.overall_risk_level}".encode()).hexdigest()
 
         try:
             with self._driver.session() as session:
@@ -707,7 +729,7 @@ class Neo4jStore:
             return portfolio_id
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_portfolio_analysis failed (transient): %s", exc)
-            return None
+            raise Neo4jTransientError("store_portfolio_analysis", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_portfolio_analysis failed (permanent): %s", exc)
             raise
@@ -735,9 +757,7 @@ class Neo4jStore:
         reg = compliance_report.regulatory
         audit = compliance_report.audit_risk
 
-        compliance_id = hashlib.sha256(
-            f"{company_name}:compliance:{audit.score if audit else 0}".encode()
-        ).hexdigest()
+        compliance_id = hashlib.sha256(f"{company_name}:compliance:{audit.score if audit else 0}".encode()).hexdigest()
 
         batch = [
             {
@@ -766,7 +786,7 @@ class Neo4jStore:
             return compliance_id
         except _NEO4J_TRANSIENT as exc:
             logger.warning("Neo4j store_compliance_report failed (transient): %s", exc)
-            return None
+            raise Neo4jTransientError("store_compliance_report", exc) from exc
         except Exception as exc:
             logger.error("Neo4j store_compliance_report failed (permanent): %s", exc)
             raise
